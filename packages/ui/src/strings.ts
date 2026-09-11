@@ -25,6 +25,7 @@ export const strings = {
     tooManyAttempts: 'Muitas tentativas. Tente de novo em alguns minutos.',
     domainNotAllowed: 'Esse e-mail nao pertence ao dominio autorizado.',
     genericError: 'Nao foi possivel entrar. Tente de novo.',
+    serviceUnavailable: 'Servico indisponivel. Verifique se o banco e o Redis estao rodando (pnpm services:up).',
   },
 
   dashboard: {

@@ -17,6 +17,7 @@ export {
   getRedis,
   publishConnectorEvent,
   subscribeToConnectorEvents,
+  withRedisTimeout,
   type ConnectorUpdatedEvent,
 } from './events';
 

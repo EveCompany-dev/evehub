@@ -8,6 +8,7 @@ import { useState, type FormEvent, type JSX } from 'react';
 function messageForError(error: string | null, code: string | null): string | null {
   if (!error) return null;
   if (code === 'rate_limited') return strings.auth.tooManyAttempts;
+  if (code === 'server_error') return strings.auth.serviceUnavailable;
   if (error === 'AccessDenied') return strings.auth.domainNotAllowed;
   if (error === 'CredentialsSignin') return strings.auth.invalidCredentials;
   return strings.auth.genericError;
@@ -33,19 +34,28 @@ export function LoginForm({
     setPending(true);
     setError(null);
 
-    // redirect:false so an invalid login re-renders in place instead of
-    // bouncing through an error URL.
-    const result = await signIn('credentials', { email, password, redirect: false });
+    try {
+      // redirect:false so an invalid login re-renders in place instead of
+      // bouncing through an error URL.
+      const result = await signIn('credentials', { email, password, redirect: false });
 
-    if (result?.error) {
-      setError(messageForError(result.error, result.code ?? null));
+      if (result?.error) {
+        setError(messageForError(result.error, result.code ?? null));
+        return;
+      }
+
+      // refresh() re-runs the server component so it picks up the new session.
+      router.replace('/');
+      router.refresh();
+    } catch (cause) {
+      // Without this the button would sit on "Entrando..." forever whenever
+      // signIn rejects — a server hiccup, a non-JSON response, a dropped
+      // connection. Always surface something the user can act on.
+      console.error('[login] signIn falhou:', cause);
+      setError(strings.auth.genericError);
+    } finally {
       setPending(false);
-      return;
     }
-
-    // refresh() re-runs the server component so it picks up the new session.
-    router.replace('/');
-    router.refresh();
   };
 
   return (

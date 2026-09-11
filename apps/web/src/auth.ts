@@ -11,6 +11,15 @@ class RateLimitedSignin extends CredentialsSignin {
   override code = 'rate_limited';
 }
 
+/**
+ * Raised when the lookup itself failed (database down), as opposed to the
+ * credentials being wrong. Without this the user is told their password is
+ * incorrect and goes hunting for a typo while Postgres is simply not running.
+ */
+class ServiceUnavailableSignin extends CredentialsSignin {
+  override code = 'server_error';
+}
+
 const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
@@ -81,7 +90,13 @@ export const authConfig: NextAuthConfig = {
         const limit = await consumeLoginAttempt(email);
         if (!limit.allowed) throw new RateLimitedSignin();
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        let user;
+        try {
+          user = await prisma.user.findUnique({ where: { email } });
+        } catch (error) {
+          console.error('[auth] falha ao consultar o usuario:', error);
+          throw new ServiceUnavailableSignin();
+        }
 
         // Unknown user and wrong password must cost the same time, or the form
         // becomes a user-enumeration oracle.

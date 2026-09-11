@@ -118,6 +118,33 @@ implementa o contrato inteiro, incluindo conflito e undo.
 - **TypeScript 6.x**, um major atras do 7 (o port nativo), enquanto o ecossistema
   de plugins alcanca.
 
+## Problemas comuns
+
+**O login fica preso em "Entrando..."**
+Nao deveria mais acontecer — se acontecer, e bug, nao configuracao. O que costuma
+estar por tras e postgres/redis parados; nesse caso a tela agora responde em
+milissegundos com uma mensagem clara em vez de travar:
+
+```bash
+docker compose ps        # os dois precisam aparecer "healthy"
+pnpm services:up         # sobe postgres + redis
+```
+
+- **Redis parado:** o login continua funcionando, so sem rate limit (degrada, nao
+  trava). O log mostra `[rate-limit] Redis indisponivel, permitindo a tentativa`.
+- **Postgres parado:** a tela diz "Servico indisponivel", nao "senha incorreta" —
+  a diferenca importa para nao perder tempo cacando um erro de digitacao.
+
+Todo cliente Redis no caminho de request usa `enableOfflineQueue: false` mais um
+timeout. Com a fila padrao do ioredis, um comando emitido enquanto a conexao esta
+caida fica bufferizado e a promise **nunca resolve** — foi exatamente assim que o
+login travou uma vez.
+
+**`pnpm lint` reclama que nao acha o eslint**
+Sintoma de symlink quebrado do pnpm. Rode
+`node node_modules/eslint/bin/eslint.js -v`; se falhar, apague `node_modules` e
+reinstale. Nao suba o pnpm para 12.x (ver decisoes acima).
+
 ## Limites conhecidos (v0.0.3)
 
 - Escrita cobre campos de primeiro nivel do registro. Caminhos aninhados chegam
