@@ -70,9 +70,15 @@ export function LoginForm({
             type="email"
             name="email"
             autoComplete="username"
+            // Teclado de celular: sem isto ele capitaliza a primeira letra e
+            // oferece correcao automatica no meio de um e-mail.
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            inputMode="email"
             required
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => setEmail(event.target.value.trim())}
           />
         </label>
 

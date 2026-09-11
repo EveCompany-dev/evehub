@@ -21,7 +21,10 @@ class ServiceUnavailableSignin extends CredentialsSignin {
 }
 
 const credentialsSchema = z.object({
-  email: z.string().email(),
+  // .trim() nao e detalhe: teclado de celular e autocomplete acrescentam espaco
+  // no fim do e-mail o tempo todo, e sem isso o login falha com a senha certa.
+  // A senha NAO e trimada de proposito — espaco ali pode ser intencional.
+  email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1),
 });
 
@@ -85,7 +88,7 @@ export const authConfig: NextAuthConfig = {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
 
-        const email = parsed.data.email.toLowerCase();
+        const email = parsed.data.email;
 
         const limit = await consumeLoginAttempt(email);
         if (!limit.allowed) throw new RateLimitedSignin();
