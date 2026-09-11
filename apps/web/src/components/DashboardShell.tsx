@@ -1,10 +1,13 @@
 'use client';
 
 import { appendWidget, removeWidget, type DashboardConfig, type WidgetLayout } from '@eve/core/dashboard';
-import { strings } from '@eve/ui';
+import { EveBrandLockup, strings } from '@eve/ui';
+import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { Avatar } from '../app/perfil/ProfileForm';
 import { ClientProvider } from './ClientContext';
+import { DashboardDock } from './DashboardDock';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
 import { DashboardGrid, type InstanceSummary } from './DashboardGrid';
 import { EventStreamProvider } from './EventStreamProvider';
@@ -21,6 +24,8 @@ export interface AvailableConnector {
 
 export interface DashboardShellProps {
   userName: string;
+  userEmail: string;
+  userImage: string | null;
   isOwner: boolean;
   initialConfig: DashboardConfig;
   initialInstances: InstanceSummary[];
@@ -29,11 +34,14 @@ export interface DashboardShellProps {
 
 export function DashboardShell({
   userName,
+  userEmail,
+  userImage,
   isOwner,
   initialConfig,
   initialInstances,
   available,
 }: DashboardShellProps): JSX.Element {
+  const router = useRouter();
   const [config, setConfig] = useState<DashboardConfig>(initialConfig);
   const [instances, setInstances] = useState<InstanceSummary[]>(initialInstances);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -73,6 +81,14 @@ export function DashboardShell({
     },
     [config, persist],
   );
+
+  const toggleLock = useCallback(() => {
+    setConfig((current) => {
+      const next = { ...current, locked: !current.locked };
+      scheduleSave(next);
+      return next;
+    });
+  }, [scheduleSave]);
 
   const handleLayoutChange = useCallback(
     (layout: WidgetLayout[]) => {
@@ -161,8 +177,7 @@ export function DashboardShell({
       <ClientProvider initialClient={config.activeClient}>
         <header className="eve-header">
           <div className="eve-header__brand">
-            <span className="eve-header__mark">EVE</span>
-            <span className="eve-dim">{strings.app.tagline}</span>
+            <EveBrandLockup suffix=".company" />
           </div>
 
           <div className="eve-header__actions">
@@ -175,12 +190,14 @@ export function DashboardShell({
             >
               {config.theme === 'light' ? 'escuro' : 'claro'}
             </button>
-            <span className="eve-dim">
-              {userName}
-              {isOwner ? ' · owner' : ''}
-            </span>
-            <button type="button" className="eve-btn" onClick={() => void signOut({ callbackUrl: '/login' })}>
-              {strings.auth.signOut}
+            <button
+              type="button"
+              className="eve-profile-btn"
+              title={`${userName} — ${strings.profile.title}`}
+              aria-label={strings.profile.title}
+              onClick={() => router.push('/perfil')}
+            >
+              <Avatar name={userName} email={userEmail} image={userImage} size={34} />
             </button>
           </div>
         </header>
@@ -193,6 +210,13 @@ export function DashboardShell({
             onRemove={handleRemove}
           />
         </main>
+
+        <DashboardDock
+          available={available}
+          locked={config.locked}
+          onToggleLock={toggleLock}
+          onAdd={addWidget}
+        />
 
         <CommandPalette commands={commands} />
       </ClientProvider>

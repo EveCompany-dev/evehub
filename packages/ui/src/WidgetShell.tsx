@@ -22,6 +22,17 @@ export interface WidgetShellProps {
   actions?: WidgetAction[];
   footerExtra?: ReactNode;
   children: ReactNode;
+
+  /**
+   * Edicao do widget inteiro, num unico botao no cabecalho.
+   *
+   * Substitui o lapis por celula: com uma tabela de vinte linhas, vinte lapis
+   * viram ruido visual. Passe `editable` para o connector que sabe escrever e
+   * o proprio widget alterna suas celulas para inputs.
+   */
+  editable?: boolean;
+  editing?: boolean;
+  onToggleEdit?: () => void;
 }
 
 /**
@@ -38,6 +49,9 @@ export function WidgetShell({
   actions = [],
   footerExtra,
   children,
+  editable = false,
+  editing = false,
+  onToggleEdit,
 }: WidgetShellProps): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -69,6 +83,19 @@ export function WidgetShell({
       <header className="eve-widget__header">
         <h3 className="eve-widget__title">{title}</h3>
         <StatusPill status={status} message={statusMessage} />
+
+        {editable && onToggleEdit && (
+          <button
+            type="button"
+            className={editing ? 'eve-btn eve-btn--icon is-active eve-no-drag' : 'eve-btn eve-btn--icon eve-no-drag'}
+            aria-pressed={editing}
+            title={editing ? strings.edit.cancel : strings.edit.edit}
+            aria-label={editing ? strings.edit.cancel : strings.edit.edit}
+            onClick={onToggleEdit}
+          >
+            {editing ? '✕' : '✎'}
+          </button>
+        )}
 
         {actions.length > 0 && (
           // eve-no-drag keeps the grid from treating a menu click as a drag.

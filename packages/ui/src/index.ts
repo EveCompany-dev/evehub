@@ -1,3 +1,4 @@
+export { EveArch, EveArchRings, EveBrandLockup, EveWordmark } from './EveMark';
 export { formatRelativeTime } from './relative-time';
 export { strings } from './strings';
 export { useNow } from './useNow';

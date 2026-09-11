@@ -22,6 +22,8 @@ export interface DashboardGridProps {
   onRemove: (instanceId: string) => void;
 }
 
+/** Quando travado, o grid vira layout fixo: nem arrastar, nem redimensionar. */
+
 export function DashboardGrid({ config, instances, onLayoutChange, onRemove }: DashboardGridProps): JSX.Element {
   const { width, containerRef, mounted } = useContainerWidth();
 
@@ -56,7 +58,7 @@ export function DashboardGrid({ config, instances, onLayoutChange, onRemove }: D
   }
 
   return (
-    <div ref={containerRef} className="eve-grid-container">
+    <div ref={containerRef} className={config.locked ? 'eve-grid-container is-locked' : 'eve-grid-container'}>
       {!mounted ? (
         <div className="eve-dim">carregando layout...</div>
       ) : width < NARROW_BREAKPOINT ? (
@@ -76,8 +78,8 @@ export function DashboardGrid({ config, instances, onLayoutChange, onRemove }: D
           gridConfig={{ cols: 12, rowHeight: 40, margin: [16, 16], containerPadding: [0, 0] }}
           // The widget header is the drag handle; buttons inside it opt out
           // through .eve-no-drag so a menu click is never read as a drag.
-          dragConfig={{ handle: '.eve-widget__header', cancel: '.eve-no-drag' }}
-          resizeConfig={{ handles: ['se'] }}
+          dragConfig={{ enabled: !config.locked, handle: '.eve-widget__header', cancel: '.eve-no-drag' }}
+          resizeConfig={{ enabled: !config.locked, handles: ['se'] }}
           onLayoutChange={(layout: Layout) => {
             onLayoutChange(layout.map(({ i, x, y, w, h }) => ({ i, x, y, w, h })));
           }}

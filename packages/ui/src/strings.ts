@@ -28,6 +28,41 @@ export const strings = {
     serviceUnavailable: 'Servico indisponivel. Verifique se o banco e o Redis estao rodando (pnpm services:up).',
   },
 
+  dock: {
+    addTitle: 'Adicionar modulo',
+    searchPlaceholder: 'Buscar modulo...',
+    noResults: 'Nenhum modulo encontrado.',
+    catalogHint: 'A lista mostra as integracoes ja registradas. Conectar novas contas sera feito na tela de integracoes.',
+    lock: 'Travar layout',
+    unlock: 'Destravar layout',
+  },
+
+  profile: {
+    title: 'Perfil',
+    back: 'Voltar para a dashboard',
+    name: 'Nome',
+    email: 'E-mail',
+    picture: 'Foto (URL)',
+    picturePlaceholder: 'https://...',
+    edit: 'Editar dados',
+    save: 'Salvar',
+    cancel: 'Cancelar',
+    saved: 'Dados atualizados.',
+    owner: 'Owner do workspace',
+    member: 'Membro',
+    passwordTitle: 'Senha',
+    passwordHint:
+      'Senhas sao guardadas com hash argon2id e nao podem ser exibidas — nem por nos. Da para trocar, nao para consultar.',
+    currentPassword: 'Senha atual',
+    newPassword: 'Nova senha',
+    showPassword: 'Mostrar senha',
+    hidePassword: 'Ocultar senha',
+    changePassword: 'Trocar senha',
+    passwordChanged: 'Senha atualizada.',
+    noPasswordYet: 'Esta conta entra so pelo Google. Defina uma senha para poder entrar por e-mail tambem.',
+    setPassword: 'Definir senha',
+  },
+
   dashboard: {
     title: 'Dashboard',
     empty: 'Nenhum widget por aqui ainda.',
@@ -64,6 +99,9 @@ export const strings = {
     conflict: 'Esse dado mudou na origem depois que voce abriu a tela. Recarregue antes de salvar.',
     reload: 'Recarregar',
     undoWindow: (minutes: number) => `Desfazer disponivel por ${minutes} min`,
+    saving: 'Salvando...',
+    editHint: 'Modo de edicao ligado. Altere os campos e salve.',
+    pendingChanges: 'Alteracoes nao salvas.',
   },
 
   palette: {

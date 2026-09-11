@@ -37,6 +37,8 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   return (
     <DashboardShell
       userName={user.name ?? user.email}
+      userEmail={user.email}
+      userImage={user.image}
       isOwner={user.isOwner}
       initialConfig={parseDashboardConfig(row?.dashboardConfig)}
       initialInstances={instances}

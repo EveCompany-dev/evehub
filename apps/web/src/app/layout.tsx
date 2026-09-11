@@ -1,7 +1,7 @@
 import { parseDashboardConfig, prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import type { Metadata } from 'next';
-import { Inter, Space_Grotesk } from 'next/font/google';
+import { Inter, Poppins } from 'next/font/google';
 import type { JSX, ReactNode } from 'react';
 import { getSessionUser } from '../lib/session';
 
@@ -9,7 +9,10 @@ import '@eve/ui/tokens.css';
 import 'react-grid-layout/css/styles.css';
 import './globals.css';
 
-const grotesk = Space_Grotesk({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-grotesk' });
+// Poppins: geometrica, e a mais proxima do logotipo da Eve entre as fontes
+// livres. NAO e a fonte oficial da marca — se o manual especificar outra,
+// troque aqui e em globals.css.
+const display = Poppins({ subsets: ['latin'], weight: ['500', '600', '700'], variable: '--font-display-face' });
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
@@ -35,7 +38,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
   const theme = await resolveTheme();
 
   return (
-    <html lang="pt-BR" data-theme={theme ?? undefined} className={`${grotesk.variable} ${inter.variable}`}>
+    <html lang="pt-BR" data-theme={theme ?? undefined} className={`${display.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   );

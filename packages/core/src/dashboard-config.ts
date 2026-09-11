@@ -26,6 +26,8 @@ export const dashboardConfigSchema = z.object({
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
   theme: z.enum(['dark', 'light', 'system']).default('system'),
   activeClient: z.string().nullable().default(null),
+  /** Trava arrastar/redimensionar, para nao desmontar o layout sem querer. */
+  locked: z.boolean().default(false),
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
@@ -37,6 +39,7 @@ export const emptyDashboardConfig: DashboardConfig = {
   widgets: {},
   theme: 'system',
   activeClient: null,
+  locked: false,
 };
 
 /**
