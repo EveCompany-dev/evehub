@@ -19,3 +19,7 @@ Thumbs.db
 # Prisma Client gerado (pnpm db:generate)
 packages/core/generated/
 next-env.d.ts
+
+# Builder noturno: logs e estado sao locais da maquina
+scripts/night-build/logs/
+scripts/night-build/state.json
