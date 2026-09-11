@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    # Real services, so migrations and any future integration test run against
+    # the same engines production uses.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: eve
+          POSTGRES_PASSWORD: eve
+          POSTGRES_DB: evehub
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U eve -d evehub"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://eve:eve@localhost:5432/evehub?schema=public
+      REDIS_URL: redis://localhost:6379
+      AUTH_SECRET: ci-secret-not-used-in-production
+      # Deterministic 32-byte key: CI never touches real credentials.
+      CREDENTIALS_KEY: Y2ktb25seS1rZXktbm90LWEtcmVhbC1zZWNyZXQtMzI=
+      CREDENTIALS_KEY_VERSION: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The Prisma client is generated, not committed, so everything that
+      # typechecks against it needs this first.
+      - name: Generate Prisma client
+        run: pnpm db:generate
+
+      - name: Validate schema
+        run: pnpm exec prisma validate
+
+      - name: Apply migrations
+        run: pnpm db:deploy
+
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      - run: pnpm test
+
+      - name: Build
+        run: pnpm --filter @eve/web build

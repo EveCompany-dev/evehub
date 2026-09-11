@@ -1,0 +1,12 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'packages/connectors/*'
+
+# pnpm >=10 bloqueia lifecycle scripts por padrao. So estes podem rodar.
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - msgpackr-extract
+  - prisma
+  - unrs-resolver

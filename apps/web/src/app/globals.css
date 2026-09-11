@@ -1,0 +1,387 @@
+/* Liga as fontes self-hosted do next/font aos tokens do design system. */
+:root {
+  --font-display: var(--font-grotesk), 'Segoe UI', system-ui, sans-serif;
+  --font-body: var(--font-inter), 'Segoe UI', system-ui, sans-serif;
+}
+
+.eve-dim {
+  color: var(--text-dim);
+}
+
+/* --- header ----------------------------------------------------------- */
+
+.eve-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px var(--space-gutter);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+.eve-header__brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.eve-header__mark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+}
+
+.eve-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.eve-kbd {
+  font-family: var(--font-display);
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+.eve-main {
+  padding: var(--space-gutter);
+}
+
+/* --- grid ------------------------------------------------------------- */
+
+.eve-grid-container {
+  width: 100%;
+}
+
+.eve-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eve-stack__item {
+  min-height: 320px;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent);
+  opacity: 0.18;
+  border-radius: var(--radius-card);
+}
+
+.react-resizable-handle {
+  opacity: 0.4;
+}
+
+.react-resizable-handle:hover {
+  opacity: 1;
+}
+
+.eve-widget-loading {
+  padding: 16px;
+  color: var(--text-dim);
+}
+
+.eve-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 50vh;
+  text-align: center;
+}
+
+.eve-empty__title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  margin: 0;
+}
+
+/* --- tabela do widget -------------------------------------------------- */
+
+.eve-table-wrap {
+  overflow-x: auto;
+}
+
+.eve-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.eve-table th {
+  text-align: left;
+  font-family: var(--font-display);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.eve-table td {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.eve-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.eve-table__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.eve-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* O lapis so aparece no hover da linha, para nao poluir a tabela. */
+.eve-cell__pencil {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+tr:hover .eve-cell__pencil,
+.eve-cell__pencil:focus-visible {
+  opacity: 1;
+}
+
+.eve-cell-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.eve-cell-edit .eve-input {
+  height: 28px;
+}
+
+/* --- stats ------------------------------------------------------------ */
+
+.eve-stats {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.eve-stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.eve-stat__num {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.eve-stat__label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+/* --- alertas ---------------------------------------------------------- */
+
+.eve-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+
+.eve-alert--error {
+  border-color: color-mix(in srgb, var(--brick) 45%, transparent);
+  background: color-mix(in srgb, var(--brick) 12%, transparent);
+}
+
+.eve-alert .eve-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+/* --- login ------------------------------------------------------------ */
+
+.eve-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-gutter);
+}
+
+.eve-login__card {
+  width: 100%;
+  max-width: 380px;
+  padding: 28px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.eve-login__title {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.eve-login__subtitle {
+  margin: 0 0 22px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.eve-field {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.eve-field__label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.eve-login__divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.eve-login__divider::before,
+.eve-login__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.eve-login__error {
+  margin: 0 0 14px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--brick) 45%, transparent);
+  background: color-mix(in srgb, var(--brick) 12%, transparent);
+  font-size: 12px;
+}
+
+.eve-btn--block {
+  width: 100%;
+}
+
+/* --- command palette --------------------------------------------------- */
+
+.eve-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  background: rgb(0 0 0 / 0.45);
+}
+
+.eve-palette {
+  width: 100%;
+  max-width: 520px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 0.4);
+  overflow: hidden;
+}
+
+.eve-palette__input {
+  width: 100%;
+  height: 46px;
+  padding: 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  font-size: 14px;
+  outline: none;
+}
+
+.eve-palette__list {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.eve-palette__section {
+  margin: 8px 10px 4px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+.eve-palette__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.eve-palette__item.is-active {
+  background: var(--surface-2);
+}
+
+.eve-palette__empty {
+  padding: 18px;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+}

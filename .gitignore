@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+dist/
+.next/
+out/
+build/
+.turbo/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+
+# Prisma Client gerado (pnpm db:generate)
+packages/core/generated/
+next-env.d.ts

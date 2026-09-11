@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Eve Dashboard — Protótipo v0.0.1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --bg: #14171a;
+    --surface: #1d2124;
+    --surface-2: #23282b;
+    --border: #2a2f33;
+    --text: #ece9e2;
+    --text-dim: #9aa0a4;
+    --accent: #d9a441;
+    --accent-dim: #6b5528;
+    --teal: #3c7d76;
+    --brick: #c2543b;
+    --radius-card: 10px;
+    --radius-pill: 999px;
+  }
+
+  html.light{
+    --bg: #f1efe8;
+    --surface: #ffffff;
+    --surface-2: #f6f4ee;
+    --border: #ddd8cc;
+    --text: #1b1c1d;
+    --text-dim: #6c6a63;
+    --accent: #b9812a;
+    --accent-dim: #ecd9ac;
+    --teal: #2c635d;
+    --brick: #a8442e;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    transition: background .2s ease, color .2s ease;
+  }
+
+  h1,h2,h3,.mono-label{ font-family: 'Space Grotesk', sans-serif; }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    gap: 20px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .brand{
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display:flex; align-items:center; gap:8px;
+  }
+  .brand .dot{ width:8px; height:8px; border-radius:50%; background: var(--accent); }
+
+  .client-switch{
+    position: relative;
+    margin-left: 8px;
+  }
+  .client-switch button{
+    display:flex; align-items:center; gap:8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: var(--radius-pill);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    cursor:pointer;
+  }
+  .client-switch .menu{
+    display:none;
+    position:absolute; top: 110%; left:0;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-width: 200px;
+    overflow:hidden;
+    z-index: 20;
+  }
+  .client-switch.open .menu{ display:block; }
+  .client-switch .menu div{
+    padding: 9px 14px; cursor:pointer;
+  }
+  .client-switch .menu div:hover{ background: var(--surface); }
+
+  .topbar-right{ margin-left:auto; display:flex; align-items:center; gap:14px; }
+
+  .icon-btn{
+    background:none; border:none; color: var(--text-dim);
+    cursor:pointer; font-size:16px; padding:4px;
+  }
+  .icon-btn:hover{ color: var(--text); }
+
+  .search{
+    display:flex; align-items:center; gap:8px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 7px 14px;
+    color: var(--text-dim);
+    min-width: 220px;
+  }
+  .search input{
+    background:none; border:none; outline:none; color:var(--text);
+    font-family:'Inter'; font-size:13px; width:100%;
+  }
+
+  /* ---------- layout ---------- */
+  .page{ padding: 22px 24px 60px; max-width: 1400px; margin:0 auto; }
+
+  .feed-strip{
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display:flex; gap:16px; align-items:flex-start;
+  }
+  .feed-strip .badge{
+    font-family:'Space Grotesk'; font-weight:600; font-size:11px;
+    color: var(--accent); border:1px solid var(--accent-dim);
+    padding: 3px 9px; border-radius: var(--radius-pill);
+    white-space:nowrap; margin-top:2px;
+  }
+  .feed-strip p{ margin:0; color: var(--text); }
+  .feed-strip .sub{ color: var(--text-dim); font-size:12.5px; margin-top:4px; }
+
+  .grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .grid .span-2{ grid-column: span 2; }
+  .grid .span-3{ grid-column: span 3; }
+
+  @media (max-width: 900px){
+    .grid{ grid-template-columns: 1fr; }
+    .grid .span-2, .grid .span-3{ grid-column: span 1; }
+  }
+
+  /* ---------- module card ---------- */
+  .module{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+    display:flex; flex-direction:column;
+    overflow:hidden;
+  }
+  .module-head{
+    display:flex; align-items:center; gap:8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .module-head .title{
+    font-weight:600; font-size:13.5px; flex:1;
+    display:flex; align-items:center; gap:8px;
+  }
+  .module-head .source-tag{
+    font-size: 10.5px; color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 1px 7px; border-radius: var(--radius-pill);
+  }
+  .module-actions{ display:flex; align-items:center; gap:2px; position:relative; }
+  .module-actions button{
+    background:none; border:none; color: var(--text-dim);
+    cursor:pointer; padding:5px; font-size:14px; border-radius:5px;
+  }
+  .module-actions button:hover{ background: var(--surface-2); color: var(--text); }
+
+  .module-menu{
+    display:none; position:absolute; right:0; top:130%;
+    background: var(--surface-2); border:1px solid var(--border);
+    border-radius:8px; min-width:170px; z-index:10;
+  }
+  .module-menu.open{ display:block; }
+  .module-menu div{ padding: 9px 12px; cursor:pointer; font-size:12.5px; }
+  .module-menu div:hover{ background: var(--surface); }
+
+  .module-body{ padding: 14px; flex:1; }
+  .module.collapsed .module-body{ display:none; }
+  .module.collapsed .module-foot{ display:none; }
+
+  .module-foot{
+    padding: 7px 14px; font-size: 11px; color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    display:flex; justify-content:space-between;
+  }
+  .module-foot .export-link{ color: var(--teal); cursor:pointer; }
+
+  /* ---------- table mock (notion) ---------- */
+  table.mock{ width:100%; border-collapse: collapse; font-size:12.5px; }
+  table.mock th{ text-align:left; color: var(--text-dim); font-weight:500; padding: 4px 6px; border-bottom:1px solid var(--border); }
+  table.mock td{ padding: 6px 6px; border-bottom:1px solid var(--border); }
+  table.mock tr:last-child td{ border-bottom:none; }
+  .row-edit{ opacity:0; color: var(--accent); cursor:pointer; }
+  table.mock tr:hover .row-edit{ opacity:1; }
+  .status-pill{ font-size:10.5px; padding:2px 8px; border-radius: var(--radius-pill); }
+  .status-on{ background: rgba(60,125,118,.18); color: var(--teal); }
+  .status-wait{ background: rgba(217,164,65,.18); color: var(--accent); }
+  .status-off{ background: rgba(194,84,59,.18); color: var(--brick); }
+
+  /* ---------- stat / chart bits ---------- */
+  .stat-row{ display:flex; gap:18px; margin-bottom:12px; }
+  .stat{ flex:1; }
+  .stat .num{ font-family:'Space Grotesk'; font-size:22px; font-weight:600; }
+  .stat .lbl{ font-size:11.5px; color: var(--text-dim); }
+
+  .bars{ display:flex; align-items:flex-end; gap:6px; height:64px; }
+  .bars i{ flex:1; background: var(--accent-dim); border-radius: 3px 3px 0 0; display:block; }
+  .bars i.hi{ background: var(--accent); }
+
+  .balance-track{ height:8px; border-radius: var(--radius-pill); background: var(--surface-2); overflow:hidden; margin-top:6px; }
+  .balance-fill{ height:100%; background: var(--brick); }
+
+  /* ---------- notes / mural ---------- */
+  .mural-post{ display:flex; gap:10px; padding: 10px 0; border-bottom:1px solid var(--border); }
+  .mural-post:last-child{ border-bottom:none; }
+  .avatar{ width:26px; height:26px; border-radius:50%; background: var(--teal); flex-shrink:0; }
+  .mural-post .who{ font-weight:600; font-size:12.5px; }
+  .mural-post .when{ color: var(--text-dim); font-size:11px; margin-left:6px; font-weight:400; }
+  .mural-post .link-chip{
+    display:inline-flex; align-items:center; gap:5px; margin-top:5px;
+    font-size:11.5px; color: var(--teal); background: rgba(60,125,118,.12);
+    padding:3px 9px; border-radius: var(--radius-pill); cursor:pointer;
+  }
+
+  /* ---------- AI module ---------- */
+  .ai-scope{
+    display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px;
+  }
+  .ai-scope span{
+    font-size:11px; background: var(--surface-2); border:1px solid var(--border);
+    padding:4px 10px; border-radius: var(--radius-pill); color: var(--text-dim);
+  }
+  .ai-scope span.active{ color: var(--accent); border-color: var(--accent-dim); }
+  .ai-answer{
+    background: var(--surface-2); border-radius:8px; padding:12px;
+    font-size:12.5px; color: var(--text); margin-bottom:10px;
+  }
+  .ai-input{ display:flex; gap:8px; }
+  .ai-input input{
+    flex:1; background: var(--surface-2); border:1px solid var(--border);
+    border-radius: var(--radius-pill); padding: 9px 14px; color:var(--text); font-family:'Inter';
+  }
+  .ai-input button{
+    background: var(--accent); border:none; color:#171717; font-weight:600;
+    padding: 0 16px; border-radius: var(--radius-pill); cursor:pointer; font-family:'Inter'; font-size:13px;
+  }
+
+  /* ---------- scheduler ---------- */
+  .queue-item{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .queue-item:last-child{ border-bottom:none; }
+  .thumb{ width:34px; height:34px; border-radius:6px; background: var(--surface-2); flex-shrink:0; }
+  .queue-item .cap{ flex:1; font-size:12.5px; }
+  .queue-item .cap .meta{ color: var(--text-dim); font-size:11px; }
+
+  footer.hint{
+    text-align:center; color: var(--text-dim); font-size:11.5px; margin-top:26px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="dot"></span> EVE · DASHBOARD</div>
+
+  <div class="client-switch" id="clientSwitch">
+    <button onclick="document.getElementById('clientSwitch').classList.toggle('open')">
+      Cliente: 4S Estampas ▾
+    </button>
+    <div class="menu">
+      <div>4S Estampas e Uniformes</div>
+      <div>AMO Imóveis</div>
+      <div>CRF Construtora</div>
+      <div>Classe Móveis</div>
+      <div style="color:var(--text-dim)">— visão geral (todos) —</div>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="search">🔍 <input placeholder="Buscar cliente, post, arquivo…"></div>
+    <button class="icon-btn" title="alternar tema" onclick="document.documentElement.classList.toggle('light')">☾/☀</button>
+  </div>
+</div>
+
+<div class="page">
+
+  <!-- FEED IA DIÁRIO -->
+  <div class="feed-strip">
+    <div class="badge">FEED DE HOJE</div>
+    <div>
+      <p>Saldo do Google Ads da <strong>CRF Construtora</strong> caiu 34% e está abaixo do alerta de R$200. Agenda de posts da semana da <strong>4S Estampas</strong> tem 2 itens sem criativo anexado. Post do último carrossel da <strong>AMO Imóveis</strong> teve 2,1x mais salvamentos que a média do mês.</p>
+      <div class="sub">Gerado às 08:12 · baseado nos módulos configurados no seu painel</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- NOTION -->
+    <div class="module span-2">
+      <div class="module-head">
+        <div class="title">Clientes — Notion <span class="source-tag">Notion</span></div>
+        <div class="module-actions">
+          <button title="colapsar" onclick="toggleModule(this)">▾</button>
+          <button title="editar conteúdo">✎</button>
+          <button title="opções" onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu">
+            <div>Editar módulo</div>
+            <div>Trocar tabela do Notion</div>
+            <div>Renomear módulo</div>
+            <div>Exportar (.csv)</div>
+          </div>
+        </div>
+      </div>
+      <div class="module-body">
+        <table class="mock">
+          <tr><th>Cliente</th><th>Status</th><th>Responsável</th><th>Próx. entrega</th><th></th></tr>
+          <tr><td>4S Estampas</td><td><span class="status-pill status-on">em dia</span></td><td>Dev</td><td>12/09</td><td class="row-edit">✎</td></tr>
+          <tr><td>AMO Imóveis</td><td><span class="status-pill status-wait">aguardando arte</span></td><td>Marcele</td><td>14/09</td><td class="row-edit">✎</td></tr>
+          <tr><td>CRF Construtora</td><td><span class="status-pill status-off">saldo baixo</span></td><td>Dev</td><td>—</td><td class="row-edit">✎</td></tr>
+          <tr><td>Classe Móveis</td><td><span class="status-pill status-on">em dia</span></td><td>Shelly</td><td>18/09</td><td class="row-edit">✎</td></tr>
+        </table>
+      </div>
+      <div class="module-foot">
+        <span>editado com optimistic lock — sem conflitos</span>
+        <span class="export-link">exportar</span>
+      </div>
+    </div>
+
+    <!-- META ADS -->
+    <div class="module">
+      <div class="module-head">
+        <div class="title">Meta Ads <span class="source-tag">Graph API</span></div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu">
+            <div>Editar módulo</div>
+            <div>Trocar conta de anúncio</div>
+            <div>Fixar cliente neste módulo</div>
+          </div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="stat-row">
+          <div class="stat"><div class="num">R$412</div><div class="lbl">saldo atual</div></div>
+          <div class="stat"><div class="num">3,2%</div><div class="lbl">CTR médio</div></div>
+        </div>
+        <div class="balance-track"><div class="balance-fill" style="width:41%"></div></div>
+        <div class="sub" style="margin-top:6px;color:var(--text-dim);font-size:11px;">limite de alerta: R$200</div>
+      </div>
+      <div class="module-foot"><span>sync há 4 min</span><span class="export-link">exportar</span></div>
+    </div>
+
+    <!-- GOOGLE ADS -->
+    <div class="module">
+      <div class="module-head">
+        <div class="title">Google Ads <span class="source-tag">Ads API</span></div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Editar módulo</div><div>Trocar conta</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="stat-row">
+          <div class="stat"><div class="num" style="color:var(--brick)">R$118</div><div class="lbl">saldo atual</div></div>
+          <div class="stat"><div class="num">-34%</div><div class="lbl">vs. semana passada</div></div>
+        </div>
+        <div class="balance-track"><div class="balance-fill" style="width:15%;background:var(--brick)"></div></div>
+      </div>
+      <div class="module-foot"><span>sync há 4 min</span><span class="export-link">exportar</span></div>
+    </div>
+
+    <!-- AGENDAMENTO DE POSTS -->
+    <div class="module">
+      <div class="module-head">
+        <div class="title">Agendamento de Posts <span class="source-tag">substitui mLabs</span></div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Nova publicação</div><div>Ver fila completa</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="queue-item">
+          <div class="thumb"></div>
+          <div class="cap">Reels — bastidores produção<div class="meta">4S Estampas · qui 11:00 · agendado</div></div>
+        </div>
+        <div class="queue-item">
+          <div class="thumb"></div>
+          <div class="cap">Carrossel — antes/depois<div class="meta">Classe Móveis · sex 09:30 · <span style="color:var(--brick)">sem criativo</span></div></div>
+        </div>
+        <div class="queue-item">
+          <div class="thumb"></div>
+          <div class="cap">Post — imóvel destaque<div class="meta">AMO Imóveis · sáb 10:00 · agendado</div></div>
+        </div>
+      </div>
+      <div class="module-foot"><span>fila sincronizada com Notion</span><span class="export-link">exportar</span></div>
+    </div>
+
+    <!-- LOG DE AUTOMAÇÕES -->
+    <div class="module">
+      <div class="module-head">
+        <div class="title">Log de Automações <span class="source-tag">n8n</span></div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Filtrar por automação</div><div>Silenciar avisos</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <table class="mock">
+          <tr><th>Automação</th><th>Status</th><th>Quando</th></tr>
+          <tr><td>Alerta de saldo BM</td><td><span class="status-pill status-off">disparado</span></td><td>08:03</td></tr>
+          <tr><td>NF automática</td><td><span class="status-pill status-on">ok</span></td><td>ontem</td></tr>
+          <tr><td>Análise concorrente</td><td><span class="status-pill status-wait">rodando</span></td><td>agora</td></tr>
+        </table>
+      </div>
+      <div class="module-foot"><span>webhook n8n</span><span class="export-link">exportar</span></div>
+    </div>
+
+    <!-- MÓDULO IA -->
+    <div class="module span-3">
+      <div class="module-head">
+        <div class="title">Módulo IA <span class="source-tag">escopo controlado</span></div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Trocar skill</div><div>Limpar escopo</div><div>Ver histórico</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="ai-scope">
+          <span class="active">✕ Saldo — CRF Construtora</span>
+          <span class="active">✕ Fila de posts — semana atual</span>
+          <span>+ adicionar escopo</span>
+        </div>
+        <div class="ai-answer">
+          Com base no saldo atual e no consumo médio diário da CRF Construtora, o saldo de R$118 cobre aproximadamente 2 dias antes de pausar as campanhas ativas. Recomendo priorizar o aporte ainda hoje.
+        </div>
+        <div class="ai-input">
+          <input placeholder="Pergunte algo sobre o escopo selecionado…">
+          <button>Perguntar</button>
+        </div>
+      </div>
+      <div class="module-foot"><span>skill ativa: nenhuma (modo geral)</span><span>histórico salvo por cliente</span></div>
+    </div>
+
+    <!-- MURAL COLABORATIVO -->
+    <div class="module span-2">
+      <div class="module-head">
+        <div class="title">Mural Colaborativo</div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Nova anotação</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div class="mural-post">
+          <div class="avatar"></div>
+          <div>
+            <span class="who">Shelly</span><span class="when">há 22 min</span>
+            <div>Subi os criativos novos da Classe Móveis no server.</div>
+            <div class="link-chip">🔗 /server/clientes/classe-moveis/setembro</div>
+          </div>
+        </div>
+        <div class="mural-post">
+          <div class="avatar" style="background:var(--accent)"></div>
+          <div>
+            <span class="who">Marcele</span><span class="when">há 1h</span>
+            <div>Reunião com AMO Imóveis remarcada pra sexta.</div>
+          </div>
+        </div>
+      </div>
+      <div class="module-foot"><span>3 pessoas online</span></div>
+    </div>
+
+    <!-- ANOTAÇÕES -->
+    <div class="module">
+      <div class="module-head">
+        <div class="title">Notas Rápidas</div>
+        <div class="module-actions">
+          <button onclick="toggleModule(this)">▾</button>
+          <button onclick="toggleMenu(this)">⋮</button>
+          <div class="module-menu"><div>Exportar .txt</div><div>Exportar .md</div></div>
+        </div>
+      </div>
+      <div class="module-body">
+        <div style="color:var(--text-dim); font-size:12.5px;">— rascunho da pauta de conteúdo do mês, revisar com Shelly antes de sexta —</div>
+      </div>
+      <div class="module-foot"><span>salvo automaticamente</span></div>
+    </div>
+
+  </div>
+
+  <footer class="hint">protótipo visual v0.0.1 — sem lógica real de dados, só estrutura e interações de UI (expandir/colapsar, menus, tema)</footer>
+</div>
+
+<script>
+  function toggleModule(btn){
+    const mod = btn.closest('.module');
+    mod.classList.toggle('collapsed');
+    btn.textContent = mod.classList.contains('collapsed') ? '▸' : '▾';
+  }
+  function toggleMenu(btn){
+    document.querySelectorAll('.module-menu.open').forEach(m => { if(m !== btn.nextElementSibling) m.classList.remove('open'); });
+    btn.nextElementSibling.classList.toggle('open');
+  }
+  document.addEventListener('click', (e) => {
+    if(!e.target.closest('.module-actions')) document.querySelectorAll('.module-menu.open').forEach(m=>m.classList.remove('open'));
+    if(!e.target.closest('.client-switch')) document.getElementById('clientSwitch').classList.remove('open');
+  });
+</script>
+
+</body>
+</html>

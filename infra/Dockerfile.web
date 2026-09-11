@@ -1,0 +1,30 @@
+# syntax=docker/dockerfile:1
+
+# Build context is the repo root, so the whole workspace is available.
+FROM node:22-alpine AS base
+RUN corepack enable
+WORKDIR /app
+
+FROM base AS deps
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY apps/web/package.json apps/web/
+COPY apps/worker/package.json apps/worker/
+COPY packages/core/package.json packages/core/
+COPY packages/connector-sdk/package.json packages/connector-sdk/
+COPY packages/ui/package.json packages/ui/
+COPY packages/connectors/demo/package.json packages/connectors/demo/
+RUN pnpm install --frozen-lockfile
+
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app/packages ./packages
+COPY . .
+# The Prisma client is generated, never committed.
+RUN pnpm db:generate && pnpm --filter @eve/web build
+
+FROM base AS runtime
+ENV NODE_ENV=production
+COPY --from=build /app ./
+EXPOSE 3000
+CMD ["pnpm", "--filter", "@eve/web", "start"]

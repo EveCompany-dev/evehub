@@ -1,0 +1,157 @@
+import { PrismaAdapter } from '@auth/prisma-adapter';
+import { equalizeVerifyTiming, prisma, verifyPassword } from '@eve/core';
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from 'next-auth';
+import type { Adapter, AdapterUser } from 'next-auth/adapters';
+import Credentials from 'next-auth/providers/credentials';
+import Google from 'next-auth/providers/google';
+import { z } from 'zod';
+import { clearLoginAttempts, consumeLoginAttempt } from './lib/rate-limit';
+
+class RateLimitedSignin extends CredentialsSignin {
+  override code = 'rate_limited';
+}
+
+const credentialsSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+async function defaultWorkspaceId(): Promise<string> {
+  const existing = await prisma.workspace.findFirst({ orderBy: { createdAt: 'asc' } });
+  if (existing) return existing.id;
+
+  const created = await prisma.workspace.create({
+    data: { name: process.env.SEED_WORKSPACE_NAME ?? 'EveCompany' },
+  });
+  return created.id;
+}
+
+/**
+ * The stock Prisma adapter creates users without a workspace, which our schema
+ * requires. Wrapping just `createUser` keeps auto-provisioning (first Google
+ * login joins the workspace) without forking the whole adapter.
+ */
+function eveAdapter(): Adapter {
+  const base = PrismaAdapter(prisma);
+
+  return {
+    ...base,
+    async createUser(data) {
+      const { id: _ignored, ...rest } = data as AdapterUser & { id?: string };
+      const user = await prisma.user.create({
+        data: { ...rest, workspaceId: await defaultWorkspaceId(), isOwner: false },
+      });
+      return user as AdapterUser;
+    },
+  };
+}
+
+export const authConfig: NextAuthConfig = {
+  adapter: eveAdapter(),
+  // Database sessions cannot be combined with the credentials provider in
+  // Auth.js v5, and the team asked for both Google and e-mail/senha. The
+  // Session table stays in the schema so switching later is a config change.
+  session: { strategy: 'jwt', maxAge: 12 * 60 * 60 },
+  trustHost: true,
+  pages: { signIn: '/login' },
+
+  providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      // The seeded owner already exists by e-mail. Without this, their first
+      // Google login fails with OAuthAccountNotLinked. Safe here because
+      // sign-in is restricted to one Google Workspace domain with verified
+      // addresses; it would NOT be safe on a public sign-up.
+      allowDangerousEmailAccountLinking: true,
+    }),
+
+    Credentials({
+      name: 'E-mail e senha',
+      credentials: {
+        email: { label: 'E-mail', type: 'email' },
+        password: { label: 'Senha', type: 'password' },
+      },
+      async authorize(raw) {
+        const parsed = credentialsSchema.safeParse(raw);
+        if (!parsed.success) return null;
+
+        const email = parsed.data.email.toLowerCase();
+
+        const limit = await consumeLoginAttempt(email);
+        if (!limit.allowed) throw new RateLimitedSignin();
+
+        const user = await prisma.user.findUnique({ where: { email } });
+
+        // Unknown user and wrong password must cost the same time, or the form
+        // becomes a user-enumeration oracle.
+        if (!user?.passwordHash) {
+          await equalizeVerifyTiming(parsed.data.password);
+          return null;
+        }
+
+        if (!(await verifyPassword(user.passwordHash, parsed.data.password))) return null;
+
+        await clearLoginAttempts(email);
+        return { id: user.id, email: user.email, name: user.name, image: user.image };
+      },
+    }),
+  ],
+
+  callbacks: {
+    async signIn({ user, account, profile }) {
+      if (account?.provider !== 'google') return true;
+
+      if (profile && profile.email_verified === false) return false;
+
+      const domain = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase();
+      if (!domain) return true;
+
+      const email = (user.email ?? profile?.email ?? '').toLowerCase();
+      return email.endsWith(`@${domain}`) ? true : '/login?error=AccessDenied';
+    },
+
+    async jwt({ token, user }) {
+      if (user?.id) token.sub = user.id;
+      return token;
+    },
+
+    /**
+     * Reads the user fresh on every `auth()` call. That is one query per
+     * request, which is nothing at 20 users, and it means revoking `isOwner`
+     * takes effect immediately instead of whenever the JWT happens to expire.
+     */
+    async session({ session, token }) {
+      if (!token.sub) return session;
+
+      const user = await prisma.user.findUnique({
+        where: { id: token.sub },
+        select: { id: true, email: true, name: true, image: true, isOwner: true, workspaceId: true },
+      });
+
+      if (!user) return session;
+
+      session.user = {
+        ...session.user,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        image: user.image,
+        isOwner: user.isOwner,
+        workspaceId: user.workspaceId,
+      };
+
+      return session;
+    },
+  },
+
+  events: {
+    async signIn({ user }) {
+      if (!user.id) return;
+      // Feeds the "delta desde a ultima visita" of the daily AI feed (v0.0.6).
+      await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => undefined);
+    },
+  },
+};
+
+export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);

@@ -1,0 +1,40 @@
+{
+  "name": "eve-hub",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Eve Hub \u2014 central de visualizacao e acao da EveCompany",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "eslint .",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "services:up": "docker compose up -d postgres redis",
+    "services:down": "docker compose down",
+    "stack:up": "docker compose --profile full up -d",
+    "setup": "pnpm install && pnpm services:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed"
+  },
+  "devDependencies": {
+    "@eve/core": "workspace:*",
+    "@prisma/client": "^7.10.0",
+    "@types/node": "^22.20.2",
+    "dotenv": "^17.4.2",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.3.4",
+    "prisma": "^7.10.0",
+    "tsx": "^4.23.13",
+    "turbo": "^2.10.12",
+    "typescript": "^6.0.3",
+    "vitest": "^5.0.0"
+  }
+}

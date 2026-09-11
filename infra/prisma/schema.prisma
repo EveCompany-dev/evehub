@@ -1,0 +1,228 @@
+// Eve Hub — schema v0.0.3
+// Correcoes aplicadas sobre o esboco da v0.0.2 estao documentadas em
+// eve-hub-v0.0.3-escopo.md, secao 2.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../packages/core/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Prisma 7: a connection string vive em prisma.config.ts (CLI/migrate) e no
+// driver adapter passado ao PrismaClient (runtime). Nao existe mais url aqui.
+
+enum ConnectorStatus {
+  ok
+  syncing
+  error
+  disabled
+}
+
+// ---------------------------------------------------------------------------
+// Workspace / usuarios
+// ---------------------------------------------------------------------------
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  users              User[]
+  connectorInstances ConnectorInstance[]
+  editLogs           EditLog[]
+  automationLogs     AutomationLog[]
+}
+
+model User {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  /// null = usuario so entra por Google (nunca teve senha definida)
+  passwordHash String?
+
+  /// Unica distincao de permissao do produto: quem pode gerenciar credenciais
+  /// de connector. Todo o resto e livre para qualquer usuario autenticado.
+  isOwner Boolean @default(false)
+
+  /// Base do delta do feed diario de IA (v0.0.6). Atualizado a cada sessao.
+  lastSeenAt DateTime?
+
+  /// Layout do grid + config por widget. Ver packages/core/src/dashboard-config.ts
+  dashboardConfig Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  editLogs EditLog[]
+
+  @@index([workspaceId])
+}
+
+// --- Tabelas exigidas pelo @auth/prisma-adapter -----------------------------
+// Nomes de coluna em snake_case sao requisito do Auth.js, nao estilo do projeto.
+// `Session` fica ociosa enquanto a estrategia for JWT (obrigatoria para o
+// provider de credenciais), mas e mantida para nao travar a troca depois.
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Connectors
+// ---------------------------------------------------------------------------
+
+model ConnectorInstance {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Casa com EveConnector.id do registry: 'demo', 'notion', 'meta-ads'...
+  connectorId String
+  label       String
+
+  /// Validado contra o configSchema (Zod) do proprio connector.
+  config Json @default("{}")
+
+  /// AES-256-GCM. null enquanto o connector nao exige credencial.
+  credentialsEnc        Bytes?
+  /// Permite rotacionar a chave sem decifrar tudo de uma vez.
+  credentialsKeyVersion Int    @default(1)
+
+  status        ConnectorStatus @default(ok)
+  /// Ultimo erro legivel, exibido direto no cabecalho do widget.
+  statusMessage String?
+
+  lastSyncedAt DateTime?
+
+  /// Leitura O(1) do snapshot corrente, em vez de `order by syncedAt desc limit 1`.
+  latestSnapshotId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  snapshots SyncSnapshot[]
+  records   SyncRecord[]
+  editLogs  EditLog[]
+
+  @@index([workspaceId, connectorId])
+}
+
+/// Fotografia bruta da resposta da fonte. Serve para debug e para o delta do
+/// feed diario. Nao e a fonte da verdade para escrita — isso e o SyncRecord.
+model SyncSnapshot {
+  id                  String            @id @default(cuid())
+  connectorInstanceId String
+  connectorInstance   ConnectorInstance @relation(fields: [connectorInstanceId], references: [id], onDelete: Cascade)
+
+  data     Json
+  syncedAt DateTime @default(now())
+
+  @@index([connectorInstanceId, syncedAt])
+}
+
+/// Uma linha por objeto remoto. `remoteVersion` (last_edited_time & cia) e o
+/// que torna a trava otimista possivel por registro, e nao por tabela inteira.
+model SyncRecord {
+  id                  String            @id @default(cuid())
+  connectorInstanceId String
+  connectorInstance   ConnectorInstance @relation(fields: [connectorInstanceId], references: [id], onDelete: Cascade)
+
+  remoteId      String
+  remoteVersion String
+  data          Json
+  syncedAt      DateTime @default(now())
+
+  @@unique([connectorInstanceId, remoteId])
+}
+
+model EditLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  connectorInstanceId String
+  connectorInstance   ConnectorInstance @relation(fields: [connectorInstanceId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  remoteId  String
+  fieldPath String
+  oldValue  Json
+  newValue  Json
+
+  /// Marca que esta entrada ja foi desfeita. O undo em si grava uma entrada
+  /// nova (a edicao reversa), preservando a trilha completa.
+  rolledBackAt DateTime?
+  /// Aponta para a entrada de undo que reverteu esta.
+  rolledBackBy String?
+
+  createdAt DateTime @default(now())
+
+  @@index([connectorInstanceId, createdAt])
+  @@index([userId])
+}
+
+model AutomationLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  source  String
+  event   String
+  payload Json
+  ok      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+}

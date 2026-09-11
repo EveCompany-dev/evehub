@@ -1,0 +1,46 @@
+import { parseDashboardConfig, prisma } from '@eve/core';
+import { redirect } from 'next/navigation';
+import type { JSX } from 'react';
+import { listConnectors } from '../connectors';
+import { DashboardShell, type AvailableConnector } from '../components/DashboardShell';
+import { canCreateInstance } from '../lib/permissions';
+import { getSessionUser } from '../lib/session';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * The dashboard. Auth is enforced here rather than in middleware: the guard
+ * runs in the Node runtime with full database access, so there is no separate
+ * edge-compatible copy of the session logic to keep in sync.
+ */
+export default async function DashboardPage(): Promise<JSX.Element> {
+  const user = await getSessionUser();
+  if (!user) redirect('/login');
+
+  const [row, instances] = await Promise.all([
+    prisma.user.findUnique({ where: { id: user.id }, select: { dashboardConfig: true } }),
+    prisma.connectorInstance.findMany({
+      where: { workspaceId: user.workspaceId },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, connectorId: true, label: true },
+    }),
+  ]);
+
+  const available: AvailableConnector[] = listConnectors().map((connector) => ({
+    id: connector.id,
+    label: connector.label,
+    description: connector.description ?? null,
+    defaultSize: connector.defaultSize ?? { w: 6, h: 6 },
+    canCreate: canCreateInstance(user, connector.auth),
+  }));
+
+  return (
+    <DashboardShell
+      userName={user.name ?? user.email}
+      isOwner={user.isOwner}
+      initialConfig={parseDashboardConfig(row?.dashboardConfig)}
+      initialInstances={instances}
+      available={available}
+    />
+  );
+}
