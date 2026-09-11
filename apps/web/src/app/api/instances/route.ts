@@ -1,4 +1,4 @@
-import { prisma } from '@eve/core';
+import { encryptJson, prisma, runSync } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { listConnectors, requireConnector } from '../../../connectors';
@@ -12,6 +12,12 @@ const createSchema = z.object({
   connectorId: z.string().min(1),
   label: z.string().min(1).max(80),
   config: z.unknown().optional(),
+  /**
+   * Segredo em texto puro, cifrado aqui e nunca devolvido por nenhum endpoint.
+   * Vem junto na criacao para nao existir instancia orfa sem credencial caso o
+   * segundo passo falhasse.
+   */
+  credentials: z.record(z.string(), z.unknown()).optional(),
 });
 
 /** Instances in the caller's workspace, plus the catalogue of what can be added. */
@@ -41,6 +47,7 @@ export async function GET(): Promise<Response> {
       defaultSize: connector.defaultSize ?? { w: 6, h: 6 },
       /** Whether this user is allowed to create one. */
       canCreate: canCreateInstance(user, connector.auth),
+      needsCredentials: connector.auth !== 'none',
     }));
 
     return ok({ instances, available });
@@ -65,16 +72,35 @@ export async function POST(request: Request): Promise<Response> {
       return fail(400, `Configuracao invalida: ${config.error.issues.map((i) => i.message).join('; ')}`);
     }
 
+    // Connector que exige credencial precisa receber uma agora: sem isso a
+    // instancia nasceria em estado de erro permanente.
+    const secret: Record<string, unknown> = {};
+
+    if (connector.credentialsSchema) {
+      const parsed = connector.credentialsSchema.safeParse(body.data.credentials ?? {});
+      if (!parsed.success) {
+        return fail(400, `Credenciais invalidas: ${parsed.error.issues.map((i) => i.message).join('; ')}`);
+      }
+      const encrypted = encryptJson(parsed.data);
+      secret.credentialsEnc = encrypted.data;
+      secret.credentialsKeyVersion = encrypted.keyVersion;
+    }
+
     const instance = await prisma.connectorInstance.create({
       data: {
         workspaceId: user.workspaceId,
         connectorId: connector.id,
         label: body.data.label,
         config: config.data as object,
+        ...secret,
       },
       select: { id: true, connectorId: true, label: true, status: true, lastSyncedAt: true },
     });
 
-    return ok({ instance }, 201);
+    // Primeira sincronizacao na hora: e o unico feedback honesto de que o token
+    // e o ID estao certos. Se falhar, a instancia ja nasce mostrando o porque.
+    const first = await runSync(instance.id);
+
+    return ok({ instance, firstSync: { ok: first.ok, error: first.error ?? null } }, 201);
   });
 }

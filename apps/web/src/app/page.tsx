@@ -32,6 +32,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     description: connector.description ?? null,
     defaultSize: connector.defaultSize ?? { w: 6, h: 6 },
     canCreate: canCreateInstance(user, connector.auth),
+    needsCredentials: connector.auth !== 'none',
   }));
 
   return (

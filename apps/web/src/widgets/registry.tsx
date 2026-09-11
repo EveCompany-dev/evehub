@@ -19,6 +19,10 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
     ssr: false,
     loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
   }),
+  notion: dynamic(() => import('./NotionWidget').then((mod) => mod.NotionWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
 };
 
 export function getWidget(connectorId: string): ComponentType<WidgetProps> | null {

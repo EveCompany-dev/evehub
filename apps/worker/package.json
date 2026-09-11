@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@eve/connector-demo": "workspace:*",
+    "@eve/connector-notion": "workspace:*",
     "@eve/connector-sdk": "workspace:*",
     "@eve/core": "workspace:*",
     "bullmq": "^6.3.4",

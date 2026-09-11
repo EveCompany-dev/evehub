@@ -6,5 +6,6 @@
  * integration in v0.0.4 means one new line here and nothing else in the core.
  */
 import '@eve/connector-demo';
+import '@eve/connector-notion';
 
 export { listConnectors, requireConnector } from '@eve/connector-sdk';

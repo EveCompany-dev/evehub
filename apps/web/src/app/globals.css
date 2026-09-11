@@ -753,3 +753,29 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+
+/* --- formulario de conexao do dock ------------------------------------- */
+
+.eve-setup {
+  padding: 14px;
+}
+
+.eve-setup__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+}
+
+.eve-setup__hint {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+.eve-setup .eve-alert {
+  margin-bottom: 12px;
+}

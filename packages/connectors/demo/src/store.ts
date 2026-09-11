@@ -37,14 +37,14 @@ export function createMemoryStore(): DemoRemoteStore {
 
 export function createRedisStore(url: string): DemoRemoteStore {
   let client: Redis | undefined;
-  // Fail fast rather than queueing commands while disconnected: a sync that
-  // hangs forever would occupy a worker slot and never mark the instance as
-  // errored. An unreachable fake remote should surface as a failed sync.
+  // The offline queue stays on so the first command (issued while the socket is
+  // still connecting) is buffered rather than rejected; `commandTimeout` is
+  // what keeps an unreachable Redis from hanging a sync forever.
   const connection = () =>
     (client ??= new Redis(url, {
       maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
       connectTimeout: 2_000,
+      commandTimeout: 2_000,
     }));
 
   return {

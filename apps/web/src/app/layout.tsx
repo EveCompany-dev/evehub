@@ -38,7 +38,16 @@ export default async function RootLayout({ children }: { children: ReactNode }):
   const theme = await resolveTheme();
 
   return (
-    <html lang="pt-BR" data-theme={theme ?? undefined} className={`${display.variable} ${inter.variable}`}>
+    // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
+    // de navegador (LanguageTool, Grammarly e afins) injetam coisas como
+    // data-lt-installed no <html> antes do React hidratar. Nao mascara
+    // divergencia de conteudo, que continua sendo reportada normalmente.
+    <html
+      lang="pt-BR"
+      data-theme={theme ?? undefined}
+      className={`${display.variable} ${inter.variable}`}
+      suppressHydrationWarning
+    >
       <body>{children}</body>
     </html>
   );

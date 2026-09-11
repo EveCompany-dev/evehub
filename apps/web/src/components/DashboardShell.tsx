@@ -20,6 +20,8 @@ export interface AvailableConnector {
   description: string | null;
   defaultSize: { w: number; h: number };
   canCreate: boolean;
+  /** Exige segredo, entao passa pelo formulario de conexao antes de existir. */
+  needsCredentials: boolean;
 }
 
 export interface DashboardShellProps {
@@ -144,9 +146,22 @@ export function DashboardShell({
     [instances, scheduleSave],
   );
 
+  /** A instancia ja foi criada pelo formulario; aqui so entra no layout. */
+  const handleConnected = useCallback(
+    (instance: InstanceSummary, connector: AvailableConnector) => {
+      setInstances((current) => [...current, instance]);
+      setConfig((current) => {
+        const next = appendWidget(current, instance.id, connector.defaultSize);
+        scheduleSave(next);
+        return next;
+      });
+    },
+    [scheduleSave],
+  );
+
   const commands = useMemo<PaletteCommand[]>(() => {
     const widgetCommands = available
-      .filter((connector) => connector.canCreate)
+      .filter((connector) => connector.canCreate && !connector.needsCredentials)
       .map<PaletteCommand>((connector) => ({
         id: `add:${connector.id}`,
         label: connector.label,
@@ -216,6 +231,7 @@ export function DashboardShell({
           locked={config.locked}
           onToggleLock={toggleLock}
           onAdd={addWidget}
+          onConnected={handleConnected}
         />
 
         <CommandPalette commands={commands} />

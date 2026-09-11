@@ -12,6 +12,7 @@
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
     "@eve/connector-demo": "workspace:*",
+    "@eve/connector-notion": "workspace:*",
     "@eve/connector-sdk": "workspace:*",
     "@eve/core": "workspace:*",
     "@eve/ui": "workspace:*",

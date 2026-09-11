@@ -35,6 +35,19 @@ export const strings = {
     catalogHint: 'A lista mostra as integracoes ja registradas. Conectar novas contas sera feito na tela de integracoes.',
     lock: 'Travar layout',
     unlock: 'Destravar layout',
+    connect: 'Conectar',
+    connecting: 'Conectando...',
+    back: 'Voltar',
+    ownerOnly: 'So um owner pode conectar esta integracao.',
+  },
+
+  notion: {
+    token: 'Token da integracao',
+    tokenHint:
+      'Crie em notion.so/my-integrations (Internal Integration Secret). Depois abra a database no Notion e compartilhe com a integracao pelo menu "..." > Conexoes.',
+    database: 'URL ou ID da database',
+    databaseHint: 'Pode colar a URL da pagina do Notion direto da barra de enderecos.',
+    truncated: 'Mostrando as primeiras linhas: essa database e maior que o limite de uma sincronizacao.',
   },
 
   profile: {

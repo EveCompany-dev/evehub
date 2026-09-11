@@ -1,6 +1,7 @@
 import './load-env';
 // Registering connectors must happen before any job runs.
 import '@eve/connector-demo';
+import '@eve/connector-notion';
 
 import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';

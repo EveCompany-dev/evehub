@@ -26,8 +26,21 @@ export interface ConnectorUpdatedEvent {
  */
 const REQUEST_PATH_OPTIONS = {
   maxRetriesPerRequest: 1,
-  enableOfflineQueue: false,
+  /**
+   * Stays TRUE (the default) on purpose.
+   *
+   * Turning it off looked like the fix for the hang, but it breaks the normal
+   * case: ioredis connects asynchronously, so the first command after
+   * `new Redis()` is always issued while the socket is still connecting and
+   * gets rejected with "Stream isn't writeable". The offline queue exists to
+   * cover exactly that window.
+   *
+   * `commandTimeout` is what actually prevents the hang: a command that cannot
+   * be delivered rejects instead of sitting in the queue forever.
+   */
+  enableOfflineQueue: true,
   connectTimeout: 2_000,
+  commandTimeout: 2_000,
   retryStrategy: (attempt: number) => Math.min(attempt * 500, 5_000),
 } as const;
 

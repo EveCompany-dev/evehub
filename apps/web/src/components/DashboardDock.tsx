@@ -2,6 +2,7 @@
 
 import { strings } from '@eve/ui';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { ConnectorSetup } from './ConnectorSetup';
 import type { AvailableConnector } from './DashboardShell';
 
 export interface DashboardDockProps {
@@ -9,6 +10,8 @@ export interface DashboardDockProps {
   locked: boolean;
   onToggleLock: () => void;
   onAdd: (connector: AvailableConnector) => void | Promise<void>;
+  /** Chamado quando o formulario de credencial ja criou a instancia. */
+  onConnected: (instance: { id: string; connectorId: string; label: string }, connector: AvailableConnector) => void;
 }
 
 /**
@@ -18,22 +21,33 @@ export interface DashboardDockProps {
  * alcancavel, inclusive com a tela cheia de widgets. O `+` abre o catalogo de
  * modulos; o cadeado congela o layout inteiro.
  */
-export function DashboardDock({ available, locked, onToggleLock, onAdd }: DashboardDockProps): JSX.Element {
+export function DashboardDock({
+  available,
+  locked,
+  onToggleLock,
+  onAdd,
+  onConnected,
+}: DashboardDockProps): JSX.Element {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // Connector escolhido que ainda precisa de credencial.
+  const [setup, setSetup] = useState<AvailableConnector | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!open) return;
 
-    inputRef.current?.focus();
+    if (!setup) inputRef.current?.focus();
 
     const onPointerDown = (event: MouseEvent) => {
       if (!panelRef.current?.contains(event.target as Node)) setOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        setSetup(null);
+      }
     };
 
     document.addEventListener('mousedown', onPointerDown);
@@ -42,7 +56,7 @@ export function DashboardDock({ available, locked, onToggleLock, onAdd }: Dashbo
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open]);
+  }, [open, setup]);
 
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -56,6 +70,20 @@ export function DashboardDock({ available, locked, onToggleLock, onAdd }: Dashbo
     <div className="eve-dock" ref={panelRef}>
       {open && (
         <div className="eve-dock__panel" role="dialog" aria-label={strings.dock.addTitle}>
+          {setup ? (
+            <ConnectorSetup
+              connector={setup}
+              onCancel={() => setSetup(null)}
+              onConnected={(instance) => {
+                const connector = setup;
+                setSetup(null);
+                setOpen(false);
+                setQuery('');
+                onConnected(instance, connector);
+              }}
+            />
+          ) : (
+          <>
           <input
             ref={inputRef}
             className="eve-dock__search"
@@ -73,8 +101,14 @@ export function DashboardDock({ available, locked, onToggleLock, onAdd }: Dashbo
                 type="button"
                 className="eve-dock__item"
                 disabled={!connector.canCreate}
-                title={connector.canCreate ? undefined : strings.errors.notOwner}
+                title={connector.canCreate ? undefined : strings.dock.ownerOnly}
                 onClick={() => {
+                  // Precisa de segredo: abre o formulario em vez de criar
+                  // uma instancia que nasceria quebrada.
+                  if (connector.needsCredentials) {
+                    setSetup(connector);
+                    return;
+                  }
                   setOpen(false);
                   setQuery('');
                   void onAdd(connector);
@@ -87,6 +121,8 @@ export function DashboardDock({ available, locked, onToggleLock, onAdd }: Dashbo
           </div>
 
           <p className="eve-dock__hint">{strings.dock.catalogHint}</p>
+          </>
+          )}
         </div>
       )}
 
