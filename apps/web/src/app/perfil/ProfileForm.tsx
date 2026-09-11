@@ -3,6 +3,7 @@
 import { EveArch, strings } from '@eve/ui';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type JSX } from 'react';
+import { TeamSection } from './TeamSection';
 
 export interface ProfileData {
   id: string;
@@ -211,6 +212,9 @@ export function ProfileForm({ initial }: { initial: ProfileData }): JSX.Element 
           </button>
         )}
       </section>
+
+      {/* Owner-only, e o servidor cobra de novo em cada rota de /api/users. */}
+      {profile.isOwner && <TeamSection currentUserId={profile.id} />}
 
       <section className="eve-card">
         <h2 className="eve-card__title">{strings.profile.passwordTitle}</h2>

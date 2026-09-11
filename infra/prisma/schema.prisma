@@ -55,6 +55,10 @@ model User {
   /// Base do delta do feed diario de IA (v0.0.6). Atualizado a cada sessao.
   lastSeenAt DateTime?
 
+  /// Acesso revogado. Nao apagamos usuario: EditLog aponta para ele e a trilha
+  /// de auditoria tem que sobreviver a saida de alguem da agencia.
+  disabledAt DateTime?
+
   /// Layout do grid + config por widget. Ver packages/core/src/dashboard-config.ts
   dashboardConfig Json @default("{}")
 

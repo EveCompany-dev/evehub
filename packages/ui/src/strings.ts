@@ -76,6 +76,31 @@ export const strings = {
     setPassword: 'Definir senha',
   },
 
+  team: {
+    title: 'Equipe',
+    hint: 'Quem tem e-mail do dominio autorizado ja entra sozinho pelo Google. Cadastre aqui quem nao tem conta Google da empresa, quem precisa de senha, ou quem ja deve nascer admin.',
+    add: 'Adicionar pessoa',
+    confirmAdd: 'Criar conta',
+    adding: 'Criando...',
+    added: 'Conta criada.',
+    cancel: 'Cancelar',
+    name: 'Nome',
+    email: 'E-mail',
+    password: 'Senha inicial (opcional)',
+    passwordHint: 'Deixe em branco se a pessoa vai entrar so pelo Google. Ela pode trocar depois no proprio perfil.',
+    makeOwner: 'Dar acesso de admin (owner)',
+    owner: 'admin',
+    member: 'membro',
+    you: 'voce',
+    hasPassword: 'senha definida',
+    googleOnly: 'so Google',
+    disabled: 'desativado',
+    promote: 'Tornar admin',
+    demote: 'Remover admin',
+    disable: 'Desativar',
+    enable: 'Reativar',
+  },
+
   dashboard: {
     title: 'Dashboard',
     empty: 'Nenhum widget por aqui ainda.',
@@ -131,6 +156,7 @@ export const strings = {
 
   errors: {
     notOwner: 'Apenas um owner do workspace pode gerenciar credenciais de connector.',
+    notOwnerTeam: 'Apenas um owner do workspace pode gerenciar a equipe.',
     unauthorized: 'Sessao expirada. Entre novamente.',
     notFound: 'Nao encontrado.',
     invalidPayload: 'Requisicao invalida.',

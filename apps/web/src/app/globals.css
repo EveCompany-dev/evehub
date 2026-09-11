@@ -816,3 +816,79 @@
     animation: none;
   }
 }
+
+/* --- equipe -------------------------------------------------------------- */
+
+.eve-team__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eve-team__form {
+  padding: 14px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.eve-team__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eve-team__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.eve-team__row.is-disabled {
+  opacity: 0.55;
+}
+
+.eve-team__who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 160px;
+  font-size: 13px;
+}
+
+.eve-team__name {
+  font-weight: 500;
+}
+
+.eve-team__meta {
+  font-size: 11px;
+  text-transform: lowercase;
+}
+
+.eve-team__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.eve-team__actions .eve-btn {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.eve-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  cursor: pointer;
+}

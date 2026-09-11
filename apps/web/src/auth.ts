@@ -98,9 +98,9 @@ export const authConfig: NextAuthConfig = {
           throw new ServiceUnavailableSignin();
         }
 
-        // Unknown user and wrong password must cost the same time, or the form
-        // becomes a user-enumeration oracle.
-        if (!user?.passwordHash) {
+        // Unknown user, disabled account and wrong password must all cost the
+        // same time, or the form becomes a user-enumeration oracle.
+        if (!user?.passwordHash || user.disabledAt) {
           await equalizeVerifyTiming(parsed.data.password);
           return null;
         }
@@ -115,6 +115,15 @@ export const authConfig: NextAuthConfig = {
 
   callbacks: {
     async signIn({ user, account, profile }) {
+      // Vale para qualquer provider: acesso revogado e revogado.
+      if (user.email) {
+        const existing = await prisma.user.findUnique({
+          where: { email: user.email.toLowerCase() },
+          select: { disabledAt: true },
+        });
+        if (existing?.disabledAt) return '/login?error=AccessDenied';
+      }
+
       if (account?.provider !== 'google') return true;
 
       if (profile && profile.email_verified === false) return false;
@@ -141,10 +150,12 @@ export const authConfig: NextAuthConfig = {
 
       const user = await prisma.user.findUnique({
         where: { id: token.sub },
-        select: { id: true, email: true, name: true, image: true, isOwner: true, workspaceId: true },
+        select: { id: true, email: true, name: true, image: true, isOwner: true, workspaceId: true, disabledAt: true },
       });
 
-      if (!user) return session;
+      // Conta desativada perde a sessao ja aberta na proxima requisicao, sem
+      // precisar esperar o JWT expirar. getSessionUser trata isto como deslogado.
+      if (!user || user.disabledAt) return session;
 
       session.user = {
         ...session.user,
