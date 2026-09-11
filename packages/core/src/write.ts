@@ -29,6 +29,8 @@ export interface WriteInput {
   value: unknown;
   /** The `remoteVersion` the client had when it rendered the value it edited. */
   expectedVersion: string;
+  /** Set when this write is itself the undo of another edit. */
+  undoOf?: string;
 }
 
 /**
@@ -39,7 +41,7 @@ export interface WriteInput {
  * directly in Notion five seconds ago.
  */
 export async function performWrite(input: WriteInput): Promise<WriteOutcome> {
-  const { instanceId, userId, remoteId, field, value, expectedVersion } = input;
+  const { instanceId, userId, remoteId, field, value, expectedVersion, undoOf } = input;
 
   const instance = await prisma.connectorInstance.findUnique({ where: { id: instanceId } });
   if (!instance) return { ok: false, message: 'Instancia nao encontrada.' };
@@ -109,6 +111,7 @@ export async function performWrite(input: WriteInput): Promise<WriteOutcome> {
         fieldPath: field,
         oldValue: toJsonInput(oldValue),
         newValue: toJsonInput(value),
+        ...(undoOf ? { undoOf } : {}),
       },
     });
   });
@@ -176,6 +179,9 @@ export async function performUndo(input: { editLogId: string; userId: string }):
     field: log.fieldPath,
     value: log.oldValue,
     expectedVersion: currentVersion,
+    // Marca a entrada nova como "isto e um desfazer", para ela mesma nao
+    // aparecer como desfazivel.
+    undoOf: log.id,
   });
 
   if (result.ok) {
@@ -205,7 +211,13 @@ export async function listUndoableEdits(instanceId: string): Promise<UndoableEdi
   const since = new Date(Date.now() - UNDO_WINDOW_MS);
 
   const edits = await prisma.editLog.findMany({
-    where: { connectorInstanceId: instanceId, rolledBackAt: null, createdAt: { gte: since } },
+    where: {
+      connectorInstanceId: instanceId,
+      rolledBackAt: null,
+      createdAt: { gte: since },
+      // Uma edicao de desfazer nao e, ela propria, desfazivel.
+      undoOf: null,
+    },
     orderBy: { createdAt: 'desc' },
     include: { user: { select: { name: true } } },
     take: 25,

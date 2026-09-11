@@ -205,6 +205,10 @@ model EditLog {
   rolledBackAt DateTime?
   /// Aponta para a entrada de undo que reverteu esta.
   rolledBackBy String?
+  /// Preenchido quando ESTA entrada e o desfazer de outra.
+  /// Sem isso o undo vira loop: ele grava uma edicao reversa, que aparece como
+  /// "desfazivel", e o usuario fica alternando entre os dois valores para sempre.
+  undoOf       String?
 
   createdAt DateTime @default(now())
 

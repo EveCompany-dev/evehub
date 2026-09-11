@@ -1,7 +1,7 @@
 'use client';
 
 import { DEMO_STATUSES } from '@eve/connector-demo/shared';
-import { strings, WidgetShell } from '@eve/ui';
+import { strings, UndoBanner, WidgetShell } from '@eve/ui';
 import { useState, type JSX } from 'react';
 import { useWidgetData, type WidgetRecord } from './useWidgetData';
 import type { WidgetProps } from './types';
@@ -136,6 +136,7 @@ export function DemoWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
       editing={editing}
       onToggleEdit={toggleEdit}
       actions={[
+        ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void undo(lastEdit.id) }] : []),
         { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
         { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
       ]}
@@ -189,15 +190,13 @@ export function DemoWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
       {notice && <div className="eve-alert">{notice}</div>}
 
       {lastEdit && !editing && (
-        <div className="eve-alert">
-          <span>
-            {lastEdit.field} &rarr; {String(lastEdit.newValue)}
-            {lastEdit.userName ? ' (' + strings.edit.savedBy(lastEdit.userName) + ')' : ''}
-          </span>
-          <button type="button" className="eve-btn eve-no-drag" onClick={() => void undo(lastEdit.id)}>
-            {strings.edit.undo}
-          </button>
-        </div>
+        <UndoBanner
+          editId={lastEdit.id}
+          field={lastEdit.field}
+          newValue={String(lastEdit.newValue ?? '')}
+          userName={lastEdit.userName}
+          onUndo={() => void undo(lastEdit.id)}
+        />
       )}
 
       {pulse && (

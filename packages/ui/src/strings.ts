@@ -115,6 +115,8 @@ export const strings = {
     saving: 'Salvando...',
     editHint: 'Modo de edicao ligado. Altere os campos e salve.',
     pendingChanges: 'Alteracoes nao salvas.',
+    dismiss: 'Fechar aviso',
+    undoLast: 'Desfazer ultima edicao',
   },
 
   palette: {

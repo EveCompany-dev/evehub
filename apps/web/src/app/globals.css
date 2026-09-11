@@ -779,3 +779,40 @@
 .eve-setup .eve-alert {
   margin-bottom: 12px;
 }
+
+/* --- aviso de desfazer -------------------------------------------------- */
+
+.eve-undo {
+  animation: eve-undo-in 180ms var(--ease-brand);
+}
+
+.eve-undo__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-undo__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+@keyframes eve-undo-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eve-undo {
+    animation: none;
+  }
+}
