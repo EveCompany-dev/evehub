@@ -8,6 +8,7 @@ export interface SessionUser {
   name: string | null;
   image: string | null;
   isOwner: boolean;
+  isSocialMedia: boolean;
   workspaceId: string;
 }
 
@@ -32,6 +33,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     name: user.name ?? null,
     image: user.image ?? null,
     isOwner: user.isOwner,
+    isSocialMedia: user.isSocialMedia,
     workspaceId: user.workspaceId,
   };
 }

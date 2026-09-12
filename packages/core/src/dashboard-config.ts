@@ -41,12 +41,25 @@ export const dashboardConfigSchema = z.object({
   activeClient: z.string().nullable().default(null),
   /** Trava arrastar/redimensionar, para nao desmontar o layout sem querer. */
   locked: z.boolean().default(false),
+  /** URL da imagem de fundo da dashboard. null = sem imagem. */
+  backgroundImage: z.string().nullable().default(null),
+  /** Cor solida atras/por baixo da imagem (ou sozinha, sem imagem). */
+  backgroundColor: z.string().nullable().default(null),
+  /** Altura de linha/margem do grid: 'compact' cabe mais widget na tela. */
+  density: z.enum(['comfortable', 'compact']).default('comfortable'),
+  /**
+   * false = widgets so atualizam por sync manual, ignorando o evento SSE de
+   * "dado mudou". Util em conexoes fracas ou pra quem acha o auto-refresh
+   * distraente; sync manual e o botao "sincronizar agora" continuam ativos.
+   */
+  liveUpdates: z.boolean().default(true),
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
+export type DashboardDensity = DashboardConfig['density'];
 
 export const emptyDashboardConfig: DashboardConfig = {
   layout: [],
@@ -54,6 +67,10 @@ export const emptyDashboardConfig: DashboardConfig = {
   theme: 'system',
   activeClient: null,
   locked: false,
+  backgroundImage: null,
+  backgroundColor: null,
+  density: 'comfortable',
+  liveUpdates: true,
 };
 
 /**
@@ -91,4 +108,11 @@ export function removeWidget(config: DashboardConfig, instanceId: string): Dashb
 export function setViewConfig(config: DashboardConfig, instanceId: string, viewConfig: ViewConfig): DashboardConfig {
   const existing = config.widgets[instanceId] ?? { clientOverride: null, viewConfig: null };
   return { ...config, widgets: { ...config.widgets, [instanceId]: { ...existing, viewConfig } } };
+}
+
+export type GeneralSettings = Pick<DashboardConfig, 'backgroundImage' | 'backgroundColor' | 'density' | 'liveUpdates'>;
+
+/** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */
+export function updateGeneralSettings(config: DashboardConfig, patch: Partial<GeneralSettings>): DashboardConfig {
+  return { ...config, ...patch };
 }

@@ -1,6 +1,28 @@
 export { getEnv, resetEnvCache, type EveEnv } from './env';
 export { prisma, Prisma } from './prisma';
-export type { ConnectorInstance, EditLog, SyncRecord, SyncSnapshot, User, Workspace } from './prisma';
+export type {
+  Client,
+  ClientSource,
+  ConnectorInstance,
+  DataTable,
+  DataTableRow,
+  EditLog,
+  PostPlatform,
+  PostStatus,
+  ScheduledPost,
+  SyncRecord,
+  SyncSnapshot,
+  User,
+  Workspace,
+} from './prisma';
+
+export {
+  coerceColumnValue,
+  dataColumnSchema,
+  dataColumnsSchema,
+  slugifyColumnKey,
+  type DataColumn,
+} from './data-tables';
 
 export {
   CredentialCryptoError,

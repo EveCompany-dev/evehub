@@ -13,6 +13,7 @@ const createSchema = z.object({
   /** Opcional: sem senha a pessoa entra so pelo Google. */
   password: z.string().min(8, 'A senha precisa de pelo menos 8 caracteres.').max(200).optional().or(z.literal('')),
   isOwner: z.boolean().default(false),
+  isSocialMedia: z.boolean().default(false),
 });
 
 /** Todo mundo do workspace, para a tela de equipe. Somente owner. */
@@ -30,6 +31,7 @@ export async function GET(): Promise<Response> {
         email: true,
         image: true,
         isOwner: true,
+        isSocialMedia: true,
         lastSeenAt: true,
         disabledAt: true,
         createdAt: true,
@@ -45,6 +47,7 @@ export async function GET(): Promise<Response> {
         email: row.email,
         image: row.image,
         isOwner: row.isOwner,
+        isSocialMedia: row.isSocialMedia,
         disabled: row.disabledAt !== null,
         hasPassword: Boolean(row.passwordHash),
         lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
@@ -82,9 +85,10 @@ export async function POST(request: Request): Promise<Response> {
         name: body.data.name,
         email,
         isOwner: body.data.isOwner,
+        isSocialMedia: body.data.isSocialMedia,
         ...(body.data.password ? { passwordHash: await hashPassword(body.data.password) } : {}),
       },
-      select: { id: true, name: true, email: true, image: true, isOwner: true, createdAt: true },
+      select: { id: true, name: true, email: true, image: true, isOwner: true, isSocialMedia: true, createdAt: true },
     });
 
     return ok(

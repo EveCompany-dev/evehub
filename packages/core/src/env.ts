@@ -10,6 +10,9 @@ const envSchema = z.object({
 
   SYNC_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
   SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
+
+  /** Optional: the chat widget reports itself as unconfigured without this, same spirit as Google OAuth. */
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 });
 
 export type EveEnv = z.infer<typeof envSchema>;

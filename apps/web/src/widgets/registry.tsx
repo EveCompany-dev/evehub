@@ -23,6 +23,22 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
     ssr: false,
     loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
   }),
+  calculator: dynamic(() => import('./CalculatorWidget').then((mod) => mod.CalculatorWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
+  notes: dynamic(() => import('./NotesWidget').then((mod) => mod.NotesWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
+  chat: dynamic(() => import('./ChatWidget').then((mod) => mod.ChatWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
+  calendar: dynamic(() => import('./CalendarWidget').then((mod) => mod.CalendarWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
 };
 
 const genericWidget: ComponentType<WidgetProps> = dynamic(

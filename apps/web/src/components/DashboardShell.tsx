@@ -4,14 +4,16 @@ import {
   appendWidget,
   removeWidget,
   setViewConfig,
+  updateGeneralSettings,
   type DashboardConfig,
+  type GeneralSettings,
   type ViewConfig,
   type WidgetLayout,
 } from '@eve/core/dashboard';
 import { EveBrandLockup, strings } from '@eve/ui';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { Avatar } from '../app/perfil/ProfileForm';
 import { ClientProvider } from './ClientContext';
 import { DashboardDock } from './DashboardDock';
@@ -137,6 +139,17 @@ export function DashboardShell({
     [scheduleSave],
   );
 
+  const handleSettingsChange = useCallback(
+    (patch: Partial<GeneralSettings>) => {
+      setConfig((current) => {
+        const next = updateGeneralSettings(current, patch);
+        scheduleSave(next);
+        return next;
+      });
+    },
+    [scheduleSave],
+  );
+
   const addWidget = useCallback(
     async (connector: AvailableConnector) => {
       const existing = instances.find((instance) => instance.connectorId === connector.id);
@@ -205,8 +218,14 @@ export function DashboardShell({
     ];
   }, [addWidget, applyTheme, available, config.theme]);
 
+  const mainStyle: CSSProperties = {
+    ...(config.backgroundColor ? { backgroundColor: config.backgroundColor } : {}),
+    ...(config.backgroundImage ? { backgroundImage: `url(${config.backgroundImage})` } : {}),
+  };
+  const hasCustomBackground = Boolean(config.backgroundImage || config.backgroundColor);
+
   return (
-    <EventStreamProvider>
+    <EventStreamProvider liveUpdates={config.liveUpdates}>
       <ClientProvider initialClient={config.activeClient}>
         <header className="eve-header">
           <div className="eve-header__brand">
@@ -235,7 +254,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className="eve-main">
+        <main className={hasCustomBackground ? 'eve-main eve-main--custom-bg' : 'eve-main'} style={mainStyle}>
           <DashboardGrid
             config={config}
             instances={instances}
@@ -251,6 +270,13 @@ export function DashboardShell({
           onToggleLock={toggleLock}
           onAdd={addWidget}
           onConnected={handleConnected}
+          settings={{
+            backgroundImage: config.backgroundImage,
+            backgroundColor: config.backgroundColor,
+            density: config.density,
+            liveUpdates: config.liveUpdates,
+          }}
+          onSettingsChange={handleSettingsChange}
         />
 
         <CommandPalette commands={commands} />

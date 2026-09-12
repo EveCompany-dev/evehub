@@ -1,8 +1,10 @@
 'use client';
 
+import type { GeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react';
 import { ConnectorSetup } from './ConnectorSetup';
+import { DashboardSettingsPanel } from './DashboardSettingsPanel';
 import type { AvailableConnector } from './DashboardShell';
 
 export interface DashboardDockProps {
@@ -12,7 +14,11 @@ export interface DashboardDockProps {
   onAdd: (connector: AvailableConnector) => void | Promise<void>;
   /** Chamado quando o formulario de credencial ja criou a instancia. */
   onConnected: (instance: { id: string; connectorId: string; label: string }, connector: AvailableConnector) => void;
+  settings: GeneralSettings;
+  onSettingsChange: (patch: Partial<GeneralSettings>) => void;
 }
+
+type Panel = 'add' | 'settings' | null;
 
 /**
  * Pill flutuante sobre a dashboard.
@@ -27,8 +33,10 @@ export function DashboardDock({
   onToggleLock,
   onAdd,
   onConnected,
+  settings,
+  onSettingsChange,
 }: DashboardDockProps): JSX.Element {
-  const [open, setOpen] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
   const [query, setQuery] = useState('');
   // Connector escolhido que ainda precisa de credencial.
   const [setup, setSetup] = useState<AvailableConnector | null>(null);
@@ -36,16 +44,16 @@ export function DashboardDock({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!panel) return;
 
-    if (!setup) inputRef.current?.focus();
+    if (panel === 'add' && !setup) inputRef.current?.focus();
 
     const onPointerDown = (event: MouseEvent) => {
-      if (!panelRef.current?.contains(event.target as Node)) setOpen(false);
+      if (!panelRef.current?.contains(event.target as Node)) setPanel(null);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpen(false);
+        setPanel(null);
         setSetup(null);
       }
     };
@@ -56,7 +64,7 @@ export function DashboardDock({
       document.removeEventListener('mousedown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
-  }, [open, setup]);
+  }, [panel, setup]);
 
   const results = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -68,7 +76,7 @@ export function DashboardDock({
 
   return (
     <div className="eve-dock" ref={panelRef}>
-      {open && (
+      {panel === 'add' && (
         <div className="eve-dock__panel" role="dialog" aria-label={strings.dock.addTitle}>
           {setup ? (
             <ConnectorSetup
@@ -77,7 +85,7 @@ export function DashboardDock({
               onConnected={(instance) => {
                 const connector = setup;
                 setSetup(null);
-                setOpen(false);
+                setPanel(null);
                 setQuery('');
                 onConnected(instance, connector);
               }}
@@ -109,7 +117,7 @@ export function DashboardDock({
                     setSetup(connector);
                     return;
                   }
-                  setOpen(false);
+                  setPanel(null);
                   setQuery('');
                   void onAdd(connector);
                 }}
@@ -126,16 +134,22 @@ export function DashboardDock({
         </div>
       )}
 
+      {panel === 'settings' && (
+        <div className="eve-dock__panel" role="dialog" aria-label={strings.dock.settingsTitle}>
+          <DashboardSettingsPanel settings={settings} onChange={onSettingsChange} />
+        </div>
+      )}
+
       <div className="eve-dock__pill">
         <button
           type="button"
           className="eve-dock__btn eve-dock__btn--add"
-          aria-expanded={open}
+          aria-expanded={panel === 'add'}
           aria-label={strings.dock.addTitle}
           title={strings.dock.addTitle}
-          onClick={() => setOpen((value) => !value)}
+          onClick={() => setPanel((value) => (value === 'add' ? null : 'add'))}
         >
-          <span className={open ? 'eve-dock__plus is-open' : 'eve-dock__plus'}>+</span>
+          <span className={panel === 'add' ? 'eve-dock__plus is-open' : 'eve-dock__plus'}>+</span>
         </button>
 
         <span className="eve-dock__divider" aria-hidden="true" />
@@ -157,6 +171,28 @@ export function DashboardDock({
               strokeWidth="2"
               strokeLinecap="round"
               fill="none"
+            />
+          </svg>
+        </button>
+
+        <span className="eve-dock__divider" aria-hidden="true" />
+
+        <button
+          type="button"
+          className={panel === 'settings' ? 'eve-dock__btn is-active' : 'eve-dock__btn'}
+          aria-expanded={panel === 'settings'}
+          aria-label={strings.dock.settingsTitle}
+          title={strings.dock.settingsTitle}
+          onClick={() => setPanel((value) => (value === 'settings' ? null : 'settings'))}
+        >
+          {/* Engrenagem. */}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+            <path
+              d="M19.4 13a7.97 7.97 0 0 0 0-2l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.6-.22l-2.39.96a7.9 7.9 0 0 0-1.73-1l-.36-2.54a.5.5 0 0 0-.5-.43h-3.84a.5.5 0 0 0-.5.43l-.36 2.54a7.9 7.9 0 0 0-1.73 1l-2.39-.96a.5.5 0 0 0-.6.22L2.7 8.78a.5.5 0 0 0 .12.64L4.85 11a7.97 7.97 0 0 0 0 2l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32a.5.5 0 0 0 .6.22l2.39-.96a7.9 7.9 0 0 0 1.73 1l.36 2.54a.5.5 0 0 0 .5.43h3.84a.5.5 0 0 0 .5-.43l.36-2.54a7.9 7.9 0 0 0 1.73-1l2.39.96a.5.5 0 0 0 .6-.22l1.92-3.32a.5.5 0 0 0-.12-.64L19.4 13Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
             />
           </svg>
         </button>

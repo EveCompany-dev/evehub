@@ -10,6 +10,7 @@ export interface TeamMember {
   email: string;
   image: string | null;
   isOwner: boolean;
+  isSocialMedia: boolean;
   disabled: boolean;
   hasPassword: boolean;
   lastSeenAt: string | null;
@@ -30,7 +31,7 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
 
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [draft, setDraft] = useState({ name: '', email: '', password: '', isOwner: false });
+  const [draft, setDraft] = useState({ name: '', email: '', password: '', isOwner: false, isSocialMedia: false });
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +70,7 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
           email: draft.email,
           password: draft.password || undefined,
           isOwner: draft.isOwner,
+          isSocialMedia: draft.isSocialMedia,
         }),
       });
 
@@ -78,7 +80,7 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
         return;
       }
 
-      setDraft({ name: '', email: '', password: '', isOwner: false });
+      setDraft({ name: '', email: '', password: '', isOwner: false, isSocialMedia: false });
       setAdding(false);
       setNotice(strings.team.added);
       await load();
@@ -87,7 +89,7 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
     }
   };
 
-  const patch = async (id: string, changes: { isOwner?: boolean; disabled?: boolean }) => {
+  const patch = async (id: string, changes: { isOwner?: boolean; isSocialMedia?: boolean; disabled?: boolean }) => {
     setError(null);
     setNotice(null);
 
@@ -165,6 +167,15 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
             <span>{strings.team.makeOwner}</span>
           </label>
 
+          <label className="eve-check">
+            <input
+              type="checkbox"
+              checked={draft.isSocialMedia}
+              onChange={(event) => setDraft({ ...draft, isSocialMedia: event.target.checked })}
+            />
+            <span>{strings.team.makeSocialMedia}</span>
+          </label>
+
           <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
             {busy ? strings.team.adding : strings.team.confirmAdd}
           </button>
@@ -187,6 +198,7 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
                 <span className="eve-dim">{member.email}</span>
                 <span className="eve-dim eve-team__meta">
                   {member.isOwner ? strings.team.owner : strings.team.member}
+                  {member.isSocialMedia ? ` · ${strings.team.socialMedia}` : ''}
                   {' · '}
                   {member.hasPassword ? strings.team.hasPassword : strings.team.googleOnly}
                   {member.disabled ? ` · ${strings.team.disabled}` : ''}
@@ -200,6 +212,13 @@ export function TeamSection({ currentUserId }: { currentUserId: string }): JSX.E
                   onClick={() => void patch(member.id, { isOwner: !member.isOwner })}
                 >
                   {member.isOwner ? strings.team.demote : strings.team.promote}
+                </button>
+                <button
+                  type="button"
+                  className="eve-btn"
+                  onClick={() => void patch(member.id, { isSocialMedia: !member.isSocialMedia })}
+                >
+                  {member.isSocialMedia ? strings.team.removeSocialMedia : strings.team.makeSocialMedia}
                 </button>
                 <button
                   type="button"

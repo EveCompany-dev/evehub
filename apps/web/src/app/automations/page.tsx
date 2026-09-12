@@ -1,4 +1,5 @@
-import { strings } from '@eve/ui';
+import { EveArch, strings } from '@eve/ui';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { getSessionUser } from '../../lib/session';
@@ -15,10 +16,18 @@ export default async function AutomationsPage(): Promise<JSX.Element> {
   if (!user) redirect('/login');
 
   return (
-    <div className="eve-empty">
-      <h1 className="eve-empty__title">{strings.automations.title}</h1>
-      <p className="eve-dim">{strings.automations.empty}</p>
-      <p className="eve-dim">{strings.automations.emptyHint}</p>
+    <div className="eve-profile">
+      <header className="eve-profile__header">
+        <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
+          <EveArch size={18} />
+        </Link>
+        <h1 className="eve-profile__title">{strings.automations.title}</h1>
+      </header>
+
+      <div className="eve-empty">
+        <p className="eve-dim">{strings.automations.empty}</p>
+        <p className="eve-dim">{strings.automations.emptyHint}</p>
+      </div>
     </div>
   );
 }

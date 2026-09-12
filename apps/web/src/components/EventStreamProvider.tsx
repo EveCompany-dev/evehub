@@ -10,19 +10,35 @@ interface EventStreamValue {
 
 const EventStreamContext = createContext<EventStreamValue | null>(null);
 
+export interface EventStreamProviderProps {
+  children: ReactNode;
+  /**
+   * false = the stream stays connected (so flipping this back on doesn't
+   * need a reconnect) but stops waking up widgets. Manual "sincronizar
+   * agora" still hits the API directly and is unaffected.
+   */
+  liveUpdates?: boolean;
+}
+
 /**
  * One EventSource for the whole tab, fanned out by instance id.
  *
  * A stream per widget would mean a Redis subscriber per widget per tab; this
  * keeps it at one connection no matter how many modules are on the grid.
  */
-export function EventStreamProvider({ children }: { children: ReactNode }): JSX.Element {
+export function EventStreamProvider({ children, liveUpdates = true }: EventStreamProviderProps): JSX.Element {
   const listeners = useRef(new Map<string, Set<Callback>>());
+  const liveUpdatesRef = useRef(liveUpdates);
+
+  useEffect(() => {
+    liveUpdatesRef.current = liveUpdates;
+  }, [liveUpdates]);
 
   useEffect(() => {
     const source = new EventSource('/api/events');
 
     const onConnector = (event: MessageEvent<string>) => {
+      if (!liveUpdatesRef.current) return;
       try {
         const payload = JSON.parse(event.data) as { instanceId?: string };
         if (!payload.instanceId) return;

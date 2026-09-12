@@ -7,8 +7,15 @@ import { getEnv } from './env';
 // runtime instead of statically.
 export { Prisma, PrismaClient };
 export type {
+  Client,
+  ClientSource,
   ConnectorInstance,
+  DataTable,
+  DataTableRow,
   EditLog,
+  PostPlatform,
+  PostStatus,
+  ScheduledPost,
   SyncRecord,
   SyncSnapshot,
   User,

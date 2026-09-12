@@ -21,6 +21,24 @@ enum ConnectorStatus {
   disabled
 }
 
+enum PostPlatform {
+  instagram
+  facebook
+}
+
+enum PostStatus {
+  draft
+  scheduled
+  publishing
+  published
+  failed
+}
+
+enum ClientSource {
+  local
+  notion
+}
+
 // ---------------------------------------------------------------------------
 // Workspace / usuarios
 // ---------------------------------------------------------------------------
@@ -30,10 +48,17 @@ model Workspace {
   name      String
   createdAt DateTime @default(now())
 
+  /// Qual ConnectorInstance do Notion (se algum) alimenta a lista de clientes
+  /// externos no filtro da agenda. Null = so clientes locais.
+  clientSourceInstanceId String?
+
   users              User[]
   connectorInstances ConnectorInstance[]
   editLogs           EditLog[]
   automationLogs     AutomationLog[]
+  clients            Client[]
+  scheduledPosts     ScheduledPost[]
+  dataTables         DataTable[]
 }
 
 model User {
@@ -52,6 +77,11 @@ model User {
   /// de connector. Todo o resto e livre para qualquer usuario autenticado.
   isOwner Boolean @default(false)
 
+  /// Tag de equipe: quem ve e mexe na aba de agendamento. Owner ve tambem,
+  /// independente desta flag. Primeira tag de um modelo de tags mais amplo
+  /// que ainda nao existe — deliberadamente boolean simples por enquanto.
+  isSocialMedia Boolean @default(false)
+
   /// Base do delta do feed diario de IA (v0.0.6). Atualizado a cada sessao.
   lastSeenAt DateTime?
 
@@ -65,9 +95,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts Account[]
-  sessions Session[]
-  editLogs EditLog[]
+  accounts       Account[]
+  sessions       Session[]
+  editLogs       EditLog[]
+  scheduledPosts ScheduledPost[]
 
   @@index([workspaceId])
 }
@@ -153,9 +184,10 @@ model ConnectorInstance {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  snapshots SyncSnapshot[]
-  records   SyncRecord[]
-  editLogs  EditLog[]
+  snapshots      SyncSnapshot[]
+  records        SyncRecord[]
+  editLogs       EditLog[]
+  scheduledPosts ScheduledPost[]
 
   @@index([workspaceId, connectorId])
 }
@@ -233,4 +265,112 @@ model AutomationLog {
   createdAt DateTime @default(now())
 
   @@index([workspaceId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Agenda / agendamento de posts
+// ---------------------------------------------------------------------------
+
+/// Lista local de clientes, independente do Notion. O filtro da agenda
+/// combina isto com registros vindos de Workspace.clientSourceInstanceId.
+model Client {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name  String
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  scheduledPosts ScheduledPost[]
+
+  @@index([workspaceId])
+}
+
+model ScheduledPost {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// A instancia do connector Meta (Pagina/conta IG) que publica este post.
+  connectorInstanceId String
+  connectorInstance   ConnectorInstance @relation(fields: [connectorInstanceId], references: [id], onDelete: Cascade)
+
+  clientSource   ClientSource
+  /// Preenchido quando clientSource = local.
+  clientId       String?
+  client         Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  /// Preenchido quando clientSource = notion (o id da pagina no Notion).
+  clientRemoteId String?
+  /// Nome de exibicao, desnormalizado — funciona igual para as duas origens
+  /// sem precisar de join nem de reler o Notion so pra mostrar o filtro.
+  clientLabel    String
+
+  platform PostPlatform
+  caption  String
+  mediaUrl String
+
+  scheduledFor  DateTime
+  status        PostStatus @default(scheduled)
+  statusMessage String?
+
+  /// Instagram: id do container criado no passo 1 (antes do media_publish).
+  metaCreationId String?
+  /// Id do post/media ja publicado no Meta, quando existe.
+  metaPostId     String?
+
+  createdBy     String
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, scheduledFor])
+  @@index([status, scheduledFor])
+}
+
+// ---------------------------------------------------------------------------
+// Tabelas locais (estilo Notion, sem nenhuma fonte externa)
+// ---------------------------------------------------------------------------
+
+/// Colunas ficam em `columns` (Json), validadas contra dataColumnSchema em
+/// packages/core/src/data-tables.ts. `key` de cada coluna e imutavel depois de
+/// criada — so `label`/`options` sao editaveis — para nao orfanar dado
+/// existente ao renomear.
+model DataTable {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name    String
+  columns Json
+
+  /// Token opaco: POST /api/webhooks/tables/{token} atualiza esta tabela.
+  /// Null = automacao desligada. O token EH a credencial — sem header extra.
+  webhookToken     String? @unique
+  /// Chave de coluna usada para casar uma linha existente num POST recebido.
+  /// Null = todo POST cria uma linha nova.
+  webhookKeyColumn String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rows DataTableRow[]
+
+  @@index([workspaceId])
+}
+
+model DataTableRow {
+  id      String    @id @default(cuid())
+  tableId String
+  table   DataTable @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  data Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tableId])
 }

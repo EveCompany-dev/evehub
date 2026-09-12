@@ -1,5 +1,6 @@
 import { prisma } from '@eve/core';
-import { strings } from '@eve/ui';
+import { EveArch, strings } from '@eve/ui';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { canViewFinancial } from '../../lib/permissions';
@@ -17,10 +18,18 @@ export default async function FinancialPage(): Promise<JSX.Element> {
   if (!canViewFinancial(row)) redirect('/');
 
   return (
-    <div className="eve-empty">
-      <h1 className="eve-empty__title">{strings.financial.title}</h1>
-      <p className="eve-dim">{strings.financial.empty}</p>
-      <p className="eve-dim">{strings.financial.emptyHint}</p>
+    <div className="eve-profile">
+      <header className="eve-profile__header">
+        <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
+          <EveArch size={18} />
+        </Link>
+        <h1 className="eve-profile__title">{strings.financial.title}</h1>
+      </header>
+
+      <div className="eve-empty">
+        <p className="eve-dim">{strings.financial.empty}</p>
+        <p className="eve-dim">{strings.financial.emptyHint}</p>
+      </div>
     </div>
   );
 }

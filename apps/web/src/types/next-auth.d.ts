@@ -5,6 +5,7 @@ declare module 'next-auth' {
     user: {
       id: string;
       isOwner: boolean;
+      isSocialMedia: boolean;
       workspaceId: string;
     } & DefaultSession['user'];
   }

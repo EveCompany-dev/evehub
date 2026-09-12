@@ -8,33 +8,97 @@
   color: var(--text-dim);
 }
 
-/* --- top nav ------------------------------------------------------------ */
+/* --- side rail (secondary nav) ------------------------------------------ */
 
-.eve-topnav {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px var(--space-gutter);
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  overflow-x: auto;
+body[data-rail='collapsed'] {
+  padding-right: 52px;
+  transition: padding-right 160ms var(--ease-brand);
 }
 
-.eve-topnav__item {
-  padding: 6px 14px;
+body[data-rail='expanded'] {
+  padding-right: 180px;
+  transition: padding-right 160ms var(--ease-brand);
+}
+
+.eve-rail {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  transition: width 160ms var(--ease-brand);
+  overflow-x: hidden;
+}
+
+.eve-rail.is-expanded {
+  width: 180px;
+  align-items: stretch;
+  padding-inline: 10px;
+}
+
+.eve-rail__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.eve-rail__toggle:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.eve-rail__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0;
   border-radius: var(--radius-pill);
-  font-size: 13px;
   color: var(--text-dim);
   text-decoration: none;
   white-space: nowrap;
 }
 
-.eve-topnav__item:hover {
+.eve-rail.is-expanded .eve-rail__item {
+  justify-content: flex-start;
+  padding: 0 10px;
+}
+
+.eve-rail__icon {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.eve-rail__label {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-rail__item:hover {
   color: var(--text);
   background: var(--surface-2);
 }
 
-.eve-topnav__item.is-active {
+.eve-rail__item.is-active {
   color: var(--accent);
   background: var(--accent-soft);
   font-weight: 600;
@@ -83,6 +147,13 @@
 
 .eve-main {
   padding: var(--space-gutter);
+}
+
+.eve-main--custom-bg {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 /* --- grid ------------------------------------------------------------- */
@@ -134,6 +205,357 @@
   font-family: var(--font-display);
   font-size: 16px;
   margin: 0;
+}
+
+/* --- tabelas locais -------------------------------------------------------- */
+
+.eve-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eve-tables__new {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.eve-datatable {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eve-datatable__toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-datatable td .eve-cell {
+  display: block;
+  min-height: 20px;
+  min-width: 60px;
+  cursor: text;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.eve-datatable td .eve-cell:hover {
+  background: var(--surface-2);
+}
+
+.eve-datatable th,
+.eve-datatable td {
+  cursor: context-menu;
+}
+
+.eve-contextmenu {
+  z-index: 70;
+  box-shadow: var(--shadow-float);
+}
+
+.eve-tables__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-tables__picker {
+  min-width: 200px;
+}
+
+.eve-datatable__addrow {
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 8px;
+}
+
+.eve-datatable__addrow:hover {
+  background: var(--surface-2);
+}
+
+/* --- agenda / calendario ------------------------------------------------- */
+
+.eve-scheduling {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eve-scheduling__tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.eve-scheduling__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.eve-scheduling__filter {
+  min-width: 160px;
+  margin-bottom: 0;
+}
+
+.eve-btn--danger {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  color: var(--danger);
+}
+
+.eve-btn--danger:hover {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.eve-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 0.45);
+  padding: 16px;
+}
+
+.eve-modal {
+  width: min(480px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-month {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.eve-month__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.eve-month__label {
+  font-family: var(--font-display);
+  text-transform: capitalize;
+}
+
+.eve-month__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  padding: 8px 4px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  text-align: center;
+}
+
+.eve-month__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  padding: 4px;
+}
+
+.eve-month__day {
+  min-height: 84px;
+  padding: 6px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.eve-month__day.is-empty {
+  background: transparent;
+  cursor: default;
+}
+
+.eve-month__day.is-today {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.eve-month__num {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.eve-month__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow-y: auto;
+}
+
+.eve-month__chip {
+  border: 0;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  text-align: left;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-month__chip.is-published {
+  background: color-mix(in srgb, #2e9e5b 18%, transparent);
+  color: #2e9e5b;
+}
+
+.eve-month__chip.is-failed {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.eve-month__chip.is-publishing {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+/* --- chat -------------------------------------------------------------- */
+
+.eve-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.eve-chat__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-chat__bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: var(--radius-card);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+}
+
+.eve-chat__bubble.is-user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.eve-chat__bubble.is-assistant {
+  align-self: flex-start;
+  background: var(--surface-2);
+}
+
+.eve-chat__form {
+  display: flex;
+  gap: 8px;
+}
+
+.eve-chat__form .eve-input {
+  flex: 1;
+}
+
+/* --- notas ----------------------------------------------------------------- */
+
+.eve-notes__textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  resize: none;
+  font-family: var(--font-body);
+  line-height: 1.5;
+}
+
+.eve-notes__text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+/* --- calculadora --------------------------------------------------------- */
+
+.eve-calc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.eve-calc__display {
+  padding: 14px;
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-calc__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.eve-calc__btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.eve-calc__btn:hover {
+  filter: brightness(1.08);
+}
+
+.eve-calc__btn--op {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.eve-calc__btn--equals {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.eve-calc__btn--wide {
+  grid-column: span 2;
 }
 
 /* --- tabela do widget -------------------------------------------------- */
@@ -736,6 +1158,19 @@
   cursor: default;
 }
 
+/* Densidade compacta: cabe mais widget na tela, cabecalho/corpo mais enxutos. */
+.eve-grid-container.is-compact .eve-widget__header {
+  padding: 6px 10px;
+}
+
+.eve-grid-container.is-compact .eve-widget__body {
+  padding: 8px;
+}
+
+.eve-grid-container.is-compact .eve-widget__footer {
+  padding: 4px 10px;
+}
+
 /* Espaco para o dock nao cobrir o ultimo widget. */
 .eve-main {
   padding-bottom: 96px;
@@ -864,6 +1299,30 @@
 
 .eve-setup .eve-alert {
   margin-bottom: 12px;
+}
+
+/* --- configuracoes da dashboard (painel da engrenagem) ------------------ */
+
+.eve-settings {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.eve-settings__section {
+  margin-bottom: 18px;
+}
+
+.eve-settings__section:last-of-type {
+  margin-bottom: 14px;
+}
+
+.eve-settings__section-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
 }
 
 /* --- aviso de desfazer -------------------------------------------------- */

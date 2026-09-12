@@ -39,6 +39,23 @@ export const strings = {
     connecting: 'Conectando...',
     back: 'Voltar',
     ownerOnly: 'So um owner pode conectar esta integracao.',
+    settingsTitle: 'Configuracoes da dashboard',
+  },
+
+  dashboardSettings: {
+    backgroundTitle: 'Fundo',
+    backgroundImage: 'URL da imagem de fundo',
+    backgroundImageHint: 'Cole o link de uma imagem. Deixe em branco para nao usar nenhuma.',
+    backgroundColor: 'Cor de fundo',
+    backgroundColorHint: 'Usada por baixo da imagem (ou sozinha, se nao houver imagem). Ex.: #1a1a1a.',
+    layoutTitle: 'Layout',
+    density: 'Densidade do grid',
+    densityComfortable: 'Confortavel',
+    densityCompact: 'Compacta',
+    behaviorTitle: 'Comportamento',
+    liveUpdates: 'Atualizar automaticamente',
+    liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, so atualiza no "sincronizar agora".',
+    reset: 'Restaurar padrao',
   },
 
   notion: {
@@ -89,8 +106,11 @@ export const strings = {
     password: 'Senha inicial (opcional)',
     passwordHint: 'Deixe em branco se a pessoa vai entrar so pelo Google. Ela pode trocar depois no proprio perfil.',
     makeOwner: 'Dar acesso de admin (owner)',
+    makeSocialMedia: 'Marcar como Social Media',
+    removeSocialMedia: 'Remover tag Social Media',
     owner: 'admin',
     member: 'membro',
+    socialMedia: 'Social Media',
     you: 'voce',
     hasPassword: 'senha definida',
     googleOnly: 'so Google',
@@ -112,10 +132,17 @@ export const strings = {
   },
 
   nav: {
-    dashboard: 'Dashboard',
     automations: 'Automações',
     financial: 'Financeiro',
     team: 'Equipe',
+    scheduling: 'Agenda',
+    tables: 'Tabelas',
+  },
+
+  rail: {
+    navLabel: 'Navegação secundária',
+    expand: 'Expandir menu',
+    collapse: 'Recolher menu',
   },
 
   automations: {
@@ -185,8 +212,18 @@ export const strings = {
   errors: {
     notOwner: 'Apenas um owner do workspace pode gerenciar credenciais de connector.',
     notOwnerTeam: 'Apenas um owner do workspace pode gerenciar a equipe.',
+    notAllowedScheduling: 'Voce nao tem acesso a agenda.',
     unauthorized: 'Sessao expirada. Entre novamente.',
     notFound: 'Nao encontrado.',
     invalidPayload: 'Requisicao invalida.',
+  },
+
+  chat: {
+    placeholder: 'Escreva uma mensagem...',
+    send: 'Enviar',
+    sending: 'Enviando...',
+    empty: 'Converse com o Claude. Sem acesso a ferramentas ou dados do dashboard ainda.',
+    clear: 'Limpar conversa',
+    notConfigured: 'ANTHROPIC_API_KEY nao configurada. Adicione a chave no .env para usar o chat.',
   },
 } as const;

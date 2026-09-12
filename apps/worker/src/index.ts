@@ -1,16 +1,24 @@
 import './load-env';
 // Registering connectors must happen before any job runs.
+import '@eve/connector-calculator';
+import '@eve/connector-calendar';
+import '@eve/connector-chat';
 import '@eve/connector-demo';
+import '@eve/connector-meta';
+import '@eve/connector-notes';
 import '@eve/connector-notion';
 
 import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';
 import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
+import { processDuePosts } from './scheduling';
 
 // BullMQ 6 rejects ':' in queue names (it is their key separator).
 const SYNC_QUEUE = 'eve-sync';
 const PRUNE_JOB = 'prune-snapshots';
+const SCHEDULING_JOB = 'scheduling-tick';
+const SCHEDULING_INTERVAL_MS = 60_000;
 
 interface SyncJobData {
   instanceId: string;
@@ -59,6 +67,12 @@ async function scheduleAll(): Promise<void> {
     { name: PRUNE_JOB, data: { instanceId: PRUNE_JOB }, opts: { removeOnComplete: { count: 5 } } },
   );
 
+  await queue.upsertJobScheduler(
+    SCHEDULING_JOB,
+    { every: SCHEDULING_INTERVAL_MS },
+    { name: SCHEDULING_JOB, data: { instanceId: SCHEDULING_JOB }, opts: { removeOnComplete: { count: 20 } } },
+  );
+
   console.log(`[worker] ${instances.length} instancia(s) agendada(s) a cada ${env.SYNC_INTERVAL_MS / 1000}s`);
 }
 
@@ -68,6 +82,14 @@ const worker = new Worker<SyncJobData>(
     if (job.name === PRUNE_JOB) {
       const removed = await pruneSnapshots(env.SNAPSHOT_RETENTION_DAYS);
       console.log(`[worker] retencao: ${removed} snapshot(s) removido(s)`);
+      return;
+    }
+
+    if (job.name === SCHEDULING_JOB) {
+      const { instagram, facebook } = await processDuePosts();
+      if (instagram || facebook) {
+        console.log(`[worker] agenda: ${instagram} post(s) do Instagram, ${facebook} do Facebook processados`);
+      }
       return;
     }
 

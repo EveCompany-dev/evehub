@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 
 const patchSchema = z.object({
   isOwner: z.boolean().optional(),
+  isSocialMedia: z.boolean().optional(),
   disabled: z.boolean().optional(),
 });
 
@@ -51,6 +52,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       data.isOwner = body.data.isOwner;
     }
 
+    if (body.data.isSocialMedia !== undefined) {
+      // Tag simples, sem trava de "ultimo owner" — nada fica inacessivel por
+      // desligar isto de alguem.
+      data.isSocialMedia = body.data.isSocialMedia;
+    }
+
     if (body.data.disabled !== undefined) {
       const guard = validateDisable({
         actorId: actor.id,
@@ -68,7 +75,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const updated = await prisma.user.update({
       where: { id },
       data,
-      select: { id: true, name: true, email: true, image: true, isOwner: true, disabledAt: true },
+      select: { id: true, name: true, email: true, image: true, isOwner: true, isSocialMedia: true, disabledAt: true },
     });
 
     return ok({ user: { ...updated, disabled: updated.disabledAt !== null } });

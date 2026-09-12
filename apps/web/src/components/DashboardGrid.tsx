@@ -9,6 +9,11 @@ import { getWidget } from '../widgets/registry';
 /** Below this width a 12-column grid stops being usable, so widgets stack. */
 const NARROW_BREAKPOINT = 720;
 
+const GRID_SPACING: Record<DashboardConfig['density'], { rowHeight: number; margin: [number, number] }> = {
+  comfortable: { rowHeight: 40, margin: [16, 16] },
+  compact: { rowHeight: 28, margin: [8, 8] },
+};
+
 export interface InstanceSummary {
   id: string;
   connectorId: string;
@@ -68,8 +73,17 @@ export function DashboardGrid({
     );
   }
 
+  const spacing = GRID_SPACING[config.density];
+  const containerClassName = [
+    'eve-grid-container',
+    config.locked ? 'is-locked' : null,
+    config.density === 'compact' ? 'is-compact' : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div ref={containerRef} className={config.locked ? 'eve-grid-container is-locked' : 'eve-grid-container'}>
+    <div ref={containerRef} className={containerClassName}>
       {!mounted ? (
         <div className="eve-dim">carregando layout...</div>
       ) : width < NARROW_BREAKPOINT ? (
@@ -86,7 +100,7 @@ export function DashboardGrid({
         <GridLayout
           width={width}
           layout={visible}
-          gridConfig={{ cols: 12, rowHeight: 40, margin: [16, 16], containerPadding: [0, 0] }}
+          gridConfig={{ cols: 12, rowHeight: spacing.rowHeight, margin: spacing.margin, containerPadding: [0, 0] }}
           // The widget header is the drag handle; buttons inside it opt out
           // through .eve-no-drag so a menu click is never read as a drag.
           dragConfig={{ enabled: !config.locked, handle: '.eve-widget__header', cancel: '.eve-no-drag' }}

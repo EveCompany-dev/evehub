@@ -3,7 +3,7 @@ import { strings } from '@eve/ui';
 import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import type { JSX, ReactNode } from 'react';
-import { TopNav } from '../components/TopNav';
+import { SideRail } from '../components/SideRail';
 import { getSessionUser } from '../lib/session';
 
 import '@eve/ui/tokens.css';
@@ -24,30 +24,31 @@ export const metadata: Metadata = {
 interface LayoutSession {
   theme: 'dark' | 'light' | null;
   isOwner: boolean | null;
+  isSocialMedia: boolean;
 }
 
 /**
- * Resolves the theme and owner flag on the server from the session, so the
- * page paints correctly on first frame (no localStorage, no flash of the
- * wrong theme) and the nav can gate owner-only tabs without a second round
+ * Resolves the theme and owner/social-media flags on the server from the
+ * session, so the page paints correctly on first frame (no localStorage, no
+ * flash of the wrong theme) and the nav can gate tabs without a second round
  * trip. `isOwner: null` means no session — the nav renders nothing then.
  */
 async function resolveSession(): Promise<LayoutSession> {
   const user = await getSessionUser();
-  if (!user) return { theme: null, isOwner: null };
+  if (!user) return { theme: null, isOwner: null, isSocialMedia: false };
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { dashboardConfig: true, isOwner: true },
+    select: { dashboardConfig: true, isOwner: true, isSocialMedia: true },
   });
-  if (!row) return { theme: null, isOwner: null };
+  if (!row) return { theme: null, isOwner: null, isSocialMedia: false };
 
   const theme = parseDashboardConfig(row.dashboardConfig).theme;
-  return { theme: theme === 'system' ? null : theme, isOwner: row.isOwner };
+  return { theme: theme === 'system' ? null : theme, isOwner: row.isOwner, isSocialMedia: row.isSocialMedia };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<JSX.Element> {
-  const { theme, isOwner } = await resolveSession();
+  const { theme, isOwner, isSocialMedia } = await resolveSession();
 
   return (
     // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
@@ -61,8 +62,8 @@ export default async function RootLayout({ children }: { children: ReactNode }):
       suppressHydrationWarning
     >
       <body>
-        {isOwner !== null && <TopNav isOwner={isOwner} />}
         {children}
+        {isOwner !== null && <SideRail isOwner={isOwner} isSocialMedia={isSocialMedia} />}
       </body>
     </html>
   );

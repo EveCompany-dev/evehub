@@ -153,7 +153,16 @@ export const authConfig: NextAuthConfig = {
 
       const user = await prisma.user.findUnique({
         where: { id: token.sub },
-        select: { id: true, email: true, name: true, image: true, isOwner: true, workspaceId: true, disabledAt: true },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          image: true,
+          isOwner: true,
+          isSocialMedia: true,
+          workspaceId: true,
+          disabledAt: true,
+        },
       });
 
       // Conta desativada perde a sessao ja aberta na proxima requisicao, sem
@@ -167,6 +176,7 @@ export const authConfig: NextAuthConfig = {
         name: user.name,
         image: user.image,
         isOwner: user.isOwner,
+        isSocialMedia: user.isSocialMedia,
         workspaceId: user.workspaceId,
       };
 

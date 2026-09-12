@@ -4,6 +4,11 @@ export interface PermissionSubject {
   isOwner: boolean;
 }
 
+export interface SocialMediaSubject {
+  isOwner: boolean;
+  isSocialMedia: boolean;
+}
+
 /**
  * The product's entire authorization model, in one place.
  *
@@ -39,6 +44,11 @@ export function canManageTeam(user: PermissionSubject): boolean {
 /** Dado financeiro e mais sensivel que o resto da dashboard: owner-only por padrao. */
 export function canViewFinancial(user: PermissionSubject): boolean {
   return user.isOwner;
+}
+
+/** Agenda de posts: quem tem a tag de Social Media, e owner sempre ve tudo. */
+export function canViewScheduling(user: SocialMediaSubject): boolean {
+  return user.isOwner || user.isSocialMedia;
 }
 
 export interface GuardResult {

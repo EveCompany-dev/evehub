@@ -1,0 +1,117 @@
+import { loadConnectorContext, prisma } from '@eve/core';
+import { deleteFacebookPost, scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
+import { strings } from '@eve/ui';
+import { z } from 'zod';
+import { fail, handle, ok } from '../../../../../lib/api';
+import { canViewScheduling } from '../../../../../lib/permissions';
+import { HttpError, requireUser } from '../../../../../lib/session';
+
+export const runtime = 'nodejs';
+
+const patchSchema = z.object({
+  caption: z.string().max(2200).optional(),
+  mediaUrl: z.string().url().optional(),
+  scheduledFor: z.string().datetime().optional(),
+  client: z.object({ source: z.enum(['local', 'notion']), id: z.string().min(1), label: z.string().min(1) }).optional(),
+});
+
+async function requirePost(id: string, workspaceId: string) {
+  const post = await prisma.scheduledPost.findUnique({ where: { id }, include: { connectorInstance: true } });
+  if (!post || post.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
+  return post;
+}
+
+/**
+ * Only while a post hasn't gone live. Facebook has already submitted to Meta
+ * by this point (native scheduling), so an edit there means delete-and-
+ * resubmit under the hood, not an in-place patch — Meta doesn't support
+ * changing every field of an already-scheduled post at will.
+ */
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!canViewScheduling(user)) throw new HttpError(403, strings.errors.notAllowedScheduling);
+
+    const { id } = await context.params;
+    const post = await requirePost(id, user.workspaceId);
+
+    if (post.status !== 'draft' && post.status !== 'scheduled') {
+      return fail(409, 'So da para editar enquanto o post ainda nao foi publicado.');
+    }
+
+    const body = patchSchema.safeParse(await request.json());
+    if (!body.success) return fail(400, strings.errors.invalidPayload);
+
+    const caption = body.data.caption ?? post.caption;
+    const mediaUrl = body.data.mediaUrl ?? post.mediaUrl;
+    const scheduledFor = body.data.scheduledFor ? new Date(body.data.scheduledFor) : post.scheduledFor;
+    const clientFields = body.data.client
+      ? {
+          clientSource: body.data.client.source,
+          clientId: body.data.client.source === 'local' ? body.data.client.id : null,
+          clientRemoteId: body.data.client.source === 'notion' ? body.data.client.id : null,
+          clientLabel: body.data.client.label,
+        }
+      : {};
+
+    let metaPostId = post.metaPostId;
+
+    if (post.platform === 'facebook' && post.metaPostId) {
+      let config: MetaConfig;
+      let credentials: MetaCredentials;
+      try {
+        const loaded = loadConnectorContext(post.connectorInstance);
+        config = loaded.ctx.config as MetaConfig;
+        credentials = loaded.ctx.credentials as MetaCredentials;
+      } catch (error) {
+        return fail(400, error instanceof Error ? error.message : String(error));
+      }
+
+      try {
+        await deleteFacebookPost(credentials.pageAccessToken, post.metaPostId);
+        const rescheduled = await scheduleFacebookPost(
+          credentials.pageAccessToken,
+          config.pageId,
+          mediaUrl,
+          caption,
+          Math.floor(scheduledFor.getTime() / 1000),
+        );
+        metaPostId = rescheduled.postId;
+      } catch (error) {
+        return fail(502, error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    const updated = await prisma.scheduledPost.update({
+      where: { id },
+      data: { caption, mediaUrl, scheduledFor, metaPostId, ...clientFields },
+    });
+
+    return ok({ post: updated });
+  });
+}
+
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!canViewScheduling(user)) throw new HttpError(403, strings.errors.notAllowedScheduling);
+
+    const { id } = await context.params;
+    const post = await requirePost(id, user.workspaceId);
+
+    if (post.platform === 'facebook' && post.metaPostId && post.status === 'scheduled') {
+      try {
+        const loaded = loadConnectorContext(post.connectorInstance);
+        const credentials = loaded.ctx.credentials as MetaCredentials;
+        await deleteFacebookPost(credentials.pageAccessToken, post.metaPostId);
+      } catch (error) {
+        // The Meta-side cancel failing must not block removing our own row —
+        // worst case the post still goes live and this record is just gone.
+        console.error('[scheduling] falha ao cancelar post no Meta:', error);
+      }
+    }
+
+    await prisma.scheduledPost.delete({ where: { id } });
+    return ok({ ok: true });
+  });
+}
