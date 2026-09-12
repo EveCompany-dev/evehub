@@ -9,6 +9,17 @@ export const widgetLayoutSchema = z.object({
   h: z.number().int().min(1).max(40),
 });
 
+/**
+ * How a widget's synced data renders, chosen by the user from the widget's
+ * own menu — not by editing any widget component. `fields: null` means "show
+ * every field the connector/auto-detection reports" (up to the view's own
+ * cap); an explicit array is both the subset AND the display order.
+ */
+export const viewConfigSchema = z.object({
+  kind: z.enum(['table', 'stat-cards']).default('table'),
+  fields: z.array(z.string()).nullable().default(null),
+});
+
 export const widgetSettingsSchema = z.object({
   /** Overrides the connector's own label for this user only. */
   title: z.string().optional(),
@@ -19,6 +30,8 @@ export const widgetSettingsSchema = z.object({
    * is the expensive version of this change.
    */
   clientOverride: z.string().nullable().default(null),
+  /** null = the widget's own default view (today: a plain table). */
+  viewConfig: viewConfigSchema.nullable().default(null),
 });
 
 export const dashboardConfigSchema = z.object({
@@ -31,6 +44,7 @@ export const dashboardConfigSchema = z.object({
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
+export type ViewConfig = z.infer<typeof viewConfigSchema>;
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 
@@ -63,7 +77,7 @@ export function appendWidget(
   return {
     ...config,
     layout: [...config.layout, { i: instanceId, x: 0, y: nextY, w: size.w, h: size.h }],
-    widgets: { ...config.widgets, [instanceId]: { clientOverride: null } },
+    widgets: { ...config.widgets, [instanceId]: { clientOverride: null, viewConfig: null } },
   };
 }
 
@@ -71,4 +85,10 @@ export function removeWidget(config: DashboardConfig, instanceId: string): Dashb
   const widgets = { ...config.widgets };
   delete widgets[instanceId];
   return { ...config, layout: config.layout.filter((item) => item.i !== instanceId), widgets };
+}
+
+/** Updates one widget's view (which fields show, table vs. stat-cards), leaving everything else untouched. */
+export function setViewConfig(config: DashboardConfig, instanceId: string, viewConfig: ViewConfig): DashboardConfig {
+  const existing = config.widgets[instanceId] ?? { clientOverride: null, viewConfig: null };
+  return { ...config, widgets: { ...config.widgets, [instanceId]: { ...existing, viewConfig } } };
 }

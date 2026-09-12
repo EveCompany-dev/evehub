@@ -1,6 +1,13 @@
 'use client';
 
-import { appendWidget, removeWidget, type DashboardConfig, type WidgetLayout } from '@eve/core/dashboard';
+import {
+  appendWidget,
+  removeWidget,
+  setViewConfig,
+  type DashboardConfig,
+  type ViewConfig,
+  type WidgetLayout,
+} from '@eve/core/dashboard';
 import { EveBrandLockup, strings } from '@eve/ui';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
@@ -119,6 +126,17 @@ export function DashboardShell({
     [scheduleSave],
   );
 
+  const handleViewConfigChange = useCallback(
+    (instanceId: string, viewConfig: ViewConfig) => {
+      setConfig((current) => {
+        const next = setViewConfig(current, instanceId, viewConfig);
+        scheduleSave(next);
+        return next;
+      });
+    },
+    [scheduleSave],
+  );
+
   const addWidget = useCallback(
     async (connector: AvailableConnector) => {
       const existing = instances.find((instance) => instance.connectorId === connector.id);
@@ -223,6 +241,7 @@ export function DashboardShell({
             instances={instances}
             onLayoutChange={handleLayoutChange}
             onRemove={handleRemove}
+            onViewConfigChange={handleViewConfigChange}
           />
         </main>
 

@@ -1,4 +1,4 @@
-import type { EveConnector, RemoteRecord, SyncResult, WritePatch, WriteResult } from '@eve/connector-sdk';
+import type { EveConnector, FieldSchema, RemoteRecord, SyncResult, WritePatch, WriteResult } from '@eve/connector-sdk';
 import { registerConnector } from '@eve/connector-sdk';
 import { z } from 'zod';
 import { DEMO_STATUSES, EDITABLE_FIELDS } from './shared';
@@ -107,6 +107,17 @@ export const demoConnector: EveConnector<DemoConfig> = registerConnector<DemoCon
   defaultSize: { w: 7, h: 8, minW: 4, minH: 5 },
   configSchema,
   defaultConfig: { clientCount: 6, seed: 'evecompany' },
+
+  describeFields(): FieldSchema[] {
+    return [
+      { key: 'client', label: 'Cliente', type: 'text', writable: false },
+      { key: 'status', label: 'Status', type: 'select', writable: true, options: [...DEMO_STATUSES] },
+      { key: 'owner', label: 'Responsavel', type: 'text', writable: true },
+      { key: 'notes', label: 'Obs.', type: 'text', writable: true },
+      { key: 'spend', label: 'Invest.', type: 'number', writable: false },
+      { key: 'leads', label: 'Leads', type: 'number', writable: false },
+    ];
+  },
 
   async sync(ctx): Promise<SyncResult> {
     const records = await ensureSeeded(ctx.instanceId, ctx.config);

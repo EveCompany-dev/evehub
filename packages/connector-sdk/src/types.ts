@@ -52,6 +52,26 @@ export type WriteResult =
   /** Anything else: network, auth, validation. */
   | { ok: false; conflict?: false; error: string };
 
+/**
+ * A generic column/field description, independent of any one connector's
+ * internal schema shape (Notion's `NotionPropertySchema`, or whatever the
+ * next connector invents). `key` matches a key in a `RemoteRecord.data` map.
+ *
+ * This is what makes the widget rendering layer config-driven: a view picks a
+ * subset/order of these to show, without any widget component knowing the
+ * connector's own types.
+ */
+export type FieldType = 'text' | 'number' | 'boolean' | 'date' | 'select';
+
+export interface FieldSchema {
+  key: string;
+  label: string;
+  type: FieldType;
+  writable: boolean;
+  /** For 'select': the allowed values, rendered as a dropdown instead of free text. */
+  options?: string[];
+}
+
 export interface ConnectorContext<Config, Credentials> {
   instanceId: string;
   config: Config;
@@ -86,6 +106,14 @@ export interface EveConnector<Config = unknown, Credentials = undefined> {
   credentialsSchema?: ZodType<Credentials>;
 
   sync(ctx: ConnectorContext<Config, Credentials>): Promise<SyncResult>;
+
+  /**
+   * Declares the columns a generic widget should render, derived from the raw
+   * snapshot payload (`SyncResult.data`). Optional: a connector that skips this
+   * still renders through the generic table view, via `autoDetectFields`
+   * inferring columns from the first synced record instead.
+   */
+  describeFields?(snapshotData: unknown): FieldSchema[];
 
   /** Required when `capabilities.write` is true. */
   write?(ctx: ConnectorContext<Config, Credentials>, patch: WritePatch): Promise<WriteResult>;

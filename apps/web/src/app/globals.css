@@ -8,6 +8,38 @@
   color: var(--text-dim);
 }
 
+/* --- top nav ------------------------------------------------------------ */
+
+.eve-topnav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px var(--space-gutter);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  overflow-x: auto;
+}
+
+.eve-topnav__item {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  color: var(--text-dim);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.eve-topnav__item:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.eve-topnav__item.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
 /* --- header ----------------------------------------------------------- */
 
 .eve-header {
@@ -190,6 +222,60 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-dim);
+}
+
+.eve-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.eve-card--stat {
+  display: flex;
+  gap: 14px;
+  padding: 10px 14px;
+}
+
+/* --- config de visualizacao --------------------------------------------- */
+
+.eve-viewconfig {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-viewconfig__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-viewconfig__fields {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-viewconfig__field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.eve-viewconfig__field label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.eve-viewconfig__order {
+  display: inline-flex;
+  gap: 2px;
 }
 
 /* --- alertas ---------------------------------------------------------- */

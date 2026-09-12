@@ -36,6 +36,11 @@ export function canManageTeam(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
+/** Dado financeiro e mais sensivel que o resto da dashboard: owner-only por padrao. */
+export function canViewFinancial(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
 export interface GuardResult {
   ok: boolean;
   reason?: string;

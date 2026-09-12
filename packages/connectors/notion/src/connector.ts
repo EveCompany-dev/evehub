@@ -1,4 +1,4 @@
-import type { EveConnector, RemoteRecord, SyncResult, WritePatch, WriteResult } from '@eve/connector-sdk';
+import type { EveConnector, FieldSchema, FieldType, RemoteRecord, SyncResult, WritePatch, WriteResult } from '@eve/connector-sdk';
 import { registerConnector } from '@eve/connector-sdk';
 import { z } from 'zod';
 import { notionRequest, resolveDataSource, NotionError } from './notion-client';
@@ -49,6 +49,15 @@ interface DataSourceResponse {
   properties?: Record<string, { type: string; select?: { options?: { name: string }[] }; status?: { options?: { name: string }[] } }>;
 }
 
+/** Maps Notion's property types down to the SDK's generic field types. */
+function toFieldType(notionType: string): FieldType {
+  if (notionType === 'number') return 'number';
+  if (notionType === 'checkbox') return 'boolean';
+  if (notionType === 'date' || notionType === 'created_time' || notionType === 'last_edited_time') return 'date';
+  if (notionType === 'select' || notionType === 'status') return 'select';
+  return 'text';
+}
+
 function toRecord(page: NotionPage): RemoteRecord {
   return {
     remoteId: page.id,
@@ -87,6 +96,24 @@ export const notionConnector: EveConnector<NotionConfig, NotionCredentials> = re
   configSchema,
   credentialsSchema,
   defaultConfig: { databaseId: '', visibleProperties: [] },
+
+  describeFields(snapshotData: unknown): FieldSchema[] {
+    const snapshot = snapshotData as NotionSnapshot | null;
+    if (!snapshot || !Array.isArray(snapshot.properties)) return [];
+
+    // Title first: it's the name of the row for anyone reading the table, and
+    // this is the order a fresh widget (no viewConfig saved yet) renders in.
+    return snapshot.properties
+      .slice()
+      .sort((a, b) => (a.type === 'title' ? -1 : b.type === 'title' ? 1 : 0))
+      .map((property) => ({
+        key: property.name,
+        label: property.name,
+        type: toFieldType(property.type),
+        writable: property.writable,
+        ...(property.options ? { options: property.options } : {}),
+      }));
+  },
 
   async sync(ctx): Promise<SyncResult> {
     try {

@@ -1,3 +1,4 @@
+import { autoDetectFields, type RemoteRecord } from '@eve/connector-sdk';
 import { listUndoableEdits, prisma } from '@eve/core';
 import { requireConnector } from '../../../../../connectors';
 import { handle, ok } from '../../../../../lib/api';
@@ -27,6 +28,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       listUndoableEdits(instance.id),
     ]);
 
+    // Generic field schema for the widget rendering layer: a connector that
+    // declares describeFields() gets exact columns/types; one that doesn't
+    // still renders through the generic engine via auto-detection.
+    const fields = connector.describeFields
+      ? connector.describeFields(snapshot?.data ?? null)
+      : autoDetectFields(records as RemoteRecord[]);
+
     return ok({
       instance: {
         id: instance.id,
@@ -39,6 +47,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       },
       snapshot: snapshot ? { data: snapshot.data, syncedAt: snapshot.syncedAt.toISOString() } : null,
       records,
+      fields,
       undoableEdits,
     });
   });

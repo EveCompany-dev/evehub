@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { ComponentType, JSX } from 'react';
+import type { ComponentType } from 'react';
 import type { WidgetProps } from './types';
 
 /**
@@ -25,21 +25,20 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
   }),
 };
 
-export function getWidget(connectorId: string): ComponentType<WidgetProps> | null {
-  return widgets[connectorId] ?? null;
-}
+const genericWidget: ComponentType<WidgetProps> = dynamic(
+  () => import('./GenericConnectorWidget').then((mod) => mod.GenericConnectorWidget),
+  {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  },
+);
 
-export function UnknownWidget({ connectorId }: { connectorId: string }): JSX.Element {
-  return (
-    <div className="eve-widget">
-      <div className="eve-widget__body">
-        <p>
-          Nenhuma interface registrada para o connector <strong>{connectorId}</strong>.
-        </p>
-        <p className="eve-dim">
-          O dado continua sincronizando normalmente — falta apenas o widget. Ver apps/web/src/widgets/registry.tsx.
-        </p>
-      </div>
-    </div>
-  );
+/**
+ * Any connector id without a bespoke entry above renders through the generic
+ * config-driven engine instead of a dead-end "no widget registered" message —
+ * this is what lets a future connector (Meta Ads, Google Ads) ship with just
+ * `sync()`/`describeFields()` and no new widget file.
+ */
+export function getWidget(connectorId: string): ComponentType<WidgetProps> {
+  return widgets[connectorId] ?? genericWidget;
 }

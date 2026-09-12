@@ -1,5 +1,6 @@
 'use client';
 
+import type { FieldSchema } from '@eve/connector-sdk';
 import type { ConnectorStatusValue } from '@eve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnectorEvents } from '../components/EventStreamProvider';
@@ -33,6 +34,7 @@ export interface WidgetData {
   };
   snapshot: { data: unknown; syncedAt: string } | null;
   records: WidgetRecord[];
+  fields: FieldSchema[];
   undoableEdits: WidgetUndoableEdit[];
 }
 

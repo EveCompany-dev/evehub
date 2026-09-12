@@ -1,7 +1,6 @@
 'use client';
 
-import type { NotionSnapshot } from '@eve/connector-notion/shared';
-import { strings, UndoBanner, WidgetShell } from '@eve/ui';
+import { strings, WidgetShell } from '@eve/ui';
 import { useState, type JSX } from 'react';
 import type { WidgetProps } from './types';
 import { useWidgetData } from './useWidgetData';
@@ -11,23 +10,21 @@ import { useCellEditing } from './view/useCellEditing';
 import { ViewConfigMenu } from './view/ViewConfigMenu';
 import { resolveFields } from './view/resolve-fields';
 
-function snapshotOf(data: unknown): NotionSnapshot | null {
-  if (!data || typeof data !== 'object') return null;
-  const snapshot = data as NotionSnapshot;
-  return Array.isArray(snapshot.properties) ? snapshot : null;
-}
-
-export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
+/**
+ * The fallback rendering for any connector without its own widget file.
+ *
+ * A future connector (Meta Ads, Google Ads) that implements `sync()` and
+ * ideally `describeFields()` renders through here immediately — no new
+ * `XyzWidget.tsx` required, no viewer/registry.tsx entry needed either.
+ */
+export function GenericConnectorWidget({ instanceId, title, onRemove, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
   const [showViewConfig, setShowViewConfig] = useState(false);
 
-  const snapshot = snapshotOf(data?.snapshot?.data);
   const canWrite = Boolean(data?.instance.capabilities.write);
   const allFields = data?.fields ?? [];
   const fields = resolveFields(allFields, viewConfig);
-
-  const lastEdit = data?.undoableEdits[0];
   const kind = viewConfig?.kind ?? 'table';
 
   return (
@@ -41,11 +38,10 @@ export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewCo
       onToggleEdit={editing.toggleEdit}
       actions={[
         { label: strings.view.configure, onSelect: () => setShowViewConfig((value) => !value) },
-        ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void editing.undo(lastEdit.id) }] : []),
         { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
         { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
       ]}
-      footerExtra={snapshot ? snapshot.rowCount + ' linhas' : null}
+      footerExtra={data ? data.records.length + ' registros' : null}
     >
       {showViewConfig && (
         <ViewConfigMenu
@@ -84,17 +80,6 @@ export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewCo
         </div>
       )}
 
-      {/* O erro do connector (token, compartilhamento) e mais util que qualquer
-          mensagem generica nossa, entao ele aparece inteiro. */}
-      {data?.instance.status === 'error' && data.instance.statusMessage && (
-        <div className="eve-alert eve-alert--error">
-          <span>{data.instance.statusMessage}</span>
-          <button type="button" className="eve-btn eve-no-drag" onClick={() => void syncNow()}>
-            {strings.widget.retry}
-          </button>
-        </div>
-      )}
-
       {editing.conflict && (
         <div className="eve-alert eve-alert--error">
           <span>{editing.conflict}</span>
@@ -105,18 +90,6 @@ export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewCo
       )}
 
       {editing.notice && <div className="eve-alert">{editing.notice}</div>}
-
-      {lastEdit && !editing.editing && (
-        <UndoBanner
-          editId={lastEdit.id}
-          field={lastEdit.field}
-          newValue={String(lastEdit.newValue ?? '')}
-          userName={lastEdit.userName}
-          onUndo={() => void editing.undo(lastEdit.id)}
-        />
-      )}
-
-      {snapshot?.truncated && <div className="eve-alert">{strings.notion.truncated}</div>}
 
       {kind === 'stat-cards' ? (
         <StatCardsView fields={fields} records={data?.records ?? []} />

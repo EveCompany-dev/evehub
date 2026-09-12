@@ -1,10 +1,10 @@
 'use client';
 
-import type { DashboardConfig, WidgetLayout } from '@eve/core/dashboard';
+import type { DashboardConfig, ViewConfig, WidgetLayout } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
 import type { JSX } from 'react';
 import GridLayout, { useContainerWidth, type Layout } from 'react-grid-layout';
-import { getWidget, UnknownWidget } from '../widgets/registry';
+import { getWidget } from '../widgets/registry';
 
 /** Below this width a 12-column grid stops being usable, so widgets stack. */
 const NARROW_BREAKPOINT = 720;
@@ -20,11 +20,18 @@ export interface DashboardGridProps {
   instances: InstanceSummary[];
   onLayoutChange: (layout: WidgetLayout[]) => void;
   onRemove: (instanceId: string) => void;
+  onViewConfigChange: (instanceId: string, next: ViewConfig) => void;
 }
 
 /** Quando travado, o grid vira layout fixo: nem arrastar, nem redimensionar. */
 
-export function DashboardGrid({ config, instances, onLayoutChange, onRemove }: DashboardGridProps): JSX.Element {
+export function DashboardGrid({
+  config,
+  instances,
+  onLayoutChange,
+  onRemove,
+  onViewConfigChange,
+}: DashboardGridProps): JSX.Element {
   const { width, containerRef, mounted } = useContainerWidth();
 
   const byId = new Map(instances.map((instance) => [instance.id, instance]));
@@ -41,10 +48,14 @@ export function DashboardGrid({ config, instances, onLayoutChange, onRemove }: D
     const title = settings?.title ?? instance.label;
     const Widget = getWidget(instance.connectorId);
 
-    return Widget ? (
-      <Widget instanceId={instance.id} title={title} onRemove={() => onRemove(instance.id)} />
-    ) : (
-      <UnknownWidget connectorId={instance.connectorId} />
+    return (
+      <Widget
+        instanceId={instance.id}
+        title={title}
+        onRemove={() => onRemove(instance.id)}
+        viewConfig={settings?.viewConfig ?? null}
+        onViewConfigChange={(next) => onViewConfigChange(instance.id, next)}
+      />
     );
   };
 

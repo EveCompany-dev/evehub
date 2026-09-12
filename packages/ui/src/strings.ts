@@ -111,6 +111,25 @@ export const strings = {
     layoutSaved: 'Layout salvo',
   },
 
+  nav: {
+    dashboard: 'Dashboard',
+    automations: 'Automações',
+    financial: 'Financeiro',
+    team: 'Equipe',
+  },
+
+  automations: {
+    title: 'Automações',
+    empty: 'Nenhuma automação registrada ainda.',
+    emptyHint: 'O log de execuções do n8n vai aparecer aqui assim que o webhook estiver conectado.',
+  },
+
+  financial: {
+    title: 'Financeiro',
+    empty: 'Nenhum dado financeiro conectado ainda.',
+    emptyHint: 'Essa aba vai mostrar status de pagamento por cliente quando a integração for definida.',
+  },
+
   widget: {
     updatedAgo: (relative: string) => `atualizado ${relative}`,
     neverSynced: 'nunca sincronizado',
@@ -142,6 +161,15 @@ export const strings = {
     pendingChanges: 'Alteracoes nao salvas.',
     dismiss: 'Fechar aviso',
     undoLast: 'Desfazer ultima edicao',
+  },
+
+  view: {
+    configure: 'Personalizar visualização',
+    kindTable: 'Tabela',
+    kindStatCards: 'Cartões',
+    fieldsTitle: 'Campos visíveis',
+    close: 'Fechar',
+    reset: 'Mostrar todos',
   },
 
   palette: {
