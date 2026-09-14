@@ -109,8 +109,8 @@ export async function createInstagramStoryContainer(
   return { creationId: response.id };
 }
 
-const POLL_ATTEMPTS = 6;
-const POLL_DELAY_MS = 2_000;
+const POLL_ATTEMPTS = 12;
+const POLL_DELAY_MS = 5_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -118,8 +118,15 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Container creation is asynchronous by contract even for images. Polls
- * `status_code` a handful of times before giving up with a clear error,
- * rather than calling `media_publish` on a container that isn't ready.
+ * `status_code` until the container is ready, rather than calling
+ * `media_publish` on one that isn't.
+ *
+ * The budget (12 × 5s ≈ 55s of waiting) is deliberately under the worker's
+ * 60s SCHEDULING_INTERVAL_MS: a large image routinely takes longer than a
+ * couple of seconds, and the old 6 × 2s ≈ 12s budget failed those posts for
+ * being slow rather than broken. Re-entrancy is safe either way — the row is
+ * flipped to `publishing` before we get here and the due-post query only
+ * picks up `scheduled` ones.
  */
 export async function pollInstagramContainerReady(token: string, creationId: string): Promise<void> {
   for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
@@ -127,12 +134,18 @@ export async function pollInstagramContainerReady(token: string, creationId: str
       params: { fields: 'status_code' },
     });
 
-    if (response.status_code === 'FINISHED') return;
+    // PUBLISHED means a previous run already got it live — treat it as done
+    // instead of falling through to a second media_publish call.
+    if (response.status_code === 'FINISHED' || response.status_code === 'PUBLISHED') return;
     if (response.status_code === 'ERROR') {
       throw new MetaGraphError('O Instagram rejeitou o processamento da midia.', 422);
     }
+    if (response.status_code === 'EXPIRED') {
+      throw new MetaGraphError('O container do Instagram expirou antes de ser publicado.', 410);
+    }
 
-    await sleep(POLL_DELAY_MS);
+    // No sleep after the final look: it would only delay the error below.
+    if (attempt < POLL_ATTEMPTS - 1) await sleep(POLL_DELAY_MS);
   }
 
   throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);
