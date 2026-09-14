@@ -13,6 +13,7 @@ export interface CellEditingApi {
   notice: string | null;
   valueOf: (record: WidgetRecord, field: string) => string;
   setValue: (record: WidgetRecord, field: string, value: string) => void;
+  discardValue: (record: WidgetRecord, field: string) => void;
   saveAll: () => Promise<void>;
   undo: (editLogId: string) => Promise<void>;
   dismissConflict: () => void;
@@ -52,6 +53,15 @@ export function useCellEditing(
 
   const setValue = (record: WidgetRecord, field: string, value: string): void => {
     setDrafts((current) => ({ ...current, [draftKey(record.remoteId, field)]: value }));
+  };
+
+  /** Discards a single field's draft (e.g. Escape on an inline click-to-edit field) without touching any other pending edits. */
+  const discardValue = (record: WidgetRecord, field: string): void => {
+    setDrafts((current) => {
+      const next = { ...current };
+      delete next[draftKey(record.remoteId, field)];
+      return next;
+    });
   };
 
   const isDirty = Object.keys(drafts).length > 0;
@@ -127,5 +137,5 @@ export function useCellEditing(
     void refresh();
   };
 
-  return { editing, toggleEdit, saving, isDirty, conflict, notice, valueOf, setValue, saveAll, undo, dismissConflict };
+  return { editing, toggleEdit, saving, isDirty, conflict, notice, valueOf, setValue, discardValue, saveAll, undo, dismissConflict };
 }

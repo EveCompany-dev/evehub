@@ -93,6 +93,16 @@ export interface EveConnector<Config = unknown, Credentials = undefined> {
   label: string;
   description?: string;
 
+  /**
+   * 'external' = a real outside service (Notion, Meta, Claude) — shown in the
+   * Conectores page. 'local' = a self-contained widget with nothing to
+   * "connect" (Calculator, Notes, Calendar, Demo) — still addable from the
+   * dashboard's own widget palette, just not clutter on the connections page.
+   * Required rather than defaulted so every new connector has to pick one
+   * deliberately instead of silently landing on whichever side is the default.
+   */
+  category: 'external' | 'local';
+
   auth: ConnectorAuthKind;
   capabilities: ConnectorCapabilities;
   rateLimit?: ConnectorRateLimit;

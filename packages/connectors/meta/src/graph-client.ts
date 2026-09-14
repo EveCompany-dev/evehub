@@ -62,7 +62,7 @@ export async function graphRequest<T>(
   } catch (error) {
     if (error instanceof MetaGraphError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new MetaGraphError('A Graph API nao respondeu a tempo.', 504);
+      throw new MetaGraphError('A Graph API não respondeu a tempo.', 504);
     }
     throw new MetaGraphError(error instanceof Error ? error.message : String(error), 0);
   } finally {

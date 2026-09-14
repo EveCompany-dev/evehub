@@ -33,7 +33,7 @@ export async function PATCH(
 
     const keys = new Set(z.array(dataColumnSchema).catch([]).parse(table.columns).map((column) => column.key));
     for (const key of Object.keys(body.data.data)) {
-      if (!keys.has(key)) return fail(400, `A coluna "${key}" nao existe nesta tabela.`);
+      if (!keys.has(key)) return fail(400, `A coluna "${key}" não existe nesta tabela.`);
     }
 
     const updated = await prisma.dataTableRow.update({

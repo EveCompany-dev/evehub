@@ -41,9 +41,9 @@ function describeError(status: number, body: NotionErrorBody): string {
       return 'Token do Notion invalido ou revogado.';
     case 'restricted_resource':
     case 'object_not_found':
-      return 'O Notion nao encontrou essa database. Quase sempre e porque a integracao nao foi compartilhada com ela: abra a pagina no Notion, menu "..." > Conexoes > adicione a integracao.';
+      return 'O Notion não encontrou essa database. Quase sempre é porque a integração não foi compartilhada com ela: abra a página no Notion, menu "..." > Conexões > adicione a integração.';
     case 'rate_limited':
-      return 'O Notion limitou a taxa de requisicoes. A proxima sincronizacao tenta de novo.';
+      return 'O Notion limitou a taxa de requisições. A próxima sincronização tenta de novo.';
     case 'validation_error':
       return `O Notion recusou a requisicao: ${body.message ?? 'dados invalidos'}`;
     default:
@@ -83,7 +83,7 @@ export async function notionRequest<T>(
   } catch (error) {
     if (error instanceof NotionError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new NotionError('O Notion nao respondeu a tempo.', 504, 'timeout');
+      throw new NotionError('O Notion não respondeu a tempo.', 504, 'timeout');
     }
     throw new NotionError(error instanceof Error ? error.message : String(error), 0);
   } finally {
@@ -116,7 +116,7 @@ export async function resolveDataSource(
 
   const first = database.data_sources?.[0];
   if (!first) {
-    throw new NotionError('Essa database nao expoe nenhuma data source.', 404, 'no_data_source');
+    throw new NotionError('Essa database não expõe nenhuma data source.', 404, 'no_data_source');
   }
 
   const title = database.title?.map((piece) => piece.plain_text ?? '').join('') || 'Notion';

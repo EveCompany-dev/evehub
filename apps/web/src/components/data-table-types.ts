@@ -4,7 +4,7 @@
  * package's server-only runtime (Prisma, argon2, ioredis) into the browser
  * bundle — the same reasoning behind every connector's own shared.ts.
  */
-export type DataColumnType = 'text' | 'number' | 'boolean' | 'date' | 'select';
+export type DataColumnType = 'text' | 'number' | 'boolean' | 'date' | 'select' | 'client';
 
 export interface DataColumn {
   key: string;

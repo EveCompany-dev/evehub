@@ -1,5 +1,5 @@
 export interface ClientOption {
-  source: 'local' | 'notion';
+  source: 'local';
   id: string;
   label: string;
 }
@@ -14,11 +14,10 @@ export interface MetaAccount {
 export interface ScheduledPostRow {
   id: string;
   connectorInstanceId: string;
-  clientSource: 'local' | 'notion';
   clientId: string | null;
-  clientRemoteId: string | null;
   clientLabel: string;
   platform: 'instagram' | 'facebook';
+  postType: 'feed' | 'story';
   caption: string;
   mediaUrl: string;
   scheduledFor: string;

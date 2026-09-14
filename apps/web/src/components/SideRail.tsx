@@ -4,19 +4,26 @@ import { strings } from '@eve/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
+import { NotificationBell } from './NotificationBell';
+import { RailSettings } from './RailSettings';
 
 interface RailItem {
   href: string;
   label: string;
   icon: ReactNode;
+  /** Omit for items every authenticated user always sees (none currently — every item is tab-gated). */
+  tab?: string;
 }
 
 export interface SideRailProps {
-  isOwner: boolean;
-  isSocialMedia: boolean;
+  /** Computed server-side via getVisibleTabs() — owner already has every tab in here. */
+  visibleTabs: string[];
+  /** From dashboardConfig.railFullHide — changes what the arrow does (see toggle()). */
+  railFullHide: boolean;
 }
 
-const STORAGE_KEY = 'eve.rail.expanded';
+const STORAGE_KEY_EXPANDED = 'eve.rail.expanded';
+const STORAGE_KEY_HIDDEN = 'eve.rail.hidden';
 
 function AutomationsIcon(): JSX.Element {
   return (
@@ -62,6 +69,41 @@ function TablesIcon(): JSX.Element {
   );
 }
 
+function ConnectorsIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="8" width="16" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9 8V5M15 8V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="14" r="2" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function ChatIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7A2.5 2.5 0 0 1 17.5 16H10l-4.5 4v-4H6.5A2.5 2.5 0 0 1 4 13.5v-7Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M8 9h8M8 12h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function JobsIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3.5" y="5.5" width="6" height="4.5" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="9.5" y="10.5" width="6" height="4.5" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="15.5" y="15.5" width="5" height="4.2" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M9.5 7.7h4M14.5 12.7h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function SchedulingIcon(): JSX.Element {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -81,33 +123,50 @@ function SchedulingIcon(): JSX.Element {
  * default; the arrow expands it to icons+labels. Open/closed is a per-viewer
  * convenience (localStorage), not shared dashboard state.
  */
-export function SideRail({ isOwner, isSocialMedia }: SideRailProps): JSX.Element {
+export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Element {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     // Mount-time read of an external system (localStorage) — the same
     // legitimate case documented in useWidgetData.ts's initial fetch.
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setExpanded(localStorage.getItem(STORAGE_KEY) === '1');
+      setExpanded(localStorage.getItem(STORAGE_KEY_EXPANDED) === '1');
+      setHidden(localStorage.getItem(STORAGE_KEY_HIDDEN) === '1');
     } catch {
-      // Private window / blocked storage: stay collapsed.
+      // Private window / blocked storage: stay collapsed/visible.
     }
   }, []);
 
+  const fullyHidden = railFullHide && hidden;
+
   useEffect(() => {
-    document.body.dataset.rail = expanded ? 'expanded' : 'collapsed';
+    document.body.dataset.rail = fullyHidden ? 'hidden' : expanded ? 'expanded' : 'collapsed';
     return () => {
       delete document.body.dataset.rail;
     };
-  }, [expanded]);
+  }, [expanded, fullyHidden]);
 
+  /** In normal mode the arrow toggles icon-only vs icon+label; when the "hide completely" setting is on, it hides/shows the whole rail instead. */
   const toggle = () => {
+    if (railFullHide) {
+      setHidden((value) => {
+        const next = !value;
+        try {
+          localStorage.setItem(STORAGE_KEY_HIDDEN, next ? '1' : '0');
+        } catch {
+          // Ignore: the toggle still works for this page view.
+        }
+        return next;
+      });
+      return;
+    }
     setExpanded((value) => {
       const next = !value;
       try {
-        localStorage.setItem(STORAGE_KEY, next ? '1' : '0');
+        localStorage.setItem(STORAGE_KEY_EXPANDED, next ? '1' : '0');
       } catch {
         // Ignore: the toggle still works for this page view.
       }
@@ -115,15 +174,33 @@ export function SideRail({ isOwner, isSocialMedia }: SideRailProps): JSX.Element
     });
   };
 
-  const items: RailItem[] = [
-    { href: '/tables', label: strings.nav.tables, icon: <TablesIcon /> },
-    { href: '/automations', label: strings.nav.automations, icon: <AutomationsIcon /> },
-    ...(isOwner || isSocialMedia
-      ? [{ href: '/scheduling', label: strings.nav.scheduling, icon: <SchedulingIcon /> }]
-      : []),
-    ...(isOwner ? [{ href: '/financial', label: strings.nav.financial, icon: <FinancialIcon /> }] : []),
-    ...(isOwner ? [{ href: '/team', label: strings.nav.team, icon: <TeamIcon /> }] : []),
+  const allItems: RailItem[] = [
+    { href: '/chat', label: strings.nav.chat, icon: <ChatIcon />, tab: 'chat' },
+    { href: '/jobs', label: strings.nav.jobs, icon: <JobsIcon />, tab: 'jobs' },
+    { href: '/tables', label: strings.nav.tables, icon: <TablesIcon />, tab: 'tables' },
+    { href: '/connectors', label: strings.nav.connectors, icon: <ConnectorsIcon />, tab: 'connectors' },
+    { href: '/automations', label: strings.nav.automations, icon: <AutomationsIcon />, tab: 'automations' },
+    { href: '/scheduling', label: strings.nav.scheduling, icon: <SchedulingIcon />, tab: 'scheduling' },
+    { href: '/financial', label: strings.nav.financial, icon: <FinancialIcon />, tab: 'financial' },
+    { href: '/team', label: strings.nav.team, icon: <TeamIcon />, tab: 'team' },
   ];
+  const items = allItems.filter((item) => !item.tab || visibleTabs.includes(item.tab));
+
+  if (fullyHidden) {
+    return (
+      <button
+        type="button"
+        className="eve-rail__show-tab"
+        onClick={toggle}
+        aria-label={strings.rail.expand}
+        title={strings.rail.expand}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M14 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+    );
+  }
 
   return (
     <nav className={expanded ? 'eve-rail is-expanded' : 'eve-rail'} aria-label={strings.rail.navLabel}>
@@ -131,9 +208,9 @@ export function SideRail({ isOwner, isSocialMedia }: SideRailProps): JSX.Element
         type="button"
         className="eve-rail__toggle"
         onClick={toggle}
-        aria-expanded={expanded}
-        aria-label={expanded ? strings.rail.collapse : strings.rail.expand}
-        title={expanded ? strings.rail.collapse : strings.rail.expand}
+        aria-expanded={railFullHide ? !hidden : expanded}
+        aria-label={railFullHide ? strings.rail.collapse : expanded ? strings.rail.collapse : strings.rail.expand}
+        title={railFullHide ? strings.rail.collapse : expanded ? strings.rail.collapse : strings.rail.expand}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
@@ -145,6 +222,8 @@ export function SideRail({ isOwner, isSocialMedia }: SideRailProps): JSX.Element
           />
         </svg>
       </button>
+
+      <NotificationBell />
 
       {items.map((item) => {
         const active = pathname.startsWith(item.href);
@@ -161,6 +240,8 @@ export function SideRail({ isOwner, isSocialMedia }: SideRailProps): JSX.Element
           </Link>
         );
       })}
+
+      <RailSettings />
     </nav>
   );
 }

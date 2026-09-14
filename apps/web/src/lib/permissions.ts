@@ -1,22 +1,73 @@
 import type { ConnectorAuthKind } from '@eve/connector-sdk';
+import { z } from 'zod';
 
 export interface PermissionSubject {
   isOwner: boolean;
 }
 
-export interface SocialMediaSubject {
+/**
+ * Every nav section a Role can grant/withhold. 'chat' through 'automations'
+ * are the DEFAULT_TABS every authenticated non-owner already gets — listing
+ * them here too means a future role could theoretically be *more*
+ * restrictive than default, even though nothing does that today.
+ */
+export const TAB_KEYS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team'] as const;
+export type TabKey = (typeof TAB_KEYS)[number];
+
+const DEFAULT_TABS: readonly TabKey[] = ['chat', 'jobs', 'tables', 'connectors', 'automations'];
+
+const roleTabsSchema = z.array(z.string()).catch([]);
+
+/** Parses a Role.tabs JSON column into a clean string array — never throws on garbage data. */
+export function parseRoleTabs(value: unknown): string[] {
+  return roleTabsSchema.parse(value);
+}
+
+export interface TabSubject {
   isOwner: boolean;
   isSocialMedia: boolean;
+  /** null = no Role assigned. Pass `parseRoleTabs(role.tabs)` for an assigned one. */
+  roleTabs: string[] | null;
 }
 
 /**
- * The product's entire authorization model, in one place.
+ * The product's entire tab-visibility model, in one place.
  *
- * There are no roles by design: any authenticated user builds their dashboard
- * however they like. The single exception is connector credentials — those are
- * the clients' Meta and Google Ads tokens, so creating or changing a connector
- * that carries one is owner-only. A connector that needs no secret (the demo)
- * is open to everyone.
+ * Owner bypasses this completely — always sees every tab, has since before
+ * roles existed, and a Role can never take that away. Everyone else gets
+ * DEFAULT_TABS, plus 'scheduling' if tagged isSocialMedia (a legacy shortcut
+ * kept for backward compat), plus whatever their assigned Role's `tabs`
+ * array adds — that's the only way a non-owner ever reaches 'financial' or
+ * 'team'. A Role only ever *adds* visibility; it can't take away a default
+ * tab or the isSocialMedia shortcut.
+ */
+export function getVisibleTabs(user: TabSubject): Set<TabKey> {
+  if (user.isOwner) return new Set(TAB_KEYS);
+
+  const tabs = new Set<TabKey>(DEFAULT_TABS);
+  if (user.isSocialMedia) tabs.add('scheduling');
+  for (const tab of user.roleTabs ?? []) {
+    if ((TAB_KEYS as readonly string[]).includes(tab)) tabs.add(tab as TabKey);
+  }
+  return tabs;
+}
+
+export function canViewTab(user: TabSubject, tab: TabKey): boolean {
+  return getVisibleTabs(user).has(tab);
+}
+
+/** Builds a TabSubject from the shape every call site fetches: `select: { isOwner, isSocialMedia, role: { select: { tabs: true } } }`. */
+export function toTabSubject(row: { isOwner: boolean; isSocialMedia: boolean; role: { tabs: unknown } | null }): TabSubject {
+  return { isOwner: row.isOwner, isSocialMedia: row.isSocialMedia, roleTabs: row.role ? parseRoleTabs(row.role.tabs) : null };
+}
+
+/**
+ * The product's entire authorization model for actions (as opposed to tab
+ * *visibility*, above), in one place. The single hard rule: connector
+ * credentials are the clients' Meta and Google Ads tokens, so creating or
+ * changing a connector that carries one is owner-only, full stop — no Role
+ * can grant that. A connector that needs no secret (the demo) is open to
+ * everyone.
  */
 export function canCreateInstance(user: PermissionSubject, connectorAuth: ConnectorAuthKind): boolean {
   return connectorAuth === 'none' || user.isOwner;
@@ -36,19 +87,35 @@ export function canDeleteInstance(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
-/** Quem pode ver e mexer na equipe. Mesma regra do resto: so owner. */
+/**
+ * Mutating the team — adding people, promoting/demoting, disabling, and
+ * managing Roles themselves — stays owner-only no matter what, since a
+ * misconfigured Role could otherwise let someone hand themselves admin
+ * access. A Role granting the 'team' *tab* only ever gets a read-only
+ * roster view — see canViewTab(user, 'team') for that.
+ */
 export function canManageTeam(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
-/** Dado financeiro e mais sensivel que o resto da dashboard: owner-only por padrao. */
-export function canViewFinancial(user: PermissionSubject): boolean {
+/** Financeiro is fully governed by the 'financial' tab — a Role that grants it can view and manage entries, not just look. */
+export function canViewFinancial(user: TabSubject): boolean {
+  return canViewTab(user, 'financial');
+}
+
+/** Agenda de posts: 'scheduling' tab — isOwner, isSocialMedia, or an assigned Role all fall out of getVisibleTabs(). */
+export function canViewScheduling(user: TabSubject): boolean {
+  return canViewTab(user, 'scheduling');
+}
+
+/** O token de automacoes e uma credencial (abre um endpoint de ingestao publico) — owner-only, mesma logica de canWriteCredentials. No Role can grant this. */
+export function canManageAutomations(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
-/** Agenda de posts: quem tem a tag de Social Media, e owner sempre ve tudo. */
-export function canViewScheduling(user: SocialMediaSubject): boolean {
-  return user.isOwner || user.isSocialMedia;
+/** Read-only roster access via the 'team' tab — see canManageTeam for the (always owner-only) mutation gate. */
+export function canViewTeamTab(user: TabSubject): boolean {
+  return user.isOwner || canViewTab(user, 'team');
 }
 
 export interface GuardResult {
@@ -70,7 +137,7 @@ export function validateOwnerChange(input: {
 }): GuardResult {
   const removingOwner = input.targetIsOwner && !input.nextIsOwner;
   if (removingOwner && input.ownerCount <= 1) {
-    return { ok: false, reason: 'Este e o unico owner do workspace. Promova outra pessoa antes de remover o acesso de admin.' };
+    return { ok: false, reason: 'Este é o único owner do workspace. Promova outra pessoa antes de remover o acesso de admin.' };
   }
   return { ok: true };
 }
@@ -86,10 +153,10 @@ export function validateDisable(input: {
   if (!input.nextDisabled) return { ok: true };
 
   if (input.actorId === input.targetId) {
-    return { ok: false, reason: 'Voce nao pode desativar a propria conta.' };
+    return { ok: false, reason: 'Você não pode desativar a própria conta.' };
   }
   if (input.targetIsOwner && input.ownerCount <= 1) {
-    return { ok: false, reason: 'Este e o unico owner do workspace.' };
+    return { ok: false, reason: 'Este é o único owner do workspace.' };
   }
   return { ok: true };
 }

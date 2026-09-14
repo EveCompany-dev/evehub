@@ -33,6 +33,7 @@ export const notesConnector: EveConnector<NotesConfig> = registerConnector<Notes
   id: 'notes',
   label: 'Notas',
   description: 'Bloco de notas simples, um texto por widget.',
+  category: 'local',
   auth: 'none',
   capabilities: { read: true, write: true, webhook: false },
   defaultSize: { w: 5, h: 6, minW: 3, minH: 4 },

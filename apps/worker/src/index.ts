@@ -86,9 +86,11 @@ const worker = new Worker<SyncJobData>(
     }
 
     if (job.name === SCHEDULING_JOB) {
-      const { instagram, facebook } = await processDuePosts();
-      if (instagram || facebook) {
-        console.log(`[worker] agenda: ${instagram} post(s) do Instagram, ${facebook} do Facebook processados`);
+      const { instagram, facebook, facebookStory } = await processDuePosts();
+      if (instagram || facebook || facebookStory) {
+        console.log(
+          `[worker] agenda: ${instagram} post(s) do Instagram, ${facebook} do Facebook, ${facebookStory} story(ies) do Facebook processados`,
+        );
       }
       return;
     }

@@ -44,7 +44,7 @@ export async function performWrite(input: WriteInput): Promise<WriteOutcome> {
   const { instanceId, userId, remoteId, field, value, expectedVersion, undoOf } = input;
 
   const instance = await prisma.connectorInstance.findUnique({ where: { id: instanceId } });
-  if (!instance) return { ok: false, message: 'Instancia nao encontrada.' };
+  if (!instance) return { ok: false, message: 'Instância não encontrada.' };
 
   let loaded;
   try {
@@ -61,7 +61,7 @@ export async function performWrite(input: WriteInput): Promise<WriteOutcome> {
   const record = await prisma.syncRecord.findUnique({
     where: { connectorInstanceId_remoteId: { connectorInstanceId: instanceId, remoteId } },
   });
-  if (!record) return { ok: false, message: 'Registro nao encontrado no cache local. Sincronize antes de editar.' };
+  if (!record) return { ok: false, message: 'Registro não encontrado no cache local. Sincronize antes de editar.' };
 
   const previousData = (record.data ?? {}) as Record<string, unknown>;
   const oldValue = previousData[field];
@@ -88,7 +88,7 @@ export async function performWrite(input: WriteInput): Promise<WriteOutcome> {
     return {
       ok: false,
       conflict: true,
-      message: 'Esse dado mudou na origem depois que voce abriu a tela. Recarregue antes de salvar.',
+      message: 'Esse dado mudou na origem depois que você abriu a tela. Recarregue antes de salvar.',
       currentVersion: result.currentVersion,
       currentData: result.currentData,
     };
@@ -143,8 +143,8 @@ export async function performUndo(input: { editLogId: string; userId: string }):
     include: { connectorInstance: true },
   });
 
-  if (!log) return { ok: false, message: 'Edicao nao encontrada.' };
-  if (log.rolledBackAt) return { ok: false, message: 'Essa edicao ja foi desfeita.' };
+  if (!log) return { ok: false, message: 'Edição não encontrada.' };
+  if (log.rolledBackAt) return { ok: false, message: 'Essa edição já foi desfeita.' };
   if (Date.now() - log.createdAt.getTime() > UNDO_WINDOW_MS) {
     return { ok: false, message: 'A janela de 10 minutos para desfazer ja passou.' };
   }
@@ -158,7 +158,7 @@ export async function performUndo(input: { editLogId: string; userId: string }):
 
   const { connector, ctx } = loaded;
   if (!connector.readVersion) {
-    return { ok: false, message: `O connector "${connector.id}" nao sabe reler a versao atual, entao nao da para desfazer com seguranca.` };
+    return { ok: false, message: `O connector "${connector.id}" não sabe reler a versão atual, então não dá para desfazer com segurança.` };
   }
 
   let currentVersion: string | null;
@@ -169,7 +169,7 @@ export async function performUndo(input: { editLogId: string; userId: string }):
   }
 
   if (!currentVersion) {
-    return { ok: false, message: 'O registro nao existe mais na origem.' };
+    return { ok: false, message: 'O registro não existe mais na origem.' };
   }
 
   const result = await performWrite({

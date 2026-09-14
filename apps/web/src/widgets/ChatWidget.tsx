@@ -3,6 +3,7 @@
 import type { ChatMessage } from '@eve/connector-chat/shared';
 import { strings, WidgetShell } from '@eve/ui';
 import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react';
+import { linkify } from '../components/Linkify';
 import type { WidgetProps } from './types';
 
 /**
@@ -21,15 +22,24 @@ export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
   const load = async () => {
     try {
       const response = await fetch(`/api/instances/${instanceId}/chat`, { cache: 'no-store' });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setError(`HTTP ${response.status}`);
+        return;
+      }
       const body = (await response.json()) as { messages: ChatMessage[] };
       setMessages(body.messages);
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Mount/instance-change fetch — same legitimate case as useWidgetData.ts's
+    // initial fetch (every setState in load() happens after an await).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [instanceId]);
@@ -73,8 +83,12 @@ export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
   };
 
   const clear = async () => {
-    const response = await fetch(`/api/instances/${instanceId}/chat`, { method: 'DELETE' });
-    if (response.ok) setMessages([]);
+    try {
+      const response = await fetch(`/api/instances/${instanceId}/chat`, { method: 'DELETE' });
+      if (response.ok) setMessages([]);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   };
 
   return (
@@ -95,7 +109,7 @@ export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
               key={index}
               className={message.role === 'user' ? 'eve-chat__bubble is-user' : 'eve-chat__bubble is-assistant'}
             >
-              {message.content}
+              {linkify(message.content)}
             </div>
           ))}
         </div>

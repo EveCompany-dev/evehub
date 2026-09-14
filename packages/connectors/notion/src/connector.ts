@@ -16,7 +16,7 @@ const configSchema = z.object({
     .transform((value, ctx) => {
       const normalized = normalizeDatabaseId(value);
       if (!normalized) {
-        ctx.addIssue({ code: 'custom', message: 'Nao consegui achar um ID de database nessa URL.' });
+        ctx.addIssue({ code: 'custom', message: 'Não consegui achar um ID de database nessa URL.' });
         return z.NEVER;
       }
       return normalized;
@@ -26,7 +26,7 @@ const configSchema = z.object({
 });
 
 const credentialsSchema = z.object({
-  token: z.string().min(10, 'O token da integracao do Notion parece curto demais.'),
+  token: z.string().min(10, 'O token da integração do Notion parece curto demais.'),
 });
 
 export type NotionConfig = z.infer<typeof configSchema>;
@@ -87,7 +87,8 @@ export const notionConnector: EveConnector<NotionConfig, NotionCredentials> = re
 >({
   id: 'notion',
   label: 'Notion',
-  description: 'Le e escreve uma database do Notion, com trava de conflito e desfazer de 10 minutos.',
+  description: 'Lê e escreve uma database do Notion, com trava de conflito e desfazer de 10 minutos.',
+  category: 'external',
   auth: 'token',
   capabilities: { read: true, write: true, webhook: false },
   // O Notion permite ~3 req/s em media; ficamos abaixo disso de proposito.
@@ -181,7 +182,7 @@ export const notionConnector: EveConnector<NotionConfig, NotionCredentials> = re
       }
 
       const type = current.properties[field]?.type;
-      if (!type) return { ok: false, error: `A propriedade "${field}" nao existe nessa database.` };
+      if (!type) return { ok: false, error: `A propriedade "${field}" não existe nessa database.` };
 
       const updated = await notionRequest<NotionPage>(token, `/pages/${patch.remoteId}`, {
         method: 'PATCH',

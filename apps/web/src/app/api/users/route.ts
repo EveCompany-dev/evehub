@@ -37,6 +37,7 @@ export async function GET(): Promise<Response> {
         createdAt: true,
         // O hash nunca sai daqui; so o fato de existir.
         passwordHash: true,
+        role: { select: { id: true, name: true } },
       },
     });
 
@@ -52,6 +53,8 @@ export async function GET(): Promise<Response> {
         hasPassword: Boolean(row.passwordHash),
         lastSeenAt: row.lastSeenAt?.toISOString() ?? null,
         createdAt: row.createdAt.toISOString(),
+        roleId: row.role?.id ?? null,
+        roleName: row.role?.name ?? null,
       })),
     });
   });

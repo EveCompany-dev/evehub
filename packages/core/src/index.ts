@@ -1,17 +1,27 @@
 export { getEnv, resetEnvCache, type EveEnv } from './env';
 export { prisma, Prisma } from './prisma';
 export type {
+  Attachment,
   Client,
   ClientSource,
   ConnectorInstance,
   DataTable,
   DataTableRow,
   EditLog,
+  Job,
+  JobCollaborator,
+  JobColumn,
+  JobComment,
+  JobTask,
+  Notification,
+  NotificationType,
   PostPlatform,
   PostStatus,
+  PostType,
   ScheduledPost,
   SyncRecord,
   SyncSnapshot,
+  TimeEntry,
   User,
   Workspace,
 } from './prisma';

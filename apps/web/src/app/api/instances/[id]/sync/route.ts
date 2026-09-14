@@ -17,7 +17,7 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     await requireInstance(id, user);
 
     const result = await runSync(id);
-    if (!result.ok) return fail(502, result.error ?? 'Sincronizacao falhou.');
+    if (!result.ok) return fail(502, result.error ?? 'Sincronização falhou.');
 
     return ok({ ok: true, recordCount: result.recordCount ?? 0 });
   });

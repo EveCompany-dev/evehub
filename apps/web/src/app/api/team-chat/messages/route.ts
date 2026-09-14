@@ -1,0 +1,75 @@
+import { prisma } from '@eve/core';
+import { strings } from '@eve/ui';
+import { z } from 'zod';
+import { fail, handle, ok } from '../../../../lib/api';
+import { notify } from '../../../../lib/notifications';
+import { TEAM_MESSAGE_INCLUDE } from '../../../../lib/team-chat';
+import { requireUser } from '../../../../lib/session';
+
+export const runtime = 'nodejs';
+
+const attachmentSchema = z.object({
+  filename: z.string().min(1).max(200),
+  url: z.string().min(1).max(2000),
+  size: z.number().int().nonnegative(),
+});
+
+const createSchema = z.object({
+  body: z.string().trim().min(1).max(4000),
+  attachments: z.array(attachmentSchema).max(10).default([]),
+  mentionedUserIds: z.array(z.string().min(1)).max(50).default([]),
+});
+
+/** Last 200 messages, oldest first — the workspace's one shared chat, no channels. */
+export async function GET(): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    const messages = await prisma.teamMessage.findMany({
+      where: { workspaceId: user.workspaceId },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+      include: TEAM_MESSAGE_INCLUDE,
+    });
+    return ok({ messages: messages.reverse() });
+  });
+}
+
+export async function POST(request: Request): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+
+    const body = createSchema.safeParse(await request.json());
+    if (!body.success) return fail(400, strings.errors.invalidPayload);
+
+    const mentionedUserIds = [...new Set(body.data.mentionedUserIds)];
+    if (mentionedUserIds.length > 0) {
+      const validCount = await prisma.user.count({ where: { id: { in: mentionedUserIds }, workspaceId: user.workspaceId } });
+      if (validCount !== mentionedUserIds.length) return fail(400, 'Uma ou mais menções não pertencem a este workspace.');
+    }
+
+    const message = await prisma.teamMessage.create({
+      data: {
+        workspaceId: user.workspaceId,
+        authorId: user.id,
+        body: body.data.body,
+        attachments: { create: body.data.attachments },
+        mentions: { create: mentionedUserIds.map((userId) => ({ userId })) },
+      },
+      include: TEAM_MESSAGE_INCLUDE,
+    });
+
+    await Promise.all(
+      mentionedUserIds.map((userId) =>
+        notify({
+          workspaceId: user.workspaceId,
+          userId,
+          actorId: user.id,
+          type: 'teamMessageMention',
+          message: `${message.author.name?.trim() || message.author.email} mencionou você no chat da equipe.`,
+        }),
+      ),
+    );
+
+    return ok({ message }, 201);
+  });
+}

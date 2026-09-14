@@ -41,7 +41,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const keys = validKeys(table.columns);
     for (const key of Object.keys(body.data.data)) {
-      if (!keys.has(key)) return fail(400, `A coluna "${key}" nao existe nesta tabela.`);
+      if (!keys.has(key)) return fail(400, `A coluna "${key}" não existe nesta tabela.`);
     }
 
     const row = await prisma.dataTableRow.create({

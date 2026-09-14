@@ -7,17 +7,27 @@ import { getEnv } from './env';
 // runtime instead of statically.
 export { Prisma, PrismaClient };
 export type {
+  Attachment,
   Client,
   ClientSource,
   ConnectorInstance,
   DataTable,
   DataTableRow,
   EditLog,
+  Job,
+  JobCollaborator,
+  JobColumn,
+  JobComment,
+  JobTask,
+  Notification,
+  NotificationType,
   PostPlatform,
   PostStatus,
+  PostType,
   ScheduledPost,
   SyncRecord,
   SyncSnapshot,
+  TimeEntry,
   User,
   Workspace,
 } from '../generated/prisma';

@@ -1,4 +1,3 @@
-import { prisma } from '@eve/core';
 import { EveArch, strings } from '@eve/ui';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -12,21 +11,22 @@ export const dynamic = 'force-dynamic';
 export default async function SchedulingPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
-
-  const row = await prisma.user.findUnique({ where: { id: user.id }, select: { isOwner: true, isSocialMedia: true } });
-  if (!row) redirect('/login');
-  if (!canViewScheduling(row)) redirect('/');
+  // getSessionUser() already reflects a fresh DB read (see auth.ts's session
+  // callback) — no need for a second prisma.user.findUnique just for this check.
+  if (!canViewScheduling(user)) redirect('/');
 
   return (
-    <div className="eve-profile">
-      <header className="eve-profile__header">
+    <div className="eve-wide-page">
+      <header className="eve-wide-page__header">
         <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
           <EveArch size={18} />
         </Link>
         <h1 className="eve-profile__title">{strings.nav.scheduling}</h1>
       </header>
 
-      <SchedulingTabs />
+      <div className="eve-wide-page__body">
+        <SchedulingTabs />
+      </div>
     </div>
   );
 }

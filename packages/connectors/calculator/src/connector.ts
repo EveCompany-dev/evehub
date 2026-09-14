@@ -14,7 +14,8 @@ export type CalculatorConfig = z.infer<typeof configSchema>;
 export const calculatorConnector: EveConnector<CalculatorConfig> = registerConnector<CalculatorConfig, undefined>({
   id: 'calculator',
   label: 'Calculadora',
-  description: 'Calculadora simples de quatro operacoes, sem dado nenhum para sincronizar.',
+  description: 'Calculadora simples de quatro operações, sem dado nenhum para sincronizar.',
+  category: 'local',
   auth: 'none',
   // read:true is a formality: runSync() refuses to call sync() on a connector
   // that declares no read capability, and every instance gets synced once at

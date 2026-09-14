@@ -5,6 +5,7 @@ import { strings } from '@eve/ui';
 import type { JSX } from 'react';
 import GridLayout, { useContainerWidth, type Layout } from 'react-grid-layout';
 import { getWidget } from '../widgets/registry';
+import { WidgetErrorBoundary } from '../widgets/WidgetErrorBoundary';
 
 /** Below this width a 12-column grid stops being usable, so widgets stack. */
 const NARROW_BREAKPOINT = 720;
@@ -54,13 +55,15 @@ export function DashboardGrid({
     const Widget = getWidget(instance.connectorId);
 
     return (
-      <Widget
-        instanceId={instance.id}
-        title={title}
-        onRemove={() => onRemove(instance.id)}
-        viewConfig={settings?.viewConfig ?? null}
-        onViewConfigChange={(next) => onViewConfigChange(instance.id, next)}
-      />
+      <WidgetErrorBoundary title={title} onRemove={() => onRemove(instance.id)}>
+        <Widget
+          instanceId={instance.id}
+          title={title}
+          onRemove={() => onRemove(instance.id)}
+          viewConfig={settings?.viewConfig ?? null}
+          onViewConfigChange={(next) => onViewConfigChange(instance.id, next)}
+        />
+      </WidgetErrorBoundary>
     );
   };
 

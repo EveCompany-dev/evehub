@@ -55,19 +55,15 @@ export function EveArchRings({ size = 120, rings = 14 }: { size?: number; rings?
 }
 
 /**
- * Logotipo "eve.company".
- *
- * PLACEHOLDER TIPOGRAFICO. O "eve" da marca e um logotipo desenhado, nao uma
- * fonte — nao da para reproduzir fielmente em codigo. Quando exportarem o SVG
- * oficial, troque o conteudo deste componente por ele; todo o resto (animacao,
- * layout, tema) continua igual, porque nada mais depende disso.
+ * Logotipo "eve.company" — a arte real (packages/ui exportado em
+ * apps/web/public/brand), nao mais uma aproximacao tipografica via CSS.
+ * `suffix` so ainda existe pelo `alt`/`aria-label`: a imagem em si e fixa,
+ * entao passar um suffix diferente de ".company" nao muda o que aparece.
  */
 export function EveWordmark({ suffix = '.company' }: { suffix?: string }): JSX.Element {
   return (
-    <span className="eve-wordmark" aria-label={`eve${suffix}`}>
-      <span className="eve-wordmark__eve">eve</span>
-      <span className="eve-wordmark__suffix">{suffix}</span>
-    </span>
+    // eslint-disable-next-line @next/next/no-img-element -- SVG oficial ainda nao existe; até lá é um asset fixo do /public, não um next/image otimizável.
+    <img src="/brand/eve-lockup-orange.png" alt={`eve${suffix}`} className="eve-wordmark" />
   );
 }
 

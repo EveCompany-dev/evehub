@@ -12,7 +12,7 @@ const patchSchema = z.object({
   caption: z.string().max(2200).optional(),
   mediaUrl: z.string().url().optional(),
   scheduledFor: z.string().datetime().optional(),
-  client: z.object({ source: z.enum(['local', 'notion']), id: z.string().min(1), label: z.string().min(1) }).optional(),
+  client: z.object({ id: z.string().min(1), label: z.string().min(1) }).optional(),
 });
 
 async function requirePost(id: string, workspaceId: string) {
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const post = await requirePost(id, user.workspaceId);
 
     if (post.status !== 'draft' && post.status !== 'scheduled') {
-      return fail(409, 'So da para editar enquanto o post ainda nao foi publicado.');
+      return fail(409, 'Só dá para editar enquanto o post ainda não foi publicado.');
     }
 
     const body = patchSchema.safeParse(await request.json());
@@ -46,12 +46,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const mediaUrl = body.data.mediaUrl ?? post.mediaUrl;
     const scheduledFor = body.data.scheduledFor ? new Date(body.data.scheduledFor) : post.scheduledFor;
     const clientFields = body.data.client
-      ? {
-          clientSource: body.data.client.source,
-          clientId: body.data.client.source === 'local' ? body.data.client.id : null,
-          clientRemoteId: body.data.client.source === 'notion' ? body.data.client.id : null,
-          clientLabel: body.data.client.label,
-        }
+      ? { clientSource: 'local' as const, clientId: body.data.client.id, clientRemoteId: null, clientLabel: body.data.client.label }
       : {};
 
     let metaPostId = post.metaPostId;

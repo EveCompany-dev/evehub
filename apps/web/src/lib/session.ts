@@ -9,6 +9,8 @@ export interface SessionUser {
   image: string | null;
   isOwner: boolean;
   isSocialMedia: boolean;
+  /** null = no Role assigned. See lib/permissions.ts's TabSubject/getVisibleTabs. */
+  roleTabs: string[] | null;
   workspaceId: string;
 }
 
@@ -34,6 +36,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     image: user.image ?? null,
     isOwner: user.isOwner,
     isSocialMedia: user.isSocialMedia,
+    roleTabs: user.roleTabs,
     workspaceId: user.workspaceId,
   };
 }

@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const dataColumnSchema = z.object({
   key: z.string().min(1).max(60),
   label: z.string().min(1).max(120),
-  type: z.enum(['text', 'number', 'boolean', 'date', 'select']),
+  type: z.enum(['text', 'number', 'boolean', 'date', 'select', 'client']),
   options: z.array(z.string()).optional(),
 });
 
@@ -33,6 +33,7 @@ export function coerceColumnValue(value: unknown, type: DataColumn['type']): unk
     case 'text':
     case 'date':
     case 'select':
+    case 'client':
     default:
       return String(value);
   }

@@ -50,6 +50,30 @@ export async function deleteFacebookPost(token: string, postId: string): Promise
   await graphRequest(token, `/${postId}`, { method: 'DELETE' });
 }
 
+export interface FacebookStoryResult {
+  postId: string;
+}
+
+/**
+ * Facebook Page Stories have no native scheduling — `/photo_stories` publishes
+ * immediately on call, unlike `/photos` with `scheduled_publish_time`. The
+ * worker has to fire this itself at the scheduled time, same pattern as
+ * Instagram, rather than submitting ahead of time like scheduleFacebookPost.
+ */
+export async function publishFacebookStory(token: string, pageId: string, imageUrl: string): Promise<FacebookStoryResult> {
+  const photo = await graphRequest<{ id: string }>(token, `/${pageId}/photos`, {
+    method: 'POST',
+    params: { url: imageUrl, published: false },
+  });
+
+  const story = await graphRequest<{ post_id?: string; id?: string }>(token, `/${pageId}/photo_stories`, {
+    method: 'POST',
+    params: { photo_id: photo.id },
+  });
+
+  return { postId: story.post_id ?? story.id ?? photo.id };
+}
+
 export interface InstagramContainerResult {
   creationId: string;
 }
@@ -63,6 +87,24 @@ export async function createInstagramContainer(
   const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
     method: 'POST',
     params: { image_url: imageUrl, caption },
+  });
+  return { creationId: response.id };
+}
+
+/**
+ * Same container as a feed post, but `media_type: 'STORIES'` and no caption —
+ * the Stories endpoint doesn't accept one. Reuses `pollInstagramContainerReady`
+ * and `publishInstagramContainer` below unchanged, since neither cares which
+ * media_type produced the container.
+ */
+export async function createInstagramStoryContainer(
+  token: string,
+  igUserId: string,
+  imageUrl: string,
+): Promise<InstagramContainerResult> {
+  const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
+    method: 'POST',
+    params: { image_url: imageUrl, media_type: 'STORIES' },
   });
   return { creationId: response.id };
 }
@@ -93,7 +135,7 @@ export async function pollInstagramContainerReady(token: string, creationId: str
     await sleep(POLL_DELAY_MS);
   }
 
-  throw new MetaGraphError('O container do Instagram nao ficou pronto a tempo.', 504);
+  throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);
 }
 
 export async function publishInstagramContainer(

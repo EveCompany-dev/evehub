@@ -42,6 +42,7 @@ export async function GET(): Promise<Response> {
       id: connector.id,
       label: connector.label,
       description: connector.description ?? null,
+      category: connector.category,
       auth: connector.auth,
       capabilities: connector.capabilities,
       defaultSize: connector.defaultSize ?? { w: 6, h: 6 },
@@ -69,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
 
     const config = connector.configSchema.safeParse(body.data.config ?? connector.defaultConfig);
     if (!config.success) {
-      return fail(400, `Configuracao invalida: ${config.error.issues.map((i) => i.message).join('; ')}`);
+      return fail(400, `Configuração inválida: ${config.error.issues.map((i) => i.message).join('; ')}`);
     }
 
     // Connector que exige credencial precisa receber uma agora: sem isso a

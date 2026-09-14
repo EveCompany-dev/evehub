@@ -1,0 +1,47 @@
+import { prisma } from '@eve/core';
+import { strings } from '@eve/ui';
+import { z } from 'zod';
+import { fail, handle, ok } from '../../../lib/api';
+import { canManageTeam, TAB_KEYS } from '../../../lib/permissions';
+import { HttpError, requireUser } from '../../../lib/session';
+
+export const runtime = 'nodejs';
+
+const createSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  tabs: z.array(z.string()).default([]),
+});
+
+function cleanTabs(tabs: string[]): string[] {
+  return tabs.filter((tab) => (TAB_KEYS as readonly string[]).includes(tab));
+}
+
+/** Every Role in the workspace, for the roles-management panel and the per-member assignment dropdown. Owner-only, same as the rest of team management. */
+export async function GET(): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!canManageTeam(user)) throw new HttpError(403, strings.errors.notOwnerTeam);
+
+    const roles = await prisma.role.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { name: 'asc' } });
+    return ok({ roles });
+  });
+}
+
+export async function POST(request: Request): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!canManageTeam(user)) throw new HttpError(403, strings.errors.notOwnerTeam);
+
+    const body = createSchema.safeParse(await request.json());
+    if (!body.success) return fail(400, body.error.issues.map((issue) => issue.message).join('; '));
+
+    const existing = await prisma.role.findFirst({ where: { workspaceId: user.workspaceId, name: body.data.name } });
+    if (existing) return fail(409, 'Já existe um cargo com esse nome.');
+
+    const role = await prisma.role.create({
+      data: { workspaceId: user.workspaceId, name: body.data.name, tabs: cleanTabs(body.data.tabs) },
+    });
+
+    return ok({ role }, 201);
+  });
+}

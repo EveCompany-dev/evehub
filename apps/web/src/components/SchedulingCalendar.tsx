@@ -1,14 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { MonthGrid } from './MonthGrid';
 import { PostEditor } from './PostEditor';
 import type { ClientOption, MetaAccount, ScheduledPostRow } from './scheduling-types';
-
-interface NotionInstanceOption {
-  id: string;
-  label: string;
-}
 
 type EditorState = { mode: 'new'; date?: Date } | { mode: 'edit'; post: ScheduledPostRow } | null;
 
@@ -26,8 +22,7 @@ export function SchedulingCalendar(): JSX.Element {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPostRow[]>([]);
-  const [notionInstances, setNotionInstances] = useState<NotionInstanceOption[]>([]);
-  const [clientSourceInstanceId, setClientSourceInstanceId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const [filterClient, setFilterClient] = useState('');
   const [filterPlatforms, setFilterPlatforms] = useState<Set<ScheduledPostRow['platform']>>(
@@ -36,46 +31,54 @@ export function SchedulingCalendar(): JSX.Element {
   const [editor, setEditor] = useState<EditorState>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Each loader fails independently into the same error banner — a hiccup
+  // fetching, say, Meta accounts must not stop clients/posts from loading.
   const loadClients = useCallback(async () => {
-    const response = await fetch('/api/scheduling/clients', { cache: 'no-store' });
-    if (response.ok) setClients(((await response.json()) as { clients: ClientOption[] }).clients);
+    try {
+      const response = await fetch('/api/scheduling/clients', { cache: 'no-store' });
+      if (response.ok) setClients(((await response.json()) as { clients: ClientOption[] }).clients);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }, []);
 
   const loadAccounts = useCallback(async () => {
-    const response = await fetch('/api/scheduling/meta-accounts', { cache: 'no-store' });
-    if (response.ok) setAccounts(((await response.json()) as { accounts: MetaAccount[] }).accounts);
-  }, []);
-
-  const loadSettings = useCallback(async () => {
-    const response = await fetch('/api/scheduling/settings', { cache: 'no-store' });
-    if (response.ok) {
-      const body = (await response.json()) as { clientSourceInstanceId: string | null; notionInstances: NotionInstanceOption[] };
-      setClientSourceInstanceId(body.clientSourceInstanceId);
-      setNotionInstances(body.notionInstances);
+    try {
+      const response = await fetch('/api/scheduling/meta-accounts', { cache: 'no-store' });
+      if (response.ok) setAccounts(((await response.json()) as { accounts: MetaAccount[] }).accounts);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
     }
   }, []);
 
   const loadPosts = useCallback(async () => {
-    const from = new Date(year, month, 1);
-    const to = new Date(year, month + 1, 0, 23, 59, 59);
-    const params = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
-    if (filterClient) params.set('client', filterClient);
+    try {
+      const from = new Date(year, month, 1);
+      const to = new Date(year, month + 1, 0, 23, 59, 59);
+      const params = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
+      if (filterClient) params.set('client', filterClient);
 
-    const response = await fetch(`/api/scheduling/posts?${params.toString()}`, { cache: 'no-store' });
-    if (!response.ok) {
-      setError(`HTTP ${response.status}`);
-      return;
+      const response = await fetch(`/api/scheduling/posts?${params.toString()}`, { cache: 'no-store' });
+      if (!response.ok) {
+        setError(`HTTP ${response.status}`);
+        return;
+      }
+      const body = (await response.json()) as { posts: ScheduledPostRow[] };
+      setPosts(body.posts.filter((post) => filterPlatforms.has(post.platform)));
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     }
-    const body = (await response.json()) as { posts: ScheduledPostRow[] };
-    setPosts(body.posts.filter((post) => filterPlatforms.has(post.platform)));
   }, [year, month, filterClient, filterPlatforms]);
 
   useEffect(() => {
+    // Mount fetch — same legitimate case as useWidgetData.ts's initial fetch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadClients();
     void loadAccounts();
-    void loadSettings();
-  }, [loadClients, loadAccounts, loadSettings]);
+  }, [loadClients, loadAccounts]);
 
   useEffect(() => {
     // Mount/filter-change fetch — every setState inside loadPosts() happens
@@ -103,26 +106,26 @@ export function SchedulingCalendar(): JSX.Element {
     });
   };
 
-  const saveClientSource = async (value: string) => {
-    const next = value || null;
-    setClientSourceInstanceId(next);
-    await fetch('/api/scheduling/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ clientSourceInstanceId: next }),
-    });
-    void loadClients();
-  };
+  const hasAccount = accounts.length > 0;
 
   return (
     <div className="eve-scheduling">
+      {!loading && !hasAccount && (
+        <div className="eve-alert eve-scheduling__setup-hint">
+          <span>Nenhuma conta do Meta conectada ainda — conecte uma Página do Facebook para agendar posts.</span>
+          <Link href="/connectors" className="eve-btn eve-btn--primary">
+            Conectar no Conectores
+          </Link>
+        </div>
+      )}
+
       <div className="eve-scheduling__filters eve-card">
         <label className="eve-field eve-scheduling__filter">
           <span className="eve-field__label">Cliente</span>
           <select className="eve-input" value={filterClient} onChange={(event) => setFilterClient(event.target.value)}>
             <option value="">Todos</option>
             {clients.map((client) => (
-              <option key={`${client.source}:${client.id}`} value={`${client.source}:${client.id}`}>
+              <option key={client.id} value={client.id}>
                 {client.label}
               </option>
             ))}
@@ -145,23 +148,12 @@ export function SchedulingCalendar(): JSX.Element {
           </label>
         </div>
 
-        <label className="eve-field eve-scheduling__filter">
-          <span className="eve-field__label">Fonte de clientes (Notion)</span>
-          <select
-            className="eve-input"
-            value={clientSourceInstanceId ?? ''}
-            onChange={(event) => void saveClientSource(event.target.value)}
-          >
-            <option value="">Nenhuma</option>
-            {notionInstances.map((instance) => (
-              <option key={instance.id} value={instance.id}>
-                {instance.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button type="button" className="eve-btn eve-btn--primary" onClick={() => setEditor({ mode: 'new' })}>
+        <button
+          type="button"
+          className="eve-btn eve-btn--primary eve-scheduling__new-btn"
+          disabled={!hasAccount}
+          onClick={() => setEditor({ mode: 'new' })}
+        >
           + Novo post
         </button>
       </div>
@@ -175,7 +167,7 @@ export function SchedulingCalendar(): JSX.Element {
           setYear(nextYear);
           setMonth(nextMonth);
         }}
-        onDayClick={(date) => setEditor({ mode: 'new', date })}
+        onDayClick={(date) => hasAccount && setEditor({ mode: 'new', date })}
         renderDay={(date) => (
           <div className="eve-month__chips">
             {(postsByDay.get(isoDateOnly(date)) ?? []).map((post) => (
@@ -189,7 +181,8 @@ export function SchedulingCalendar(): JSX.Element {
                 }}
                 title={post.caption}
               >
-                {PLATFORM_LABEL[post.platform]} · {post.clientLabel}
+                {PLATFORM_LABEL[post.platform]}
+                {post.postType === 'story' ? ' · story' : ''} · {post.clientLabel}
               </button>
             ))}
           </div>

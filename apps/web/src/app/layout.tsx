@@ -3,7 +3,10 @@ import { strings } from '@eve/ui';
 import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import type { JSX, ReactNode } from 'react';
+import { CustomCursor } from '../components/CustomCursor';
 import { SideRail } from '../components/SideRail';
+import { TimerProvider } from '../components/TimerProvider';
+import { getVisibleTabs, toTabSubject, type TabKey } from '../lib/permissions';
 import { getSessionUser } from '../lib/session';
 
 import '@eve/ui/tokens.css';
@@ -24,31 +27,43 @@ export const metadata: Metadata = {
 interface LayoutSession {
   theme: 'dark' | 'light' | null;
   isOwner: boolean | null;
-  isSocialMedia: boolean;
+  visibleTabs: Set<TabKey>;
+  uiScale: number;
+  railFullHide: boolean;
 }
 
+const DEFAULT_UI_SCALE = 1.5;
+
 /**
- * Resolves the theme and owner/social-media flags on the server from the
- * session, so the page paints correctly on first frame (no localStorage, no
- * flash of the wrong theme) and the nav can gate tabs without a second round
- * trip. `isOwner: null` means no session — the nav renders nothing then.
+ * Resolves the theme, owner/tab-visibility, and UI-scale/rail prefs on the
+ * server from the session, so the page paints correctly on first frame (no
+ * localStorage, no flash of the wrong theme/scale) and the nav can gate tabs
+ * without a second round trip. `isOwner: null` means no session — the nav
+ * renders nothing then, and the default 150% scale still applies (a
+ * logged-out visitor gets the same readable-by-default sizing).
  */
 async function resolveSession(): Promise<LayoutSession> {
   const user = await getSessionUser();
-  if (!user) return { theme: null, isOwner: null, isSocialMedia: false };
+  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false };
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { dashboardConfig: true, isOwner: true, isSocialMedia: true },
+    select: { dashboardConfig: true, isOwner: true, isSocialMedia: true, role: { select: { tabs: true } } },
   });
-  if (!row) return { theme: null, isOwner: null, isSocialMedia: false };
+  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false };
 
-  const theme = parseDashboardConfig(row.dashboardConfig).theme;
-  return { theme: theme === 'system' ? null : theme, isOwner: row.isOwner, isSocialMedia: row.isSocialMedia };
+  const config = parseDashboardConfig(row.dashboardConfig);
+  return {
+    theme: config.theme === 'system' ? null : config.theme,
+    isOwner: row.isOwner,
+    visibleTabs: getVisibleTabs(toTabSubject(row)),
+    uiScale: config.uiScale,
+    railFullHide: config.railFullHide,
+  };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<JSX.Element> {
-  const { theme, isOwner, isSocialMedia } = await resolveSession();
+  const { theme, isOwner, visibleTabs, uiScale, railFullHide } = await resolveSession();
 
   return (
     // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
@@ -61,9 +76,21 @@ export default async function RootLayout({ children }: { children: ReactNode }):
       className={`${display.variable} ${inter.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Server-rendered so the scale applies on the very first paint —
+            setting it after hydration would flash the 100% layout first. */}
+        <style>{`html { zoom: ${uiScale}; }`}</style>
+      </head>
       <body>
-        {children}
-        {isOwner !== null && <SideRail isOwner={isOwner} isSocialMedia={isSocialMedia} />}
+        <CustomCursor />
+        {isOwner !== null ? (
+          <TimerProvider>
+            {children}
+            <SideRail visibleTabs={[...visibleTabs]} railFullHide={railFullHide} />
+          </TimerProvider>
+        ) : (
+          children
+        )}
       </body>
     </html>
   );

@@ -3,6 +3,7 @@
 import { EveArch, strings } from '@eve/ui';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent, type JSX } from 'react';
+import { ImageDropZone } from '../../components/ImageDropZone';
 
 export interface ProfileData {
   id: string;
@@ -180,12 +181,14 @@ export function ProfileForm({ initial }: { initial: ProfileData }): JSX.Element 
 
             <label className="eve-field">
               <span className="eve-field__label">{strings.profile.picture}</span>
-              <input
-                className="eve-input"
-                type="url"
-                placeholder={strings.profile.picturePlaceholder}
-                value={draft.image}
-                onChange={(event) => setDraft({ ...draft, image: event.target.value })}
+              <ImageDropZone
+                value={draft.image || null}
+                onChange={(url) => setDraft({ ...draft, image: url ?? '' })}
+                endpoint="/api/uploads/avatar"
+                dropHint={strings.profile.pictureDropZone}
+                uploadingHint={strings.profile.pictureUploading}
+                removeLabel={strings.profile.pictureRemove}
+                shape="round"
               />
             </label>
 

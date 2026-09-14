@@ -1,9 +1,9 @@
 /**
- * Toda string visivel ao usuario mora aqui, em pt-BR.
+ * Toda string visível ao usuário mora aqui, em pt-BR.
  *
- * O codigo (identificadores, tabelas, commits) fica em ingles; a interface
- * fica em portugues. Centralizar aqui significa que trocar por next-intl
- * depois e mecanico, sem cacar texto solto em 40 componentes.
+ * O código (identificadores, tabelas, commits) fica em inglês; a interface
+ * fica em português. Centralizar aqui significa que trocar por next-intl
+ * depois é mecânico, sem caçar texto solto em 40 componentes.
  */
 export const strings = {
   app: {
@@ -23,48 +23,62 @@ export const strings = {
     or: 'ou',
     invalidCredentials: 'E-mail ou senha incorretos.',
     tooManyAttempts: 'Muitas tentativas. Tente de novo em alguns minutos.',
-    domainNotAllowed: 'Esse e-mail nao pertence ao dominio autorizado.',
-    genericError: 'Nao foi possivel entrar. Tente de novo.',
-    serviceUnavailable: 'Servico indisponivel. Verifique se o banco e o Redis estao rodando (pnpm services:up).',
+    domainNotAllowed: 'Esse e-mail não pertence ao domínio autorizado.',
+    genericError: 'Não foi possível entrar. Tente de novo.',
+    serviceUnavailable: 'Serviço indisponível. Verifique se o banco e o Redis estão rodando (pnpm services:up).',
   },
 
   dock: {
-    addTitle: 'Adicionar modulo',
-    searchPlaceholder: 'Buscar modulo...',
-    noResults: 'Nenhum modulo encontrado.',
-    catalogHint: 'A lista mostra as integracoes ja registradas. Conectar novas contas sera feito na tela de integracoes.',
     lock: 'Travar layout',
     unlock: 'Destravar layout',
     connect: 'Conectar',
     connecting: 'Conectando...',
     back: 'Voltar',
-    ownerOnly: 'So um owner pode conectar esta integracao.',
-    settingsTitle: 'Configuracoes da dashboard',
+    settingsTitle: 'Configurações da dashboard',
   },
 
   dashboardSettings: {
     backgroundTitle: 'Fundo',
-    backgroundImage: 'URL da imagem de fundo',
-    backgroundImageHint: 'Cole o link de uma imagem. Deixe em branco para nao usar nenhuma.',
+    backgroundImage: 'Imagem de fundo',
+    backgroundImageHint: 'Arraste uma imagem ou clique para escolher. Deixe em branco para não usar nenhuma.',
+    backgroundImageDropZone: 'Arraste uma imagem aqui ou clique para escolher',
+    backgroundImageUploading: 'Enviando...',
+    backgroundImageRemove: 'Remover imagem',
     backgroundColor: 'Cor de fundo',
-    backgroundColorHint: 'Usada por baixo da imagem (ou sozinha, se nao houver imagem). Ex.: #1a1a1a.',
+    backgroundColorHint: 'Usada por baixo da imagem (ou sozinha, se não houver imagem). Ex.: #1a1a1a.',
     layoutTitle: 'Layout',
     density: 'Densidade do grid',
-    densityComfortable: 'Confortavel',
+    densityComfortable: 'Confortável',
     densityCompact: 'Compacta',
+    interfaceTitle: 'Interface',
+    uiScale: 'Escala da interface',
+    uiScaleHint: 'Aumenta ou diminui o tamanho geral da interface. Padrão: 150%.',
+    railFullHide: 'Esconder barra lateral por completo',
+    railFullHideHint:
+      'Quando ligado, a seta da barra lateral esconde ela inteira em vez de só alternar entre ícone e ícone com texto.',
     behaviorTitle: 'Comportamento',
     liveUpdates: 'Atualizar automaticamente',
-    liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, so atualiza no "sincronizar agora".',
-    reset: 'Restaurar padrao',
+    liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, só atualiza no "sincronizar agora".',
+    reset: 'Restaurar padrão',
   },
 
   notion: {
-    token: 'Token da integracao',
+    token: 'Token da integração',
     tokenHint:
-      'Crie em notion.so/my-integrations (Internal Integration Secret). Depois abra a database no Notion e compartilhe com a integracao pelo menu "..." > Conexoes.',
+      'Crie em notion.so/my-integrations (Internal Integration Secret). Depois abra a database no Notion e compartilhe com a integração pelo menu "..." > Conexões.',
     database: 'URL ou ID da database',
-    databaseHint: 'Pode colar a URL da pagina do Notion direto da barra de enderecos.',
-    truncated: 'Mostrando as primeiras linhas: essa database e maior que o limite de uma sincronizacao.',
+    databaseHint: 'Pode colar a URL da página do Notion direto da barra de endereços.',
+    truncated: 'Mostrando as primeiras linhas: essa database é maior que o limite de uma sincronização.',
+  },
+
+  meta: {
+    pageId: 'ID da Página do Facebook',
+    pageIdHint: 'O ID numérico da Página — aparece em Configurações > Sobre da própria Página.',
+    igAccountId: 'ID da conta comercial do Instagram (opcional)',
+    igAccountIdHint: 'Necessário só para publicar no Instagram. A conta precisa ser Business/Creator e estar vinculada a esta Página.',
+    pageAccessToken: 'Token de acesso da Página',
+    pageAccessTokenHint:
+      'Gere um token de longa duração (idealmente via um System User no Business Suite) com as permissões pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic e instagram_content_publish.',
   },
 
   profile: {
@@ -72,8 +86,10 @@ export const strings = {
     back: 'Voltar para a dashboard',
     name: 'Nome',
     email: 'E-mail',
-    picture: 'Foto (URL)',
-    picturePlaceholder: 'https://...',
+    picture: 'Foto',
+    pictureDropZone: 'Arraste uma foto aqui ou clique para escolher',
+    pictureUploading: 'Enviando...',
+    pictureRemove: 'Remover foto',
     edit: 'Editar dados',
     save: 'Salvar',
     cancel: 'Cancelar',
@@ -82,20 +98,20 @@ export const strings = {
     member: 'Membro',
     passwordTitle: 'Senha',
     passwordHint:
-      'Senhas sao guardadas com hash argon2id e nao podem ser exibidas — nem por nos. Da para trocar, nao para consultar.',
+      'Senhas são guardadas com hash argon2id e não podem ser exibidas — nem por nós. Dá para trocar, não para consultar.',
     currentPassword: 'Senha atual',
     newPassword: 'Nova senha',
     showPassword: 'Mostrar senha',
     hidePassword: 'Ocultar senha',
     changePassword: 'Trocar senha',
     passwordChanged: 'Senha atualizada.',
-    noPasswordYet: 'Esta conta entra so pelo Google. Defina uma senha para poder entrar por e-mail tambem.',
+    noPasswordYet: 'Esta conta entra só pelo Google. Defina uma senha para poder entrar por e-mail também.',
     setPassword: 'Definir senha',
   },
 
   team: {
     title: 'Equipe',
-    hint: 'Quem tem e-mail do dominio autorizado ja entra sozinho pelo Google. Cadastre aqui quem nao tem conta Google da empresa, quem precisa de senha, ou quem ja deve nascer admin.',
+    hint: 'Quem tem e-mail do domínio autorizado já entra sozinho pelo Google. Cadastre aqui quem não tem conta Google da empresa, quem precisa de senha, ou quem já deve nascer admin.',
     add: 'Adicionar pessoa',
     confirmAdd: 'Criar conta',
     adding: 'Criando...',
@@ -104,16 +120,14 @@ export const strings = {
     name: 'Nome',
     email: 'E-mail',
     password: 'Senha inicial (opcional)',
-    passwordHint: 'Deixe em branco se a pessoa vai entrar so pelo Google. Ela pode trocar depois no proprio perfil.',
+    passwordHint: 'Deixe em branco se a pessoa vai entrar só pelo Google. Ela pode trocar depois no próprio perfil.',
     makeOwner: 'Dar acesso de admin (owner)',
-    makeSocialMedia: 'Marcar como Social Media',
-    removeSocialMedia: 'Remover tag Social Media',
     owner: 'admin',
     member: 'membro',
     socialMedia: 'Social Media',
-    you: 'voce',
+    you: 'você',
     hasPassword: 'senha definida',
-    googleOnly: 'so Google',
+    googleOnly: 'só Google',
     disabled: 'desativado',
     promote: 'Tornar admin',
     demote: 'Remover admin',
@@ -137,6 +151,9 @@ export const strings = {
     team: 'Equipe',
     scheduling: 'Agenda',
     tables: 'Tabelas',
+    jobs: 'Jobs',
+    chat: 'Chat',
+    connectors: 'Conectores',
   },
 
   rail: {
@@ -153,8 +170,8 @@ export const strings = {
 
   financial: {
     title: 'Financeiro',
-    empty: 'Nenhum dado financeiro conectado ainda.',
-    emptyHint: 'Essa aba vai mostrar status de pagamento por cliente quando a integração for definida.',
+    empty: 'Nenhum lançamento ainda.',
+    emptyHint: 'Registre entradas e saídas manualmente — pode vincular a um cliente ou job.',
   },
 
   widget: {
@@ -162,8 +179,9 @@ export const strings = {
     neverSynced: 'nunca sincronizado',
     syncing: 'sincronizando...',
     retry: 'Tentar de novo',
-    loadError: 'Nao foi possivel carregar este modulo.',
+    loadError: 'Não foi possível carregar este módulo.',
     readOnly: 'somente leitura',
+    crashed: 'Este widget travou e foi isolado do resto da dashboard.',
   },
 
   status: {
@@ -178,16 +196,16 @@ export const strings = {
     cancel: 'Cancelar',
     edit: 'Editar',
     undo: 'Desfazer',
-    undone: 'Edicao desfeita.',
+    undone: 'Edição desfeita.',
     savedBy: (name: string) => `editado por ${name}`,
-    conflict: 'Esse dado mudou na origem depois que voce abriu a tela. Recarregue antes de salvar.',
+    conflict: 'Esse dado mudou na origem depois que você abriu a tela. Recarregue antes de salvar.',
     reload: 'Recarregar',
-    undoWindow: (minutes: number) => `Desfazer disponivel por ${minutes} min`,
+    undoWindow: (minutes: number) => `Desfazer disponível por ${minutes} min`,
     saving: 'Salvando...',
-    editHint: 'Modo de edicao ligado. Altere os campos e salve.',
-    pendingChanges: 'Alteracoes nao salvas.',
+    editHint: 'Modo de edição ligado. Altere os campos e salve.',
+    pendingChanges: 'Alterações não salvas.',
     dismiss: 'Fechar aviso',
-    undoLast: 'Desfazer ultima edicao',
+    undoLast: 'Desfazer última edição',
   },
 
   view: {
@@ -200,9 +218,9 @@ export const strings = {
   },
 
   palette: {
-    placeholder: 'Buscar modulo, acao ou cliente...',
+    placeholder: 'Buscar módulo, ação ou cliente...',
     empty: 'Nada encontrado.',
-    sectionActions: 'Acoes',
+    sectionActions: 'Ações',
     sectionWidgets: 'Adicionar widget',
     close: 'Fechar',
     toggleTheme: 'Alternar tema claro/escuro',
@@ -212,18 +230,95 @@ export const strings = {
   errors: {
     notOwner: 'Apenas um owner do workspace pode gerenciar credenciais de connector.',
     notOwnerTeam: 'Apenas um owner do workspace pode gerenciar a equipe.',
-    notAllowedScheduling: 'Voce nao tem acesso a agenda.',
-    unauthorized: 'Sessao expirada. Entre novamente.',
-    notFound: 'Nao encontrado.',
-    invalidPayload: 'Requisicao invalida.',
+    notOwnerAutomations: 'Apenas um owner do workspace pode gerenciar o webhook de automações.',
+    notOwnerFinancial: 'Apenas um owner do workspace pode gerenciar o financeiro.',
+    notAllowedScheduling: 'Você não tem acesso à agenda.',
+    unauthorized: 'Sessão expirada. Entre novamente.',
+    notFound: 'Não encontrado.',
+    invalidPayload: 'Requisição inválida.',
+    pageCrashed: 'Essa página travou. O resto do app continua normal — tente de novo.',
+    notCommentAuthor: 'Você só pode apagar seus próprios comentários.',
+  },
+
+  jobs: {
+    title: 'Jobs',
+    manageColumns: 'Gerenciar colunas',
+    newColumn: 'Nova coluna',
+    columnNamePlaceholder: 'Nome da coluna',
+    newJob: 'Novo job',
+    jobTitlePlaceholder: 'Título do job',
+    deleteColumn: 'Apagar coluna',
+    renameColumn: 'Renomear coluna',
+    columnNotEmpty: (count: number) => `Essa coluna ainda tem ${count} job(s). Mova ou apague-os antes.`,
+    noJobs: 'Clique no + ou Ctrl+clique para adicionar.',
+    noColumns: 'Nenhuma coluna ainda.',
+    dueDate: 'Prazo',
+    description: 'Descrição',
+    descriptionPlaceholder: 'Descrição...',
+    collaborators: 'Colaboradores',
+    addCollaborator: 'Adicionar colaborador',
+    removeCollaborator: 'Remover',
+    noCollaborators: 'Nenhum colaborador ainda.',
+    pickMember: 'Escolher pessoa...',
+    tasks: 'Tarefas',
+    newTask: 'Nova tarefa',
+    taskTitlePlaceholder: 'Título da tarefa',
+    noTasks: 'Nenhuma tarefa ainda.',
+    assignee: 'Responsável',
+    unassigned: 'Sem responsável',
+    deleteTask: 'Apagar tarefa',
+    deleteJob: 'Apagar job',
+    attachFile: 'Anexar arquivo',
+    uploadingFile: 'Enviando arquivo...',
+    removeAttachment: 'Remover anexo',
+    createdBy: (name: string) => `Criado por ${name}`,
+    close: 'Fechar',
+    loadError: 'Não foi possível carregar o quadro de jobs.',
+    retry: 'Tentar de novo',
+
+    tabDetails: 'Detalhes',
+    tabComments: 'Comentários',
+    tabTimesheet: 'Timesheet',
+
+    commentsEmpty: 'Nenhum comentário ainda. Comece a conversa.',
+    commentPlaceholder: 'Escreva um comentário...',
+    commentSend: 'Enviar',
+    deleteComment: 'Apagar comentário',
+
+    timesheetGeneral: 'Geral (sem tarefa)',
+    timesheetStart: 'Iniciar',
+    timesheetStop: 'Parar',
+    timesheetRunning: 'em andamento',
+    timesheetEmpty: 'Nenhum tempo registrado ainda.',
+    timesheetTotal: (duration: string) => `Total: ${duration}`,
+    timesheetLog: 'Registros',
+    timesheetEdit: 'Editar',
+    timesheetMinutesLabel: 'minutos',
+    deleteEntry: 'Apagar registro',
+
+    timerGeneralStart: 'Iniciar cronômetro geral',
+    timerGeneralStop: 'Parar cronômetro geral',
+    timerTaskStart: 'Iniciar cronômetro da tarefa',
+    timerTaskStop: 'Parar cronômetro da tarefa',
+    timerHide: 'Ocultar',
+    timerRestart: 'Reiniciar cronômetro',
+    timerCollapse: 'Recolher (arraste para mover)',
+    timerExpand: 'Expandir (arraste para mover)',
+  },
+
+  notifications: {
+    title: 'Notificações',
+    empty: 'Nenhuma notificação ainda.',
+    markAllRead: 'Marcar todas como lidas',
+    viewAll: 'Ver todas',
   },
 
   chat: {
     placeholder: 'Escreva uma mensagem...',
     send: 'Enviar',
     sending: 'Enviando...',
-    empty: 'Converse com o Claude. Sem acesso a ferramentas ou dados do dashboard ainda.',
+    empty: 'Converse com o Claude — ele pode consultar seus jobs, tabelas, clientes e (se você tiver acesso) o financeiro.',
     clear: 'Limpar conversa',
-    notConfigured: 'ANTHROPIC_API_KEY nao configurada. Adicione a chave no .env para usar o chat.',
+    notConfigured: 'ANTHROPIC_API_KEY não configurada. Adicione a chave no .env para usar o chat.',
   },
 } as const;

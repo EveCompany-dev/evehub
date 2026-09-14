@@ -26,7 +26,7 @@ export function loadConnectorContext(instance: ConnectorInstance): LoadedConnect
   const configResult = connector.configSchema.safeParse(instance.config);
   if (!configResult.success) {
     const details = configResult.error.issues.map((i) => `${i.path.join('.') || 'config'}: ${i.message}`).join('; ');
-    throw new Error(`Configuracao invalida para o connector "${connector.id}": ${details}`);
+    throw new Error(`Configuração inválida para o connector "${connector.id}": ${details}`);
   }
 
   let credentials: unknown;

@@ -8,6 +8,166 @@
   color: var(--text-dim);
 }
 
+/* Auto-linkified URLs (see components/Linkify.tsx) inside free text like
+   comments and notes. */
+.eve-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.eve-link:hover {
+  text-decoration: none;
+}
+
+/* --- rich text (see RichText.tsx / useFormattingToolbar.tsx) -------------- */
+
+.eve-richtext__quote {
+  margin: 4px 0;
+  padding: 1px 10px;
+  border-left: 3px solid var(--accent);
+  color: var(--text-dim);
+}
+
+.eve-richtext__code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.eve-richtext__pre {
+  margin: 4px 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  white-space: pre;
+}
+
+.eve-richtext__pre code {
+  background: none;
+  padding: 0;
+}
+
+/* Deliberately theme-independent (dark, high-contrast) rather than following
+   light/dark mode — this is a transient floating control, not page content,
+   and most editors (Notion, Medium) do the same for their bubble menu. */
+.eve-format-toolbar {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #1c1c1c;
+  box-shadow: var(--shadow-float);
+}
+
+.eve-format-toolbar button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: #f5f5f5;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.eve-format-toolbar button:hover {
+  background: rgb(255 255 255 / 0.15);
+}
+
+/* --- custom cursor -------------------------------------------------------
+   Desktop-only (pointer: fine): a small orange dot with a subtle glow that
+   morphs into the Eve mark over anything the browser would render a pointer
+   cursor for. `!important` on the universal selector is needed because many
+   components set their own explicit `cursor: pointer/grab/...` — an
+   inherited `cursor: none` on <html> alone wouldn't beat those. Touch
+   devices are untouched: neither the native cursor is hidden nor the custom
+   one rendered there, since there is no pointer to replace. */
+@media (pointer: fine) {
+  * {
+    cursor: none !important;
+  }
+
+  input,
+  textarea,
+  select,
+  [contenteditable='true'] {
+    cursor: text !important;
+  }
+}
+
+.eve-cursor {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  will-change: transform;
+}
+
+@media (pointer: coarse) {
+  .eve-cursor {
+    display: none;
+  }
+}
+
+.eve-cursor__dot {
+  position: absolute;
+  top: -5px;
+  left: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 6px 2px color-mix(in srgb, var(--accent) 35%, transparent);
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.eve-cursor__icon {
+  position: absolute;
+  top: -11px;
+  left: -11px;
+  width: 22px;
+  height: 22px;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(0.5) rotate(-8deg);
+  transition: opacity 180ms ease, transform 180ms ease;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 35%, transparent));
+}
+
+.eve-cursor.is-hover .eve-cursor__dot {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+.eve-cursor.is-hover .eve-cursor__icon {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eve-cursor__dot,
+  .eve-cursor__icon {
+    transition: opacity 1ms linear;
+  }
+}
+
 /* --- side rail (secondary nav) ------------------------------------------ */
 
 body[data-rail='collapsed'] {
@@ -18,6 +178,35 @@ body[data-rail='collapsed'] {
 body[data-rail='expanded'] {
   padding-right: 180px;
   transition: padding-right 160ms var(--ease-brand);
+}
+
+body[data-rail='hidden'] {
+  padding-right: 18px;
+  transition: padding-right 160ms var(--ease-brand);
+}
+
+.eve-rail__show-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  z-index: 35;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.eve-rail__show-tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 .eve-rail {
@@ -82,6 +271,12 @@ body[data-rail='expanded'] {
   padding: 0 10px;
 }
 
+/* Collapsed rail: icon-only, so force a square box — otherwise --radius-pill
+   rounds a narrower-than-tall box into an oval instead of a true circle. */
+.eve-rail:not(.is-expanded) .eve-rail__item {
+  width: 38px;
+}
+
 .eve-rail__icon {
   display: inline-flex;
   flex-shrink: 0;
@@ -102,6 +297,187 @@ body[data-rail='expanded'] {
   color: var(--accent);
   background: var(--accent-soft);
   font-weight: 600;
+}
+
+/* --- notification bell --------------------------------------------------- */
+
+.eve-notif {
+  position: relative;
+}
+
+.eve-notif__trigger {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.eve-notif__badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  border-radius: var(--radius-pill);
+  background: var(--danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.eve-rail__settings {
+  margin-top: auto;
+}
+
+.eve-notif__panel {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 8px);
+  z-index: 60;
+  width: 320px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+/* Rendered through a portal into <body> (see NotificationBell.tsx) so it
+   can escape .eve-rail's `overflow-x: hidden` — that property is load-bearing
+   for the rail's own expand/collapse width transition, so the panel has to
+   leave the rail's DOM subtree instead. `top`/`right` come from the trigger
+   button's getBoundingClientRect(), hence `position: fixed` (viewport-
+   relative) instead of `absolute`. */
+.eve-notif__panel--portal {
+  position: fixed;
+}
+
+.eve-notif__panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.eve-notif__panel-head .eve-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.eve-notif__empty {
+  padding: 16px 12px;
+  font-size: 13px;
+}
+
+.eve-notif__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.eve-notif__item {
+  border-radius: calc(var(--radius-card) - 6px);
+}
+
+.eve-notif__item.is-unread {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.eve-notif__link {
+  display: block;
+  padding: 8px 10px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.eve-notif__link:hover {
+  background: var(--surface-2);
+  border-radius: calc(var(--radius-card) - 6px);
+}
+
+.eve-notif__viewall {
+  display: block;
+  text-align: center;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.eve-notif__viewall:hover {
+  background: var(--surface-2);
+}
+
+.eve-notif__message {
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+
+/* --- notifications page (full history, vs the rail's last-30 dropdown) --- */
+
+.eve-notifications-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.eve-notifications-page__head {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.eve-notifications-page__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-notifications-page__item.is-unread {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-radius: var(--radius-card);
+}
+
+.eve-notifications-page__link {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  background: none;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+  border-radius: var(--radius-card);
+}
+
+.eve-notifications-page__link:hover {
+  background: var(--surface-2);
+}
+
+.eve-notifications-page__message {
+  margin: 0 0 2px;
+  font-size: 14px;
 }
 
 /* --- header ----------------------------------------------------------- */
@@ -149,11 +525,17 @@ body[data-rail='expanded'] {
   padding: var(--space-gutter);
 }
 
-.eve-main--custom-bg {
+/* Full-viewport layer behind literally everything (z-index:-1 in the root
+   stacking context) — see DashboardShell.tsx for why this isn't styled onto
+   <main> itself. */
+.eve-page-background {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-color: var(--bg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-attachment: fixed;
 }
 
 /* --- grid ------------------------------------------------------------- */
@@ -191,6 +573,10 @@ body[data-rail='expanded'] {
   color: var(--text-dim);
 }
 
+.eve-widget--crashed {
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
 .eve-empty {
   display: flex;
   flex-direction: column;
@@ -210,6 +596,8 @@ body[data-rail='expanded'] {
 /* --- tabelas locais -------------------------------------------------------- */
 
 .eve-tables {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -221,9 +609,12 @@ body[data-rail='expanded'] {
 }
 
 .eve-datatable {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .eve-datatable__toolbar {
@@ -276,9 +667,311 @@ body[data-rail='expanded'] {
   background: var(--surface-2);
 }
 
+.eve-tables__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.eve-tables__tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font: inherit;
+}
+
+.eve-tables__tab:hover {
+  color: var(--text);
+}
+
+.eve-tables__tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.eve-clients {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.eve-clients__head {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- conectores ------------------------------------------------------------ */
+
+.eve-connectors {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.eve-connectors__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.eve-connectors__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.eve-connectors__card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.eve-connectors__socket {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.eve-connectors__description {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.eve-connectors__instances {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-connectors__instance {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.eve-connectors__instance-label {
+  font-weight: 600;
+}
+
+.eve-connectors__error-msg {
+  flex-basis: 100%;
+  color: var(--danger);
+}
+
+.eve-connectors__instance-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.eve-connectors__status {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.eve-connectors__status.is-ok {
+  background: color-mix(in srgb, var(--success, #2a9d5c) 16%, transparent);
+  color: var(--success, #2a9d5c);
+}
+
+.eve-connectors__status.is-syncing {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
+.eve-connectors__status.is-error {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.eve-connectors__status.is-disabled {
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+/* --- financeiro ----------------------------------------------------------- */
+
+.eve-financial {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.eve-financial__summary {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.eve-financial__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-financial__stat-value {
+  font-size: 20px;
+}
+
+.eve-financial__stat-value.is-income,
+.eve-financial__amount.is-income {
+  color: var(--success, #2a9d5c);
+}
+
+.eve-financial__stat-value.is-expense,
+.eve-financial__amount.is-expense {
+  color: var(--danger);
+}
+
+.eve-financial__head {
+  display: flex;
+}
+
+.eve-financial__form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* --- automacoes ------------------------------------------------------------ */
+
+.eve-automations {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+}
+
+.eve-automations__webhook {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.eve-automations__url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-automations__url {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.eve-automations__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-automations__item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.eve-automations__item-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.eve-automations__item-head:hover {
+  background: var(--surface-2);
+}
+
+.eve-automations__badge {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.eve-automations__badge.is-ok {
+  background: color-mix(in srgb, var(--success, #2a9d5c) 16%, transparent);
+  color: var(--success, #2a9d5c);
+}
+
+.eve-automations__badge.is-fail {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
+}
+
+.eve-automations__source {
+  font-weight: 600;
+}
+
+.eve-automations__event {
+  color: var(--text-dim);
+}
+
+.eve-automations__payload {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px;
+  overflow-x: auto;
+}
+
 /* --- agenda / calendario ------------------------------------------------- */
 
 .eve-scheduling {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -299,6 +992,324 @@ body[data-rail='expanded'] {
 .eve-scheduling__filter {
   min-width: 160px;
   margin-bottom: 0;
+}
+
+.eve-scheduling__new-btn {
+  margin-left: auto;
+}
+
+.eve-scheduling__new-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.eve-scheduling__setup-hint {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* --- post editor (two-column: form + live preview) ------------------------ */
+
+.eve-post-editor {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 24px;
+  overflow: hidden;
+}
+
+.eve-post-editor__fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: calc(85vh - 40px);
+  padding-right: 4px;
+}
+
+.eve-post-editor__preview {
+  flex: none;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.eve-post-editor__preview-label {
+  align-self: flex-start;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eve-post-editor__type-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .eve-post-editor {
+    flex-direction: column;
+  }
+
+  .eve-post-editor__preview {
+    width: 100%;
+  }
+}
+
+.eve-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.eve-segmented__btn {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-dim);
+}
+
+.eve-segmented__btn.is-active {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* --- post preview — deliberately mimics the real Instagram/Facebook look,
+   not this dashboard's own theme, so colors below are hardcoded rather than
+   using --surface/--text tokens. --------------------------------------- */
+
+.eve-preview {
+  width: 280px;
+  border: 1px solid #dbdbdb;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+  color: #262626;
+  font-size: 13px;
+  font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.eve-preview__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.eve-preview__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, #f9ce34, #ee2a7b, #6228d7);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex: none;
+}
+
+.eve-preview__name {
+  font-weight: 600;
+  flex: 1;
+}
+
+.eve-preview__dots {
+  color: #262626;
+  font-weight: 700;
+}
+
+.eve-preview__media {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #f0f0f0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.eve-preview__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.eve-preview__placeholder {
+  color: #8e8e8e;
+  font-size: 12px;
+  text-align: center;
+  padding: 20px;
+}
+
+.eve-preview__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 4px;
+  color: #262626;
+}
+
+.eve-preview__bookmark {
+  margin-left: auto;
+}
+
+.eve-preview__likes {
+  margin: 4px 12px 0;
+  font-weight: 600;
+}
+
+.eve-preview__caption {
+  margin: 4px 12px;
+  line-height: 1.4;
+}
+
+.eve-preview__caption strong {
+  margin-right: 4px;
+}
+
+.eve-preview__time {
+  margin: 0 12px 12px;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #8e8e8e !important;
+}
+
+.eve-preview--fb-feed .eve-preview__avatar {
+  background: #1877f2;
+}
+
+.eve-preview--fb-feed .eve-preview__head {
+  align-items: flex-start;
+}
+
+.eve-preview__fb-identity {
+  display: flex;
+  flex-direction: column;
+}
+
+.eve-preview__meta {
+  font-size: 11px;
+  color: #65676b !important;
+}
+
+.eve-preview--fb-feed .eve-preview__caption--fb {
+  margin: 0 12px 8px;
+}
+
+.eve-preview--fb-feed .eve-preview__media {
+  aspect-ratio: 1.91 / 1;
+}
+
+.eve-preview--fb-feed .eve-preview__actions--fb {
+  justify-content: space-around;
+  border-top: 1px solid #e4e6eb;
+  padding: 8px 4px;
+  font-size: 12px;
+  color: #65676b;
+}
+
+.eve-preview--fb-feed .eve-preview__actions--fb span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.eve-preview--story {
+  width: 220px;
+  aspect-ratio: 9 / 16;
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+}
+
+.eve-preview__story-progress {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: rgb(255 255 255 / 0.35);
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.eve-preview__story-progress span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  border-radius: 2px;
+}
+
+.eve-preview__story-head {
+  position: absolute;
+  top: 16px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 2;
+  font-size: 12px;
+}
+
+.eve-preview__story-head .eve-dim {
+  color: rgb(255 255 255 / 0.75) !important;
+}
+
+.eve-preview__story-name {
+  font-weight: 600;
+}
+
+.eve-preview__story-media {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+}
+
+.eve-preview__story-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.eve-preview--story .eve-preview__placeholder {
+  color: rgb(255 255 255 / 0.6);
+}
+
+.eve-preview__story-reply {
+  position: absolute;
+  bottom: 12px;
+  left: 10px;
+  right: 10px;
+  z-index: 2;
+  padding: 8px 12px;
+  border: 1px solid rgb(255 255 255 / 0.6);
+  border-radius: 999px;
+  font-size: 12px;
+  text-align: center;
+  color: rgb(255 255 255 / 0.85);
 }
 
 .eve-btn--danger {
@@ -499,6 +1510,14 @@ body[data-rail='expanded'] {
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
+  min-height: 100%;
+  padding: 2px 4px;
+  border-radius: var(--radius-input, 8px);
+  cursor: text;
+}
+
+.eve-notes__text:hover {
+  background: var(--surface-2);
 }
 
 /* --- calculadora --------------------------------------------------------- */
@@ -929,15 +1948,9 @@ body[data-rail='expanded'] {
 }
 
 .eve-wordmark {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--accent);
-}
-
-.eve-wordmark__suffix {
-  font-weight: 500;
+  display: block;
+  height: 22px;
+  width: auto;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -985,173 +1998,6 @@ body[data-rail='expanded'] {
 }
 
 /* --- dock flutuante ---------------------------------------------------- */
-
-.eve-dock {
-  position: fixed;
-  left: 50%;
-  bottom: 22px;
-  transform: translateX(-50%);
-  z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-}
-
-.eve-dock__pill {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-}
-
-.eve-dock__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition: background 160ms ease, color 160ms ease;
-}
-
-.eve-dock__btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.eve-dock__btn.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.eve-dock__btn--add {
-  background: var(--accent);
-  color: var(--accent-contrast);
-}
-
-.eve-dock__btn--add:hover {
-  background: var(--accent);
-  color: var(--accent-contrast);
-  filter: brightness(1.08);
-}
-
-.eve-dock__plus {
-  font-size: 22px;
-  line-height: 1;
-  transition: transform 260ms var(--ease-brand);
-}
-
-.eve-dock__plus.is-open {
-  transform: rotate(45deg);
-}
-
-.eve-dock__divider {
-  width: 1px;
-  height: 22px;
-  background: var(--border);
-  margin: 0 4px;
-}
-
-.eve-dock__panel {
-  width: min(420px, calc(100vw - 32px));
-  border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-float);
-  overflow: hidden;
-  animation: eve-dock-in 200ms var(--ease-brand);
-}
-
-@keyframes eve-dock-in {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .eve-dock__panel {
-    animation: none;
-  }
-}
-
-.eve-dock__search {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: transparent;
-  outline: none;
-  font-size: 14px;
-}
-
-.eve-dock__list {
-  max-height: 42vh;
-  overflow-y: auto;
-  padding: 6px;
-}
-
-.eve-dock__item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  padding: 9px 10px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.eve-dock__item:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-
-.eve-dock__item:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.eve-dock__item-label {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-.eve-dock__item-desc {
-  font-size: 11px;
-  color: var(--text-dim);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.eve-dock__empty,
-.eve-dock__hint {
-  margin: 0;
-  padding: 12px 14px;
-  font-size: 11px;
-  color: var(--text-dim);
-}
-
-.eve-dock__hint {
-  border-top: 1px solid var(--border);
-}
 
 /* O grid travado tira o cursor de arraste dos cabecalhos. */
 .eve-grid-container.is-locked .eve-widget__header {
@@ -1325,6 +2171,105 @@ body[data-rail='expanded'] {
   color: var(--text-dim);
 }
 
+/* --- full settings page (/settings) -------------------------------------- */
+
+.eve-settings-page {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 24px;
+}
+
+.eve-settings-page__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+.eve-settings-page__navitem {
+  appearance: none;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: left;
+  font: inherit;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.eve-settings-page__navitem:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.eve-settings-page__navitem.is-active {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.eve-settings-page__content {
+  flex: 1;
+  min-width: 0;
+  max-width: 520px;
+}
+
+@media (max-width: 640px) {
+  .eve-settings-page {
+    flex-direction: column;
+  }
+
+  .eve-settings-page__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+}
+
+/* --- upload drop zone (background image, attachments) ------------------- */
+
+.eve-upload-drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-card);
+  background: var(--bg);
+  cursor: pointer;
+  overflow: hidden;
+  text-align: center;
+  padding: 8px;
+}
+
+.eve-upload-drop:hover,
+.eve-upload-drop.is-drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.eve-upload-drop__preview {
+  width: 100%;
+  height: 90px;
+  object-fit: cover;
+  border-radius: calc(var(--radius-card) - 4px);
+}
+
+.eve-upload-drop--round {
+  width: 90px;
+  height: 90px;
+  min-height: 0;
+  border-radius: 50%;
+}
+
+.eve-upload-drop--round .eve-upload-drop__preview {
+  height: 100%;
+  border-radius: 50%;
+}
+
 /* --- aviso de desfazer -------------------------------------------------- */
 
 .eve-undo {
@@ -1429,6 +2374,50 @@ body[data-rail='expanded'] {
   font-size: 12px;
 }
 
+.eve-team__role-select {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+  max-width: 160px;
+}
+
+.eve-team__roles {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.eve-team__role-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.eve-team__role-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.eve-team__role-name {
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.eve-team__role-tabs {
+  flex: 1;
+  font-size: 12px;
+}
+
+.eve-team__role-tabs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 4px 12px;
+}
+
 .eve-check {
   display: flex;
   align-items: center;
@@ -1436,4 +2425,1021 @@ body[data-rail='expanded'] {
   margin-bottom: 14px;
   font-size: 13px;
   cursor: pointer;
+}
+
+/* --- jobs (kanban) ------------------------------------------------------ */
+
+/* Full viewport, own scroll region — unlike .eve-profile's 640px-capped
+   single-column pages, a multi-column board needs the whole canvas and its
+   own internal scrolling (per column), not the document's. */
+/* Full-viewport page shell: used by any tab whose content wants the whole
+   canvas (a kanban board, a data table, a calendar) instead of the
+   640px-capped .eve-profile meant for narrow single-column forms/lists. */
+.eve-wide-page,
+.eve-jobs-page {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.eve-wide-page__header,
+.eve-jobs-page__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-gutter) var(--space-gutter) 12px;
+  flex: none;
+}
+
+.eve-wide-page__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-gutter) var(--space-gutter);
+  display: flex;
+  flex-direction: column;
+}
+
+.eve-jobs {
+  flex: 1;
+  min-height: 0;
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eve-jobs__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  flex: none;
+}
+
+/* First-run / zero-columns state: a big, quiet invitation instead of a bare page. */
+.eve-jobs__empty-board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: var(--radius-card);
+}
+
+.eve-jobs__empty-board__plus {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 2px dashed var(--text-dim);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 32px;
+  line-height: 1;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.eve-jobs__empty-board__plus:hover {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.eve-jobs__empty-board__form {
+  width: min(280px, 90%);
+  animation: eve-pop-in 220ms var(--ease-brand);
+}
+
+.eve-jobs__board {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.eve-jobs__column {
+  /* Grows to fill the board's width when there's room; once every column
+     hits the 240px floor, the board's own overflow-x takes over instead of
+     squeezing them further. */
+  flex: 1 1 0;
+  min-width: 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  min-height: 120px;
+  animation: eve-pop-in 220ms var(--ease-brand);
+}
+
+.eve-jobs__column--new {
+  flex: 0 0 260px;
+  background: transparent;
+  border-style: dashed;
+  justify-content: flex-start;
+  align-items: stretch;
+  animation: none;
+}
+
+@keyframes eve-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.eve-jobs__column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 4px 4px 8px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.eve-jobs__column-head.is-draggable {
+  cursor: grab;
+}
+
+.eve-jobs__cards {
+  flex: 1;
+  min-height: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: calc(var(--radius-card) - 6px);
+  transition: background-color 120ms ease;
+}
+
+.eve-jobs__cards.is-drop-target {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.eve-jobs__empty-column {
+  font-size: 12px;
+  padding: 4px;
+}
+
+.eve-job-card {
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-card) - 4px);
+  background: var(--bg);
+  padding: 10px;
+  cursor: grab;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eve-job-card--overlay {
+  cursor: grabbing;
+  box-shadow: var(--shadow-float);
+}
+
+.eve-job-card:hover {
+  border-color: var(--accent);
+}
+
+/* Where a dragged job would land — same footprint as a real card, no content. */
+.eve-job-card--placeholder {
+  border: 2px dashed var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  min-height: 54px;
+  cursor: default;
+}
+
+.eve-job-card__title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.eve-job-card__important {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  border-radius: 4px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
+.eve-job-card__meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.eve-job-card__avatars {
+  display: flex;
+}
+
+.eve-job-card__avatars > * {
+  margin-left: -6px;
+}
+
+.eve-job-card__avatars > *:first-child {
+  margin-left: 0;
+}
+
+.eve-jobs__add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+
+.eve-jobs__add-form-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.eve-modal--wide {
+  width: min(980px, 100%);
+  max-height: 85vh;
+}
+
+.eve-jobs__title-input {
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  padding: 4px 0;
+  background: transparent;
+}
+
+.eve-jobs__header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-jobs__subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.eve-jobs__client-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px 2px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.eve-jobs__client-unlink {
+  appearance: none;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.eve-jobs__description-view {
+  min-height: 60px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input, 8px);
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+.eve-jobs__description-view:hover {
+  background: var(--surface-2);
+}
+
+/* A name in the description matching a known local client (see
+   JobDetailModal.tsx's renderDescription) — hover shows a floating prompt
+   to link the job to that client, click confirms it. */
+.eve-client-match {
+  position: relative;
+  color: var(--accent);
+  border-bottom: 1px dashed var(--accent);
+  cursor: pointer;
+}
+
+.eve-client-match:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  white-space: nowrap;
+  box-shadow: var(--shadow-float);
+  z-index: 20;
+}
+
+.eve-jobs__timer-toggle {
+  flex: none;
+  border-color: var(--border);
+}
+
+.eve-jobs__timer-toggle.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.eve-jobs__important-toggle {
+  flex: none;
+  border-color: var(--border);
+  font-weight: 800;
+}
+
+.eve-jobs__important-toggle.is-active {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.eve-jobs__collaborator-list,
+.eve-jobs__task-list {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eve-jobs__collaborator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.eve-jobs__collaborator .eve-btn--icon {
+  margin-left: auto;
+}
+
+.eve-jobs__task {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  border-radius: calc(var(--radius-card) - 6px);
+  padding: 4px;
+  border: 1px dashed transparent;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.eve-jobs__task.is-drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.eve-jobs__task-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-jobs__task.is-done .eve-jobs__task-title {
+  text-decoration: line-through;
+  color: var(--text-dim);
+}
+
+.eve-jobs__task-title {
+  flex: 1;
+}
+
+.eve-jobs__task-assignee {
+  width: auto;
+  max-width: 160px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.eve-jobs__task-uploading {
+  font-size: 11px;
+  padding-left: 30px;
+}
+
+.eve-jobs__attachments {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-jobs__attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.eve-jobs__attachment-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.eve-jobs__attachment-name:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* --- team chat ------------------------------------------------------------ */
+
+.eve-chat-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eve-chat-workspace__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 4px;
+}
+
+.eve-chat-workspace__message {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.eve-chat-workspace__message-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.eve-chat-workspace__message-text {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.eve-chat-workspace__message-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.eve-chat-workspace__message-author {
+  font-weight: 600;
+}
+
+.eve-chat__mention {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.eve-chat-workspace__attachments {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-chat-workspace__attachment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.eve-chat-workspace__attachment a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.eve-chat-workspace__attachment a:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.eve-chat-workspace__pending {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.eve-chat-workspace__pending-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  background: var(--surface-2);
+}
+
+.eve-chat-workspace__composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.eve-chat-workspace__input {
+  resize: vertical;
+  min-height: 44px;
+}
+
+.eve-chat-workspace__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-chat-workspace__actions .eve-btn--primary {
+  margin-left: auto;
+}
+
+.eve-chat-workspace__emoji {
+  position: relative;
+}
+
+.eve-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 220px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+.eve-emoji-picker__item {
+  appearance: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.eve-emoji-picker__item:hover {
+  background: var(--surface-2);
+}
+
+.eve-chat-workspace__mentions {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 220px;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.eve-chat-workspace__mentions button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  border-radius: 6px;
+}
+
+.eve-chat-workspace__mentions button:hover {
+  background: var(--surface-2);
+}
+
+/* --- localized date input ------------------------------------------------ */
+
+.eve-date-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.eve-date-input__text {
+  width: 110px;
+}
+
+.eve-date-input__text.is-invalid {
+  border-color: var(--danger);
+}
+
+.eve-date-input__native {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  border: 0;
+  padding: 0;
+}
+
+/* --- member select (avatar + name dropdown) ------------------------------ */
+
+.eve-member-select {
+  position: relative;
+  display: inline-block;
+}
+
+.eve-member-select__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.eve-member-select__trigger:hover {
+  border-color: var(--accent);
+}
+
+.eve-member-select__panel {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-member-select__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: calc(var(--radius-card) - 6px);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-member-select__option:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.eve-member-select__empty {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+/* --- job detail modal: tabs, icons -------------------------------------- */
+
+.eve-field__label--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eve-jobs__tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+  margin: 4px 0 12px;
+}
+
+.eve-jobs__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eve-jobs__tab:hover {
+  color: var(--text);
+}
+
+.eve-jobs__tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.eve-jobs__tabpanel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 260px;
+}
+
+/* Details tab: fields on the left, comments always visible on the right —
+   communication stays in view instead of being a tab you have to remember
+   to check. */
+.eve-jobs__tabpanel--split {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  align-items: start;
+  gap: 24px;
+}
+
+.eve-jobs__tabpanel-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.eve-jobs__tabpanel-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 24px;
+  height: 100%;
+}
+
+.eve-jobs__tabpanel-side .eve-jobs__comments {
+  flex: 1;
+  min-height: 0;
+}
+
+.eve-jobs__tabpanel-side .eve-jobs__comment-list {
+  flex: 1;
+  max-height: none;
+}
+
+@media (max-width: 720px) {
+  .eve-jobs__tabpanel--split {
+    grid-template-columns: 1fr;
+  }
+
+  .eve-jobs__tabpanel-side {
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}
+
+/* --- comments tab --------------------------------------------------------- */
+
+.eve-jobs__comments {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eve-jobs__comment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.eve-jobs__comment {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.eve-jobs__comment-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-jobs__comment-body p {
+  margin: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.eve-jobs__comment-meta {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  align-items: baseline;
+}
+
+.eve-jobs__comment-author {
+  font-weight: 600;
+}
+
+.eve-jobs__comment-composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.eve-jobs__comment-composer .eve-input {
+  flex: 1;
+}
+
+/* --- timesheet tab --------------------------------------------------------- */
+
+.eve-jobs__timesheet {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.eve-jobs__timesheet-log {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.eve-jobs__timesheet-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.eve-jobs__timesheet-duration {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.eve-jobs__timesheet-duration:hover {
+  color: var(--accent);
+}
+
+.eve-jobs__timesheet-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.eve-jobs__timesheet-edit-input {
+  width: 64px;
+  min-height: 26px;
+  padding: 4px 6px;
+}
+
+/* --- floating timer popup ------------------------------------------------ */
+
+.eve-timer-popup {
+  position: fixed;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  animation: eve-pop-in 200ms var(--ease-brand);
+}
+
+.eve-timer-popup.is-stopped {
+  border-color: var(--border);
+  opacity: 0.85;
+}
+
+.eve-timer-popup.is-stopped .eve-timer-popup__elapsed {
+  color: var(--text-dim);
+}
+
+.eve-timer-popup.is-collapsed {
+  padding: 6px;
+  gap: 0;
+}
+
+.eve-timer-popup__handle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-dim);
+  cursor: grab;
+  touch-action: none;
+  border-radius: 50%;
+}
+
+.eve-timer-popup__handle:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.eve-timer-popup__dot {
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.eve-timer-popup__info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  max-width: 180px;
+}
+
+.eve-timer-popup__label {
+  font-size: 11px;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-timer-popup__elapsed {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }

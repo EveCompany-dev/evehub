@@ -89,7 +89,7 @@ describe('buildPropertyPayload', () => {
   });
 
   it('rejects a number that is not one', () => {
-    expect(() => buildPropertyPayload('Valor', 'number', 'abc')).toThrow(/espera um numero/);
+    expect(() => buildPropertyPayload('Valor', 'number', 'abc')).toThrow(/espera um número/);
   });
 
   it('sends only the start of a rendered date range back', () => {

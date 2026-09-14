@@ -13,7 +13,7 @@ export const runtime = 'nodejs';
 const columnInputSchema = z.object({
   key: z.string().min(1).max(60).optional(),
   label: z.string().min(1).max(120),
-  type: z.enum(['text', 'number', 'boolean', 'date', 'select']),
+  type: z.enum(['text', 'number', 'boolean', 'date', 'select', 'client']),
   options: z.array(z.string()).optional(),
 });
 
@@ -57,13 +57,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return { key, label: column.label, type: column.type, ...(column.options ? { options: column.options } : {}) };
       });
 
-      if (new Set(usedKeys).size !== usedKeys.length) return fail(400, 'Duas colunas nao podem ter a mesma chave.');
+      if (new Set(usedKeys).size !== usedKeys.length) return fail(400, 'Duas colunas não podem ter a mesma chave.');
     }
 
     if (body.data.webhookKeyColumn) {
       const availableKeys = (columns ?? (existing.columns as unknown as DataColumn[])).map((column) => column.key);
       if (!availableKeys.includes(body.data.webhookKeyColumn)) {
-        return fail(400, `A coluna "${body.data.webhookKeyColumn}" nao existe nesta tabela.`);
+        return fail(400, `A coluna "${body.data.webhookKeyColumn}" não existe nesta tabela.`);
       }
     }
 

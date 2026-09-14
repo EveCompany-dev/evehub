@@ -1,7 +1,9 @@
 'use client';
 
 import { strings, UndoBanner, WidgetShell } from '@eve/ui';
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
+import { renderRichText } from '../components/RichText';
+import { useFormattingToolbar } from '../components/useFormattingToolbar';
 import type { WidgetProps } from './types';
 import { useWidgetData } from './useWidgetData';
 import { useCellEditing } from './view/useCellEditing';
@@ -10,13 +12,24 @@ import { useCellEditing } from './view/useCellEditing';
  * A single free-text field, rendered as a textarea instead of TableView's
  * grid — but the edit/save/conflict/undo machinery underneath is the exact
  * same `useCellEditing` hook every table-shaped widget uses.
+ *
+ * Click-to-edit-in-place (same pattern as the Job description field in
+ * JobDetailModal) rather than WidgetShell's pencil-toggle affordance — a note
+ * is meant for quick jotting, so there's no separate "enter edit mode" step:
+ * click the text, type, blur (or Escape) to leave. `useCellEditing`'s
+ * draft/save plumbing is independent of its own `editing` flag, so it still
+ * drives the save here even though that flag itself goes unused.
  */
 export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
+  const [editingText, setEditingText] = useState(false);
 
   const record = data?.records[0];
   const lastEdit = data?.undoableEdits[0];
+
+  const textValue = record ? editing.valueOf(record, 'text') : '';
+  const { textareaRef, toolbar } = useFormattingToolbar(textValue, (next) => record && editing.setValue(record, 'text', next));
 
   return (
     <WidgetShell
@@ -24,34 +37,12 @@ export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
       status={data?.instance.status ?? (loading ? 'syncing' : 'error')}
       statusMessage={data?.instance.statusMessage ?? error}
       lastSyncedAt={data?.instance.lastSyncedAt ?? null}
-      editable={Boolean(record)}
-      editing={editing.editing}
-      onToggleEdit={editing.toggleEdit}
       actions={[
         ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void editing.undo(lastEdit.id) }] : []),
         { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
         { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
       ]}
     >
-      {editing.editing && (
-        <div className="eve-alert eve-editbar eve-no-drag">
-          <span>{editing.isDirty ? strings.edit.pendingChanges : strings.edit.editHint}</span>
-          <span className="eve-editbar__actions">
-            <button
-              type="button"
-              className="eve-btn eve-btn--primary"
-              disabled={editing.saving || !editing.isDirty}
-              onClick={() => void editing.saveAll()}
-            >
-              {editing.saving ? strings.edit.saving : strings.edit.save}
-            </button>
-            <button type="button" className="eve-btn" onClick={editing.toggleEdit}>
-              {strings.edit.cancel}
-            </button>
-          </span>
-        </div>
-      )}
-
       {error && !data && (
         <div className="eve-alert eve-alert--error">
           <span>{strings.widget.loadError}</span>
@@ -72,7 +63,7 @@ export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
 
       {editing.notice && <div className="eve-alert">{editing.notice}</div>}
 
-      {lastEdit && !editing.editing && (
+      {lastEdit && !editingText && (
         <UndoBanner
           editId={lastEdit.id}
           field={lastEdit.field}
@@ -83,17 +74,33 @@ export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
       )}
 
       {record &&
-        (editing.editing ? (
-          <textarea
-            className="eve-input eve-notes__textarea eve-no-drag"
-            value={editing.valueOf(record, 'text')}
-            onChange={(event) => editing.setValue(record, 'text', event.target.value)}
-            autoFocus
-          />
+        (editingText ? (
+          <>
+            <textarea
+              ref={textareaRef}
+              className="eve-input eve-notes__textarea eve-no-drag"
+              value={textValue}
+              onChange={(event) => editing.setValue(record, 'text', event.target.value)}
+              autoFocus
+              onBlur={() => {
+                setEditingText(false);
+                void editing.saveAll();
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  editing.discardValue(record, 'text');
+                  setEditingText(false);
+                }
+              }}
+            />
+            {toolbar}
+          </>
         ) : (
-          <p className="eve-notes__text">
-            {String(record.data.text ?? '') || <span className="eve-dim">{strings.edit.editHint}</span>}
-          </p>
+          <div className="eve-notes__text eve-no-drag" onClick={() => setEditingText(true)}>
+            {String(record.data.text ?? '')
+              ? renderRichText(String(record.data.text ?? ''))
+              : <span className="eve-dim">{strings.edit.editHint}</span>}
+          </div>
         ))}
     </WidgetShell>
   );

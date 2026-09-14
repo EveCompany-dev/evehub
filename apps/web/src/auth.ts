@@ -6,6 +6,7 @@ import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import { z } from 'zod';
 import { clearLoginAttempts, consumeLoginAttempt } from './lib/rate-limit';
+import { parseRoleTabs } from './lib/permissions';
 
 class RateLimitedSignin extends CredentialsSignin {
   override code = 'rate_limited';
@@ -162,6 +163,7 @@ export const authConfig: NextAuthConfig = {
           isSocialMedia: true,
           workspaceId: true,
           disabledAt: true,
+          role: { select: { tabs: true } },
         },
       });
 
@@ -177,6 +179,7 @@ export const authConfig: NextAuthConfig = {
         image: user.image,
         isOwner: user.isOwner,
         isSocialMedia: user.isSocialMedia,
+        roleTabs: user.role ? parseRoleTabs(user.role.tabs) : null,
         workspaceId: user.workspaceId,
       };
 

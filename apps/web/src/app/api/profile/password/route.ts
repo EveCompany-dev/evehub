@@ -30,7 +30,7 @@ export async function PUT(request: Request): Promise<Response> {
     }
 
     const row = await prisma.user.findUnique({ where: { id: user.id }, select: { passwordHash: true } });
-    if (!row) return fail(404, 'Usuario nao encontrado.');
+    if (!row) return fail(404, 'Usuário não encontrado.');
 
     if (row.passwordHash) {
       if (!body.data.currentPassword) return fail(400, 'Informe a senha atual.');

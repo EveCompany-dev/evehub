@@ -32,7 +32,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (body.data.config !== undefined) {
       const config = connector.configSchema.safeParse(body.data.config);
       if (!config.success) {
-        return fail(400, `Configuracao invalida: ${config.error.issues.map((i) => i.message).join('; ')}`);
+        return fail(400, `Configuração inválida: ${config.error.issues.map((i) => i.message).join('; ')}`);
       }
       data.config = config.data as object;
     }
@@ -43,7 +43,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (!canWriteCredentials(user)) throw new HttpError(403, strings.errors.notOwner);
 
       if (!connector.credentialsSchema) {
-        return fail(400, `O connector "${connector.id}" nao aceita credenciais.`);
+        return fail(400, `O connector "${connector.id}" não aceita credenciais.`);
       }
 
       const credentials = connector.credentialsSchema.safeParse(body.data.credentials);

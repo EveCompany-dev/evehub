@@ -16,7 +16,8 @@ export type ChatConfig = z.infer<typeof configSchema>;
 export const chatConnector: EveConnector<ChatConfig> = registerConnector<ChatConfig, undefined>({
   id: 'chat',
   label: 'Assistente (Claude)',
-  description: 'Conversa simples com o Claude. Sem acesso a ferramentas/MCP ainda.',
+  description: 'Conversa com o Claude, com leitura de jobs, tabelas, clientes e (se permitido) financeiro do seu workspace.',
+  category: 'external',
   auth: 'none',
   capabilities: { read: true, write: false, webhook: false },
   defaultSize: { w: 6, h: 9, minW: 4, minH: 6 },

@@ -13,33 +13,50 @@ export interface ConnectorSetupProps {
 /**
  * Formulario de conexao para connectors que exigem credencial.
  *
- * Hoje so o Notion precisa disso, entao os campos sao dele. Quando entrar o
- * segundo (Meta Ads), este componente passa a escolher os campos pelo
- * `connector.id` — ou, melhor, o connector passa a declarar seus campos no SDK
- * e isto vira generico de verdade.
+ * Cada connector com `needsCredentials` tem seu proprio bloco de campos
+ * abaixo, escolhido por `connector.id` — o SDK ainda nao declara os campos
+ * de credencial de forma generica, entao isto continua sendo um switch
+ * manual em vez de um formulario derivado de schema.
  */
 export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSetupProps): JSX.Element {
+  // Notion
   const [token, setToken] = useState('');
   const [database, setDatabase] = useState('');
+  // Meta
+  const [pageId, setPageId] = useState('');
+  const [igAccountId, setIgAccountId] = useState('');
+  const [pageAccessToken, setPageAccessToken] = useState('');
+
   const [label, setLabel] = useState(connector.label);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isMeta = connector.id === 'meta';
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
     setError(null);
 
-    try {
-      const response = await fetch('/api/instances', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const payload = isMeta
+      ? {
+          connectorId: connector.id,
+          label,
+          config: { pageId, instagramBusinessAccountId: igAccountId || undefined },
+          credentials: { pageAccessToken },
+        }
+      : {
           connectorId: connector.id,
           label,
           config: { databaseId: database, visibleProperties: [] },
           credentials: { token },
-        }),
+        };
+
+    try {
+      const response = await fetch('/api/instances', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
 
       const body = (await response.json().catch(() => ({}))) as {
@@ -54,9 +71,9 @@ export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSe
       }
 
       // A instancia foi criada mesmo se a primeira sync falhou — o widget ja
-      // aparece mostrando o erro do Notion, que e mais util que esconder tudo.
+      // aparece mostrando o erro, que e mais util que esconder tudo.
       if (body.firstSync && !body.firstSync.ok) {
-        setError(body.firstSync.error ?? 'A primeira sincronizacao falhou.');
+        setError(body.firstSync.error ?? 'A primeira sincronização falhou.');
         onConnected(body.instance);
         return;
       }
@@ -80,30 +97,61 @@ export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSe
 
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
-      <label className="eve-field">
-        <span className="eve-field__label">{strings.notion.token}</span>
-        <input
-          className="eve-input"
-          type="password"
-          autoComplete="off"
-          required
-          value={token}
-          onChange={(event) => setToken(event.target.value)}
-        />
-        <span className="eve-setup__hint">{strings.notion.tokenHint}</span>
-      </label>
+      {isMeta ? (
+        <>
+          <label className="eve-field">
+            <span className="eve-field__label">{strings.meta.pageId}</span>
+            <input className="eve-input" required value={pageId} onChange={(event) => setPageId(event.target.value)} />
+            <span className="eve-setup__hint">{strings.meta.pageIdHint}</span>
+          </label>
 
-      <label className="eve-field">
-        <span className="eve-field__label">{strings.notion.database}</span>
-        <input
-          className="eve-input"
-          required
-          value={database}
-          placeholder="https://www.notion.so/..."
-          onChange={(event) => setDatabase(event.target.value)}
-        />
-        <span className="eve-setup__hint">{strings.notion.databaseHint}</span>
-      </label>
+          <label className="eve-field">
+            <span className="eve-field__label">{strings.meta.igAccountId}</span>
+            <input className="eve-input" value={igAccountId} onChange={(event) => setIgAccountId(event.target.value)} />
+            <span className="eve-setup__hint">{strings.meta.igAccountIdHint}</span>
+          </label>
+
+          <label className="eve-field">
+            <span className="eve-field__label">{strings.meta.pageAccessToken}</span>
+            <input
+              className="eve-input"
+              type="password"
+              autoComplete="off"
+              required
+              value={pageAccessToken}
+              onChange={(event) => setPageAccessToken(event.target.value)}
+            />
+            <span className="eve-setup__hint">{strings.meta.pageAccessTokenHint}</span>
+          </label>
+        </>
+      ) : (
+        <>
+          <label className="eve-field">
+            <span className="eve-field__label">{strings.notion.token}</span>
+            <input
+              className="eve-input"
+              type="password"
+              autoComplete="off"
+              required
+              value={token}
+              onChange={(event) => setToken(event.target.value)}
+            />
+            <span className="eve-setup__hint">{strings.notion.tokenHint}</span>
+          </label>
+
+          <label className="eve-field">
+            <span className="eve-field__label">{strings.notion.database}</span>
+            <input
+              className="eve-input"
+              required
+              value={database}
+              placeholder="https://www.notion.so/..."
+              onChange={(event) => setDatabase(event.target.value)}
+            />
+            <span className="eve-setup__hint">{strings.notion.databaseHint}</span>
+          </label>
+        </>
+      )}
 
       <label className="eve-field">
         <span className="eve-field__label">Nome do widget</span>

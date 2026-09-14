@@ -23,3 +23,6 @@ next-env.d.ts
 # Builder noturno: logs e estado sao locais da maquina
 scripts/night-build/logs/
 scripts/night-build/state.json
+
+# Uploads de usuario (imagem de fundo, anexos de job) — conteudo, nao codigo
+apps/web/public/uploads/

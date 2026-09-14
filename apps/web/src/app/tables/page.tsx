@@ -13,15 +13,17 @@ export default async function TablesPage(): Promise<JSX.Element> {
   if (!user) redirect('/login');
 
   return (
-    <div className="eve-profile">
-      <header className="eve-profile__header">
+    <div className="eve-wide-page">
+      <header className="eve-wide-page__header">
         <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
           <EveArch size={18} />
         </Link>
         <h1 className="eve-profile__title">{strings.nav.tables}</h1>
       </header>
 
-      <TablesWorkspace />
+      <div className="eve-wide-page__body">
+        <TablesWorkspace />
+      </div>
     </div>
   );
 }

@@ -98,9 +98,10 @@ function toRemoteRecord(record: DemoRecord): RemoteRecord {
 
 export const demoConnector: EveConnector<DemoConfig> = registerConnector<DemoConfig, undefined>({
   id: 'demo',
-  label: 'Demonstracao',
+  label: 'Demonstração',
   description:
     'Fonte de dados falsa que implementa o contrato inteiro do SDK. Serve de referencia para novos connectors e permite testar sync, escrita, conflito e undo sem nenhuma credencial.',
+  category: 'local',
   auth: 'none',
   capabilities: { read: true, write: true, webhook: false },
   rateLimit: { max: 60, windowMs: 60_000 },
@@ -148,10 +149,10 @@ export const demoConnector: EveConnector<DemoConfig> = registerConnector<DemoCon
     const records = await ensureSeeded(ctx.instanceId, ctx.config);
     const index = records.findIndex((record) => record.id === patch.remoteId);
 
-    if (index === -1) return { ok: false, error: `Registro "${patch.remoteId}" nao existe.` };
+    if (index === -1) return { ok: false, error: `Registro "${patch.remoteId}" não existe.` };
 
     const current = records[index];
-    if (!current) return { ok: false, error: `Registro "${patch.remoteId}" nao existe.` };
+    if (!current) return { ok: false, error: `Registro "${patch.remoteId}" não existe.` };
 
     if (current.version !== patch.expectedVersion) {
       return { ok: false, conflict: true, currentVersion: current.version, currentData: current.fields };

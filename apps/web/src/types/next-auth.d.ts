@@ -6,6 +6,8 @@ declare module 'next-auth' {
       id: string;
       isOwner: boolean;
       isSocialMedia: boolean;
+      /** null = no Role assigned. See lib/permissions.ts's TabSubject/parseRoleTabs. */
+      roleTabs: string[] | null;
       workspaceId: string;
     } & DefaultSession['user'];
   }

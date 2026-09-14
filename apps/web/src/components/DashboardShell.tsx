@@ -4,9 +4,7 @@ import {
   appendWidget,
   removeWidget,
   setViewConfig,
-  updateGeneralSettings,
   type DashboardConfig,
-  type GeneralSettings,
   type ViewConfig,
   type WidgetLayout,
 } from '@eve/core/dashboard';
@@ -16,10 +14,11 @@ import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { Avatar } from '../app/perfil/ProfileForm';
 import { ClientProvider } from './ClientContext';
-import { DashboardDock } from './DashboardDock';
+import { ConnectorSetup } from './ConnectorSetup';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
 import { DashboardGrid, type InstanceSummary } from './DashboardGrid';
 import { EventStreamProvider } from './EventStreamProvider';
+import { useEscapeToClose } from './useEscapeToClose';
 
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -56,7 +55,9 @@ export function DashboardShell({
   const [config, setConfig] = useState<DashboardConfig>(initialConfig);
   const [instances, setInstances] = useState<InstanceSummary[]>(initialInstances);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [connectorSetup, setConnectorSetup] = useState<AvailableConnector | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEscapeToClose(() => setConnectorSetup(null));
 
   const persist = useCallback(async (next: DashboardConfig) => {
     const response = await fetch('/api/dashboard-config', {
@@ -139,17 +140,6 @@ export function DashboardShell({
     [scheduleSave],
   );
 
-  const handleSettingsChange = useCallback(
-    (patch: Partial<GeneralSettings>) => {
-      setConfig((current) => {
-        const next = updateGeneralSettings(current, patch);
-        scheduleSave(next);
-        return next;
-      });
-    },
-    [scheduleSave],
-  );
-
   const addWidget = useCallback(
     async (connector: AvailableConnector) => {
       const existing = instances.find((instance) => instance.connectorId === connector.id);
@@ -192,13 +182,15 @@ export function DashboardShell({
 
   const commands = useMemo<PaletteCommand[]>(() => {
     const widgetCommands = available
-      .filter((connector) => connector.canCreate && !connector.needsCredentials)
+      .filter((connector) => connector.canCreate)
       .map<PaletteCommand>((connector) => ({
         id: `add:${connector.id}`,
         label: connector.label,
         hint: connector.description ?? undefined,
         section: strings.palette.sectionWidgets,
-        run: () => addWidget(connector),
+        // A credentialed connector (e.g. Notion) needs a form for its token
+        // before an instance can exist — everything else adds straight away.
+        run: () => (connector.needsCredentials ? setConnectorSetup(connector) : addWidget(connector)),
       }));
 
     return [
@@ -209,6 +201,12 @@ export function DashboardShell({
         run: () => applyTheme(config.theme === 'light' ? 'dark' : 'light'),
       },
       {
+        id: 'lock',
+        label: config.locked ? strings.dock.unlock : strings.dock.lock,
+        section: strings.palette.sectionActions,
+        run: toggleLock,
+      },
+      {
         id: 'signout',
         label: strings.palette.signOut,
         section: strings.palette.sectionActions,
@@ -216,9 +214,16 @@ export function DashboardShell({
       },
       ...widgetCommands,
     ];
-  }, [addWidget, applyTheme, available, config.theme]);
+  }, [addWidget, applyTheme, available, config.locked, config.theme, toggleLock]);
 
-  const mainStyle: CSSProperties = {
+  // A dedicated fixed layer behind everything, rather than styling <main>
+  // itself: <main> sits inside the normal content flow, so its own background
+  // paint only ever shows through the gutters between widgets (or not at all
+  // if the grid's content box doesn't stretch to fill it) and never actually
+  // covers the viewport the way a page background is expected to. A
+  // position:fixed layer at z-index:-1 has none of that ambiguity — it's
+  // simply behind every other element, full stop.
+  const backgroundStyle: CSSProperties = {
     ...(config.backgroundColor ? { backgroundColor: config.backgroundColor } : {}),
     ...(config.backgroundImage ? { backgroundImage: `url(${config.backgroundImage})` } : {}),
   };
@@ -227,6 +232,8 @@ export function DashboardShell({
   return (
     <EventStreamProvider liveUpdates={config.liveUpdates}>
       <ClientProvider initialClient={config.activeClient}>
+        {hasCustomBackground && <div className="eve-page-background" style={backgroundStyle} aria-hidden="true" />}
+
         <header className="eve-header">
           <div className="eve-header__brand">
             <EveBrandLockup suffix=".company" />
@@ -254,7 +261,7 @@ export function DashboardShell({
           </div>
         </header>
 
-        <main className={hasCustomBackground ? 'eve-main eve-main--custom-bg' : 'eve-main'} style={mainStyle}>
+        <main className="eve-main">
           <DashboardGrid
             config={config}
             instances={instances}
@@ -264,22 +271,23 @@ export function DashboardShell({
           />
         </main>
 
-        <DashboardDock
-          available={available}
-          locked={config.locked}
-          onToggleLock={toggleLock}
-          onAdd={addWidget}
-          onConnected={handleConnected}
-          settings={{
-            backgroundImage: config.backgroundImage,
-            backgroundColor: config.backgroundColor,
-            density: config.density,
-            liveUpdates: config.liveUpdates,
-          }}
-          onSettingsChange={handleSettingsChange}
-        />
-
         <CommandPalette commands={commands} />
+
+        {connectorSetup && (
+          <div className="eve-modal-backdrop" onClick={() => setConnectorSetup(null)}>
+            <div className="eve-modal" onClick={(event) => event.stopPropagation()}>
+              <ConnectorSetup
+                connector={connectorSetup}
+                onCancel={() => setConnectorSetup(null)}
+                onConnected={(instance) => {
+                  const connector = connectorSetup;
+                  setConnectorSetup(null);
+                  handleConnected(instance, connector);
+                }}
+              />
+            </div>
+          </div>
+        )}
       </ClientProvider>
     </EventStreamProvider>
   );

@@ -90,7 +90,7 @@ export function readProperty(property: NotionPropertyValue | undefined): string 
 
 export class UnsupportedPropertyError extends Error {
   constructor(name: string, type: string) {
-    super(`A propriedade "${name}" e do tipo "${type}", que este connector ainda nao escreve.`);
+    super(`A propriedade "${name}" é do tipo "${type}", que este connector ainda não escreve.`);
     this.name = 'UnsupportedPropertyError';
   }
 }
@@ -118,7 +118,7 @@ export function buildPropertyPayload(name: string, type: string, value: unknown)
     case 'number': {
       if (text === '') return { number: null };
       const parsed = Number(text.replace(',', '.'));
-      if (Number.isNaN(parsed)) throw new Error(`"${name}" espera um numero.`);
+      if (Number.isNaN(parsed)) throw new Error(`"${name}" espera um número.`);
       return { number: parsed };
     }
     case 'checkbox':

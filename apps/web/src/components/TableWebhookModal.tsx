@@ -2,6 +2,7 @@
 
 import { useState, type JSX } from 'react';
 import type { DataTableSummary } from './data-table-types';
+import { useEscapeToClose } from './useEscapeToClose';
 
 export interface TableWebhookModalProps {
   table: DataTableSummary;
@@ -15,6 +16,7 @@ export interface TableWebhookModalProps {
  * sees this component.
  */
 export function TableWebhookModal({ table, onTableChange, onClose }: TableWebhookModalProps): JSX.Element {
+  useEscapeToClose(onClose);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,14 +51,21 @@ export function TableWebhookModal({ table, onTableChange, onClose }: TableWebhoo
   };
 
   const setKeyColumn = async (webhookKeyColumn: string) => {
-    const response = await fetch(`/api/tables/${table.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ webhookKeyColumn: webhookKeyColumn || null }),
-    });
-    if (response.ok) {
-      const body = (await response.json()) as { table: DataTableSummary };
+    setError(null);
+    try {
+      const response = await fetch(`/api/tables/${table.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhookKeyColumn: webhookKeyColumn || null }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { table?: DataTableSummary; error?: string };
+      if (!response.ok || !body.table) {
+        setError(body.error ?? `HTTP ${response.status}`);
+        return;
+      }
       onTableChange(body.table);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     }
   };
 
@@ -78,7 +87,7 @@ export function TableWebhookModal({ table, onTableChange, onClose }: TableWebhoo
         <h2 className="eve-card__title">Automação por webhook</h2>
         <p className="eve-dim">
           Um POST enviado para o link abaixo cria ou atualiza uma linha, mapeando cada chave do JSON para uma coluna
-          desta tabela. Chaves desconhecidas sao ignoradas.
+          desta tabela. Chaves desconhecidas são ignoradas.
         </p>
 
         {error && <p className="eve-alert eve-alert--error">{error}</p>}

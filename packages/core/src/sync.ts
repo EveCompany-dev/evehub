@@ -24,7 +24,7 @@ function toJsonInput(value: unknown): Prisma.InputJsonValue {
 export async function runSync(instanceId: string): Promise<SyncOutcome> {
   const instance = await prisma.connectorInstance.findUnique({ where: { id: instanceId } });
 
-  if (!instance) return { ok: false, error: `Instancia ${instanceId} nao existe.` };
+  if (!instance) return { ok: false, error: `Instância ${instanceId} não existe.` };
   if (instance.status === 'disabled') return { ok: false, error: 'Instancia desativada.' };
 
   await prisma.connectorInstance.update({ where: { id: instanceId }, data: { status: 'syncing' } });
@@ -33,7 +33,7 @@ export async function runSync(instanceId: string): Promise<SyncOutcome> {
   try {
     const { connector, ctx } = loadConnectorContext(instance);
     if (!connector.capabilities.read) {
-      throw new Error(`O connector "${connector.id}" nao declara capacidade de leitura.`);
+      throw new Error(`O connector "${connector.id}" não declara capacidade de leitura.`);
     }
     result = await connector.sync(ctx);
   } catch (error) {

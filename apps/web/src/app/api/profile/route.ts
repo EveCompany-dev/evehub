@@ -9,8 +9,18 @@ export const runtime = 'nodejs';
 const profileSchema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().trim().email().max(200),
-  // URL only for now; file upload needs object storage, which is a v0.0.5 problem.
-  image: z.string().trim().url().max(500).or(z.literal('')).nullable().optional(),
+  // Aceita tanto uma URL absoluta (colada a mao) quanto o path relativo que o
+  // upload local devolve (/uploads/avatars/...).
+  image: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((value) => value === '' || value.startsWith('/uploads/') || /^https?:\/\//.test(value), {
+      message: 'Imagem inválida.',
+    })
+    .or(z.literal(''))
+    .nullable()
+    .optional(),
 });
 
 export async function GET(): Promise<Response> {
@@ -55,7 +65,7 @@ export async function PATCH(request: Request): Promise<Response> {
     // rather than a raw unique-constraint failure.
     if (email !== user.email.toLowerCase()) {
       const taken = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-      if (taken && taken.id !== user.id) return fail(409, 'Esse e-mail ja esta em uso por outra conta.');
+      if (taken && taken.id !== user.id) return fail(409, 'Esse e-mail já está em uso por outra conta.');
     }
 
     const updated = await prisma.user.update({

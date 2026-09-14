@@ -37,7 +37,8 @@ const REMOTE_ID = 'page';
 export const metaConnector: EveConnector<MetaConfig, MetaCredentials> = registerConnector<MetaConfig, MetaCredentials>({
   id: 'meta',
   label: 'Meta (Instagram/Facebook)',
-  description: 'Conecta uma Pagina do Facebook (e a conta do Instagram vinculada) para a agenda de posts.',
+  description: 'Conecta uma Página do Facebook (e a conta do Instagram vinculada) para a agenda de posts.',
+  category: 'external',
   auth: 'token',
   capabilities: { read: true, write: false, webhook: false },
   defaultSize: { w: 4, h: 5, minW: 3, minH: 4 },

@@ -11,6 +11,8 @@ const patchSchema = z.object({
   isOwner: z.boolean().optional(),
   isSocialMedia: z.boolean().optional(),
   disabled: z.boolean().optional(),
+  /** null unassigns. */
+  roleId: z.string().min(1).nullable().optional(),
 });
 
 /** Promove/rebaixa admin e ativa/desativa acesso. Somente owner. */
@@ -48,7 +50,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         nextIsOwner: body.data.isOwner,
         ownerCount,
       });
-      if (!guard.ok) return fail(409, guard.reason ?? 'Mudanca nao permitida.');
+      if (!guard.ok) return fail(409, guard.reason ?? 'Mudança não permitida.');
       data.isOwner = body.data.isOwner;
     }
 
@@ -66,8 +68,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         ownerCount,
         nextDisabled: body.data.disabled,
       });
-      if (!guard.ok) return fail(409, guard.reason ?? 'Mudanca nao permitida.');
+      if (!guard.ok) return fail(409, guard.reason ?? 'Mudança não permitida.');
       data.disabledAt = body.data.disabled ? new Date() : null;
+    }
+
+    if (body.data.roleId !== undefined) {
+      if (body.data.roleId) {
+        const role = await prisma.role.findUnique({ where: { id: body.data.roleId } });
+        if (!role || role.workspaceId !== actor.workspaceId) throw new HttpError(404, strings.errors.notFound);
+      }
+      data.roleId = body.data.roleId;
     }
 
     if (Object.keys(data).length === 0) return fail(400, strings.errors.invalidPayload);
@@ -75,9 +85,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const updated = await prisma.user.update({
       where: { id },
       data,
-      select: { id: true, name: true, email: true, image: true, isOwner: true, isSocialMedia: true, disabledAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        isOwner: true,
+        isSocialMedia: true,
+        disabledAt: true,
+        role: { select: { id: true, name: true } },
+      },
     });
 
-    return ok({ user: { ...updated, disabled: updated.disabledAt !== null } });
+    return ok({
+      user: {
+        ...updated,
+        disabled: updated.disabledAt !== null,
+        roleId: updated.role?.id ?? null,
+        roleName: updated.role?.name ?? null,
+      },
+    });
   });
 }

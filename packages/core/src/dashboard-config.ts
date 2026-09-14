@@ -53,6 +53,16 @@ export const dashboardConfigSchema = z.object({
    * distraente; sync manual e o botao "sincronizar agora" continuam ativos.
    */
   liveUpdates: z.boolean().default(true),
+  /**
+   * Escala geral da interface (zoom). Padrao 1.5 (150%) — a interface na
+   * densidade original ficou pequena demais em monitores comuns de notebook.
+   */
+  uiScale: z.number().min(0.5).max(2).default(1.5),
+  /**
+   * Quando true, a seta da barra lateral esconde a barra inteira em vez de
+   * so alternar entre icone e icone+texto.
+   */
+  railFullHide: z.boolean().default(false),
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
@@ -71,6 +81,8 @@ export const emptyDashboardConfig: DashboardConfig = {
   backgroundColor: null,
   density: 'comfortable',
   liveUpdates: true,
+  uiScale: 1.5,
+  railFullHide: false,
 };
 
 /**
@@ -110,7 +122,10 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
   return { ...config, widgets: { ...config.widgets, [instanceId]: { ...existing, viewConfig } } };
 }
 
-export type GeneralSettings = Pick<DashboardConfig, 'backgroundImage' | 'backgroundColor' | 'density' | 'liveUpdates'>;
+export type GeneralSettings = Pick<
+  DashboardConfig,
+  'backgroundImage' | 'backgroundColor' | 'density' | 'liveUpdates' | 'uiScale' | 'railFullHide'
+>;
 
 /** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */
 export function updateGeneralSettings(config: DashboardConfig, patch: Partial<GeneralSettings>): DashboardConfig {

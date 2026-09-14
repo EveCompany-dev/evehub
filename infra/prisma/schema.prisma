@@ -26,6 +26,11 @@ enum PostPlatform {
   facebook
 }
 
+enum PostType {
+  feed
+  story
+}
+
 enum PostStatus {
   draft
   scheduled
@@ -39,6 +44,18 @@ enum ClientSource {
   notion
 }
 
+enum NotificationType {
+  jobCollaboratorAdded
+  jobTaskDone
+  teamMessageMention
+  markedImportant
+}
+
+enum FinancialEntryType {
+  income
+  expense
+}
+
 // ---------------------------------------------------------------------------
 // Workspace / usuarios
 // ---------------------------------------------------------------------------
@@ -48,9 +65,10 @@ model Workspace {
   name      String
   createdAt DateTime @default(now())
 
-  /// Qual ConnectorInstance do Notion (se algum) alimenta a lista de clientes
-  /// externos no filtro da agenda. Null = so clientes locais.
-  clientSourceInstanceId String?
+  /// Token do endpoint de ingestao de automacoes (n8n etc.) — null ate o
+  /// primeiro "gerar link" na aba Automacoes. Mesmo padrao do
+  /// DataTable.webhookToken: o token EH a credencial, sem usuario/senha.
+  automationWebhookToken String? @unique
 
   users              User[]
   connectorInstances ConnectorInstance[]
@@ -59,6 +77,12 @@ model Workspace {
   clients            Client[]
   scheduledPosts     ScheduledPost[]
   dataTables         DataTable[]
+  jobColumns         JobColumn[]
+  jobs               Job[]
+  notifications      Notification[]
+  financialEntries   FinancialEntry[]
+  teamMessages       TeamMessage[]
+  roles              Role[]
 }
 
 model User {
@@ -78,9 +102,16 @@ model User {
   isOwner Boolean @default(false)
 
   /// Tag de equipe: quem ve e mexe na aba de agendamento. Owner ve tambem,
-  /// independente desta flag. Primeira tag de um modelo de tags mais amplo
-  /// que ainda nao existe — deliberadamente boolean simples por enquanto.
+  /// independente desta flag. Atalho legado que sobrevive ao lado do sistema
+  /// de Role — um Role pode conceder o mesmo acesso (e mais) de forma
+  /// explicita, mas remover essa flag nao tira o que um Role ja concedeu.
   isSocialMedia Boolean @default(false)
+
+  /// Cargo opcional que concede abas alem do conjunto base (ver DEFAULT_TABS
+  /// em lib/permissions.ts). Null = so o conjunto base (+ isSocialMedia, se
+  /// marcado). Owner ignora isto por completo — sempre ve tudo.
+  roleId String?
+  role   Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   /// Base do delta do feed diario de IA (v0.0.6). Atualizado a cada sessao.
   lastSeenAt DateTime?
@@ -95,10 +126,20 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  accounts       Account[]
-  sessions       Session[]
-  editLogs       EditLog[]
-  scheduledPosts ScheduledPost[]
+  accounts          Account[]
+  sessions          Session[]
+  editLogs          EditLog[]
+  scheduledPosts    ScheduledPost[]
+  createdJobs       Job[]                @relation("JobCreator")
+  jobCollaborations JobCollaborator[]
+  assignedTasks     JobTask[]
+  jobComments       JobComment[]
+  timeEntries       TimeEntry[]
+  notifications     Notification[]
+  attachments       Attachment[]
+  financialEntries  FinancialEntry[]
+  teamMessages      TeamMessage[]
+  teamMentions      TeamMessageMention[]
 
   @@index([workspaceId])
 }
@@ -284,7 +325,9 @@ model Client {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  scheduledPosts ScheduledPost[]
+  scheduledPosts   ScheduledPost[]
+  jobs             Job[]
+  financialEntries FinancialEntry[]
 
   @@index([workspaceId])
 }
@@ -309,6 +352,10 @@ model ScheduledPost {
   clientLabel    String
 
   platform PostPlatform
+  /// feed = post normal (padrao); story = story de 24h. Story no Facebook nao
+  /// tem agendamento nativo da Meta como o feed tem — o worker publica na
+  /// hora marcada igual ja faz para o Instagram.
+  postType PostType     @default(feed)
   caption  String
   mediaUrl String
 
@@ -373,4 +420,310 @@ model DataTableRow {
   updatedAt DateTime @updatedAt
 
   @@index([tableId])
+}
+
+// ---------------------------------------------------------------------------
+// Jobs (quadro kanban compartilhado do workspace) — mLabs clone, Fase 1.
+//
+// As colunas sao so organizacao: mover um job para "Aprovacao Interna" nao
+// aciona nenhuma regra, e so onde quem aprova costuma olhar. Notificacoes,
+// cronometro por tarefa e anexos ficam para as proximas fases — o schema
+// deixa espaco (novas tabelas relacionadas a JobTask), sem redesenhar nada.
+// ---------------------------------------------------------------------------
+
+model JobColumn {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name     String
+  position Int
+
+  jobs Job[]
+
+  createdAt DateTime @default(now())
+
+  /// Fecha a corrida do lazy-seed: duas requisicoes concorrentes que veem a
+  /// coluna vazia ao mesmo tempo nao criam mais os 4 padroes em dobro.
+  @@unique([workspaceId, name])
+  @@index([workspaceId, position])
+}
+
+model Job {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  columnId String
+  column   JobColumn @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  position Int
+
+  title       String
+  description String?
+  dueDate     DateTime?
+
+  /// Sobe para true->false apenas manualmente. A transicao false->true e o
+  /// gatilho de notificacao (in-app + push) para os colaboradores do job.
+  important Boolean @default(false)
+
+  /// Cliente local vinculado (via o mesmo Client usado pela agenda) —
+  /// opcional, preenchido quando alguem confirma o match de nome na
+  /// descricao ou vincula manualmente.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  createdBy     String
+  createdByUser User   @relation("JobCreator", fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  collaborators    JobCollaborator[]
+  tasks            JobTask[]
+  comments         JobComment[]
+  timeEntries      TimeEntry[]
+  notifications    Notification[]
+  financialEntries FinancialEntry[]
+
+  @@index([workspaceId, columnId, position])
+}
+
+model JobCollaborator {
+  id     String @id @default(cuid())
+  jobId  String
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  addedAt DateTime @default(now())
+
+  @@unique([jobId, userId])
+  @@index([userId])
+}
+
+model JobTask {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  dueDate     DateTime?
+
+  assigneeId String?
+  assignee   User?   @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  /// Booleano simples de proposito: a fase da tarefa mora na coluna do Job,
+  /// isto e so "feita ou nao".
+  done Boolean @default(false)
+
+  /// Mesma semantica do Job.important — a transicao false->true notifica o
+  /// assignee (in-app + push), nao o job inteiro.
+  important Boolean @default(false)
+  position  Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  timeEntries TimeEntry[]
+  attachments Attachment[]
+
+  @@index([jobId, position])
+}
+
+model JobComment {
+  id    String @id @default(cuid())
+  jobId String
+  job   Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId, createdAt])
+}
+
+/// Um cronometro por vez por pessoa: iniciar um novo para uma tarefa/job
+/// encerra automaticamente qualquer entrada ainda aberta (endedAt null) da
+/// mesma pessoa (ver POST /api/jobs/[id]/time-entries). taskId nulo = tempo
+/// lancado no job como um todo, nao numa tarefa especifica.
+model TimeEntry {
+  id     String   @id @default(cuid())
+  jobId  String
+  job    Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  taskId String?
+  task   JobTask? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([jobId])
+  @@index([taskId])
+  @@index([userId, endedAt])
+}
+
+/// In-app notifications — a side effect of other actions (never created
+/// directly by a client request). `jobId` nullable for future notification
+/// types that aren't job-related; every type that exists today has one.
+model Notification {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type    NotificationType
+  message String
+
+  jobId String?
+  job   Job?    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+/// A finished-work file dropped onto a task. Stored on local disk (see
+/// lib/uploads.ts); `url` is what the browser fetches, `filename` is the
+/// original name kept only for display.
+model Attachment {
+  id     String  @id @default(cuid())
+  taskId String
+  task   JobTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  uploadedBy String
+  uploader   User   @relation(fields: [uploadedBy], references: [id])
+
+  filename String
+  url      String
+  size     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+// ---------------------------------------------------------------------------
+// Financeiro
+// ---------------------------------------------------------------------------
+
+/// Lancamento manual de entrada/saida — o modulo Financeiro comeca como um
+/// livro-caixa simples, sem integracao com banco/gateway. `amountCents`
+/// evita erro de arredondamento de ponto flutuante em valores monetarios.
+model FinancialEntry {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  type        FinancialEntryType
+  description String
+  amountCents Int
+  date        DateTime
+
+  /// Vinculos opcionais — permitem ver o lancamento a partir do cliente/job
+  /// sem exigi-los (nem todo gasto tem um job ou cliente associado).
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  jobId    String?
+  job      Job?    @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  createdBy     String
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, date])
+}
+
+// ---------------------------------------------------------------------------
+// Chat da equipe
+// ---------------------------------------------------------------------------
+
+/// Chat unico do workspace inteiro (nao por job) — o mesmo grupo ve tudo,
+/// sem canais/DMs por enquanto. `body` guarda o texto ja com "@Nome" literal
+/// escrito nele; `mentions` e a lista estruturada usada para notificar e
+/// para o realce visual, preenchida pelo composer (que ja sabe exatamente
+/// quem foi selecionado no picker) em vez de re-parsear o texto no servidor.
+model TeamMessage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  attachments TeamMessageAttachment[]
+  mentions    TeamMessageMention[]
+
+  @@index([workspaceId, createdAt])
+}
+
+/// Mesmo padrao do Attachment de JobTask, so que preso a uma mensagem de
+/// chat em vez de uma tarefa — modelo separado para nao forcar um FK opcional
+/// duplo (taskId/messageId) num unico Attachment.
+model TeamMessageAttachment {
+  id        String      @id @default(cuid())
+  messageId String
+  message   TeamMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  filename String
+  url      String
+  size     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+}
+
+model TeamMessageMention {
+  id        String      @id @default(cuid())
+  messageId String
+  message   TeamMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Cargos (roles) — visibilidade de aba por usuario nao-owner
+// ---------------------------------------------------------------------------
+
+/// Um cargo definido pelo owner, com o conjunto de abas extras que ele
+/// enxerga (alem do conjunto base que todo usuario autenticado ja tem — ver
+/// DEFAULT_TABS em lib/permissions.ts). Owner sempre enxerga tudo,
+/// independente de cargo. `isSocialMedia` continua existindo em paralelo
+/// como um atalho legado que so libera 'scheduling' — um cargo pode fazer o
+/// mesmo (e mais) de forma explicita.
+model Role {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name String
+  /// Array de strings (chaves de TAB_KEYS), ex.: ["scheduling","financial"].
+  tabs Json   @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@unique([workspaceId, name])
 }
