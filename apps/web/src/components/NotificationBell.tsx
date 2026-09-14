@@ -12,7 +12,9 @@ const POLL_INTERVAL_MS = 45_000;
 // Every new notification gets the sound cue — it's quiet enough not to be
 // annoying. Only these types are worth the more intrusive desktop popup;
 // everything else just raises the badge count (plus the chime) quietly.
-const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention'];
+// A failed post is time-critical in a way the others aren't — the publish
+// window is already gone, so it earns the popup too.
+const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed'];
 
 /**
  * A short two-tone chime via Web Audio, rather than bundling an audio file —

@@ -1,4 +1,9 @@
-export type NotificationType = 'jobCollaboratorAdded' | 'jobTaskDone' | 'teamMessageMention' | 'markedImportant';
+export type NotificationType =
+  | 'jobCollaboratorAdded'
+  | 'jobTaskDone'
+  | 'teamMessageMention'
+  | 'markedImportant'
+  | 'scheduledPostFailed';
 
 export interface NotificationSummary {
   id: string;

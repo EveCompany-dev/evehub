@@ -3,18 +3,47 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { MonthGrid } from './MonthGrid';
+import { PlatformIcon } from './PlatformIcon';
 import { PostEditor } from './PostEditor';
 import type { ClientOption, MetaAccount, ScheduledPostRow } from './scheduling-types';
 
 type EditorState = { mode: 'new'; date?: Date } | { mode: 'edit'; post: ScheduledPostRow } | null;
+type StatusFilter = 'all' | ScheduledPostRow['status'];
 
-const PLATFORM_LABEL: Record<ScheduledPostRow['platform'], string> = { instagram: 'IG', facebook: 'FB' };
+const TYPE_LABEL: Record<ScheduledPostRow['postType'], string> = {
+  feed: 'post',
+  story: 'story',
+};
+
+const STATUS_LABEL: Record<ScheduledPostRow['status'], string> = {
+  draft: 'rascunho',
+  scheduled: 'agendado',
+  publishing: 'publicando',
+  published: 'publicado',
+  failed: 'falhou',
+};
+
+/** How many upcoming posts the side list shows before it stops being a summary. */
+const UPCOMING_LIMIT = 12;
 
 function isoDateOnly(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-export function SchedulingCalendar(): JSX.Element {
+function timeOnly(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function dayAndTime(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+export interface SchedulingCalendarProps {
+  /** Lets the parent refresh things derived from posts, e.g. the failed-post "!" badge. */
+  onPostsChanged?: () => void;
+}
+
+export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps): JSX.Element {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -23,11 +52,13 @@ export function SchedulingCalendar(): JSX.Element {
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
   const [posts, setPosts] = useState<ScheduledPostRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingPosts, setLoadingPosts] = useState(true);
 
   const [filterClient, setFilterClient] = useState('');
   const [filterPlatforms, setFilterPlatforms] = useState<Set<ScheduledPostRow['platform']>>(
     new Set(['instagram', 'facebook']),
   );
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [editor, setEditor] = useState<EditorState>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,11 +85,13 @@ export function SchedulingCalendar(): JSX.Element {
   }, []);
 
   const loadPosts = useCallback(async () => {
+    setLoadingPosts(true);
     try {
       const from = new Date(year, month, 1);
       const to = new Date(year, month + 1, 0, 23, 59, 59);
       const params = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
       if (filterClient) params.set('client', filterClient);
+      if (filterStatus !== 'all') params.set('status', filterStatus);
 
       const response = await fetch(`/api/scheduling/posts?${params.toString()}`, { cache: 'no-store' });
       if (!response.ok) {
@@ -70,8 +103,10 @@ export function SchedulingCalendar(): JSX.Element {
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoadingPosts(false);
     }
-  }, [year, month, filterClient, filterPlatforms]);
+  }, [year, month, filterClient, filterPlatforms, filterStatus]);
 
   useEffect(() => {
     // Mount fetch — same legitimate case as useWidgetData.ts's initial fetch.
@@ -97,6 +132,19 @@ export function SchedulingCalendar(): JSX.Element {
     return map;
   }, [posts]);
 
+  // Anything that still needs attention, soonest first: what failed (the
+  // publish window is gone and someone has to act) ahead of what is merely
+  // coming up.
+  const failed = useMemo(() => posts.filter((post) => post.status === 'failed'), [posts]);
+
+  const upcoming = useMemo(
+    () =>
+      posts
+        .filter((post) => post.status !== 'failed' && new Date(post.scheduledFor).getTime() >= Date.now())
+        .slice(0, UPCOMING_LIMIT),
+    [posts],
+  );
+
   const togglePlatform = (platform: ScheduledPostRow['platform']) => {
     setFilterPlatforms((current) => {
       const next = new Set(current);
@@ -106,7 +154,44 @@ export function SchedulingCalendar(): JSX.Element {
     });
   };
 
+  const refresh = () => {
+    void loadPosts();
+    onPostsChanged?.();
+  };
+
   const hasAccount = accounts.length > 0;
+
+  const renderPostRow = (post: ScheduledPostRow) => (
+    <button
+      key={post.id}
+      type="button"
+      className={`eve-post-row is-${post.status}`}
+      onClick={() => setEditor({ mode: 'edit', post })}
+    >
+      {post.mediaUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- uploaded URL, not a static asset.
+        <img className="eve-post-row__thumb" src={post.mediaUrl} alt="" />
+      ) : (
+        <span className="eve-post-row__thumb eve-post-row__thumb--empty" aria-hidden="true" />
+      )}
+
+      <span className="eve-post-row__body">
+        <span className="eve-post-row__top">
+          <PlatformIcon platform={post.platform} size={16} />
+          <strong>{post.clientLabel}</strong>
+          <span className="eve-dim">· {TYPE_LABEL[post.postType]}</span>
+        </span>
+        <span className="eve-dim eve-post-row__when">{dayAndTime(post.scheduledFor)}</span>
+        {post.status === 'failed' && post.statusMessage && (
+          <span className="eve-post-row__error" title={post.statusMessage}>
+            {post.statusMessage}
+          </span>
+        )}
+      </span>
+
+      <span className={`eve-status-dot is-${post.status}`} title={STATUS_LABEL[post.status]} />
+    </button>
+  );
 
   return (
     <div className="eve-scheduling">
@@ -134,19 +219,41 @@ export function SchedulingCalendar(): JSX.Element {
 
         <div className="eve-scheduling__filter">
           <span className="eve-field__label">Plataforma</span>
-          <label className="eve-check">
-            <input
-              type="checkbox"
-              checked={filterPlatforms.has('instagram')}
-              onChange={() => togglePlatform('instagram')}
-            />
-            <span>Instagram</span>
-          </label>
-          <label className="eve-check">
-            <input type="checkbox" checked={filterPlatforms.has('facebook')} onChange={() => togglePlatform('facebook')} />
-            <span>Facebook</span>
-          </label>
+          <div className="eve-platform-toggles">
+            {(['instagram', 'facebook'] as const).map((platform) => {
+              const active = filterPlatforms.has(platform);
+              const label = platform === 'instagram' ? 'Instagram' : 'Facebook';
+              return (
+                <button
+                  key={platform}
+                  type="button"
+                  className={active ? 'eve-platform-toggle is-active' : 'eve-platform-toggle'}
+                  onClick={() => togglePlatform(platform)}
+                  aria-pressed={active}
+                  title={label}
+                >
+                  <PlatformIcon platform={platform} size={22} />
+                  <span className="eve-sr-only">{label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        <label className="eve-field eve-scheduling__filter">
+          <span className="eve-field__label">Status</span>
+          <select
+            className="eve-input"
+            value={filterStatus}
+            onChange={(event) => setFilterStatus(event.target.value as StatusFilter)}
+          >
+            <option value="all">Todos</option>
+            <option value="scheduled">Agendados</option>
+            <option value="published">Publicados</option>
+            <option value="failed">Falharam</option>
+            <option value="draft">Rascunhos</option>
+          </select>
+        </label>
 
         <button
           type="button"
@@ -160,34 +267,78 @@ export function SchedulingCalendar(): JSX.Element {
 
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
-      <MonthGrid
-        year={year}
-        month={month}
-        onMonthChange={(nextYear, nextMonth) => {
-          setYear(nextYear);
-          setMonth(nextMonth);
-        }}
-        onDayClick={(date) => hasAccount && setEditor({ mode: 'new', date })}
-        renderDay={(date) => (
-          <div className="eve-month__chips">
-            {(postsByDay.get(isoDateOnly(date)) ?? []).map((post) => (
-              <button
-                key={post.id}
-                type="button"
-                className={`eve-month__chip is-${post.status}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setEditor({ mode: 'edit', post });
-                }}
-                title={post.caption}
-              >
-                {PLATFORM_LABEL[post.platform]}
-                {post.postType === 'story' ? ' · story' : ''} · {post.clientLabel}
-              </button>
-            ))}
-          </div>
-        )}
-      />
+      <div className="eve-scheduling__body">
+        <div className="eve-scheduling__calendar">
+          <MonthGrid
+            year={year}
+            month={month}
+            onMonthChange={(nextYear, nextMonth) => {
+              setYear(nextYear);
+              setMonth(nextMonth);
+            }}
+            onDayClick={(date) => hasAccount && setEditor({ mode: 'new', date })}
+            renderDay={(date) => (
+              <div className="eve-month__chips">
+                {(postsByDay.get(isoDateOnly(date)) ?? []).map((post) => (
+                  <button
+                    key={post.id}
+                    type="button"
+                    className={`eve-month__chip is-${post.status}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setEditor({ mode: 'edit', post });
+                    }}
+                    title={
+                      post.status === 'failed' && post.statusMessage
+                        ? `${STATUS_LABEL[post.status]}: ${post.statusMessage}`
+                        : `${timeOnly(post.scheduledFor)} · ${STATUS_LABEL[post.status]} — ${post.caption}`
+                    }
+                  >
+                    {post.mediaUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element -- uploaded URL, not a static asset.
+                      <img className="eve-month__chip-thumb" src={post.mediaUrl} alt="" />
+                    )}
+                    <PlatformIcon platform={post.platform} size={13} />
+                    <span className="eve-month__chip-time">{timeOnly(post.scheduledFor)}</span>
+                    <span className="eve-month__chip-label">
+                      {post.clientLabel}
+                      {post.postType === 'feed' ? '' : ` · ${TYPE_LABEL[post.postType]}`}
+                    </span>
+                    {post.status === 'failed' && <span className="eve-month__chip-bang">!</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          />
+        </div>
+
+        <aside className="eve-scheduling__side">
+          {failed.length > 0 && (
+            <section className="eve-card eve-scheduling__panel eve-scheduling__panel--alert">
+              <h4 className="eve-card__title">Não publicados ({failed.length})</h4>
+              <div className="eve-post-list">{failed.map(renderPostRow)}</div>
+            </section>
+          )}
+
+          <section className="eve-card eve-scheduling__panel">
+            <h4 className="eve-card__title">Próximos posts</h4>
+            {loadingPosts ? (
+              <div className="eve-post-list" aria-hidden="true">
+                {[0, 1, 2].map((index) => (
+                  <span key={index} className="eve-post-row eve-post-row--skeleton" />
+                ))}
+              </div>
+            ) : upcoming.length === 0 ? (
+              <p className="eve-dim eve-empty">
+                Nada agendado para frente neste mês.
+                {hasAccount ? ' Clique num dia do calendário para criar um post.' : ''}
+              </p>
+            ) : (
+              <div className="eve-post-list">{upcoming.map(renderPostRow)}</div>
+            )}
+          </section>
+        </aside>
+      </div>
 
       {editor && (
         <PostEditor
@@ -198,7 +349,7 @@ export function SchedulingCalendar(): JSX.Element {
           onClose={() => setEditor(null)}
           onSaved={() => {
             setEditor(null);
-            void loadPosts();
+            refresh();
           }}
         />
       )}

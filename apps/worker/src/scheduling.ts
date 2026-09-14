@@ -17,6 +17,43 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+const TYPE_LABEL: Record<string, string> = { feed: 'post', story: 'story', reel: 'reel' };
+
+/**
+ * A post that fails is otherwise completely silent: it happens at a minute
+ * nobody is watching, and all it leaves behind is a row that quietly turns
+ * red in a calendar cell. Notifying whoever scheduled it is the only thing
+ * that actually reaches a person — hence a notification alongside the status
+ * write, not just the status write.
+ */
+async function markFailed(
+  post: { id: string; workspaceId: string; createdBy: string; clientLabel: string; platform: string; postType: string },
+  error: unknown,
+): Promise<void> {
+  const message = errorMessage(error).slice(0, 500);
+
+  await prisma.scheduledPost.update({
+    where: { id: post.id },
+    data: { status: 'failed', statusMessage: message },
+  });
+
+  // Never let the notification be the reason the tick dies: the status write
+  // above is the part that must not be lost.
+  try {
+    const what = `${post.platform === 'instagram' ? 'Instagram' : 'Facebook'} ${TYPE_LABEL[post.postType] ?? post.postType}`;
+    await prisma.notification.create({
+      data: {
+        workspaceId: post.workspaceId,
+        userId: post.createdBy,
+        type: 'scheduledPostFailed',
+        message: `O ${what} de ${post.clientLabel} não foi publicado: ${message}`,
+      },
+    });
+  } catch (cause) {
+    console.error(`[worker] falha ao notificar erro do post ${post.id}:`, errorMessage(cause));
+  }
+}
+
 /**
  * Instagram (feed and story) has no native scheduling, so this is the actual
  * publish moment for both: create the media container, wait for it to finish
@@ -73,10 +110,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         data: { status: 'published', metaPostId: mediaId, statusMessage: null },
       });
     } catch (error) {
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'failed', statusMessage: errorMessage(error).slice(0, 500) },
-      });
+      await markFailed(post, error);
     }
   }
 
@@ -96,10 +130,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       if (isPublished) {
         await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'published' } });
       } else if (now.getTime() - post.scheduledFor.getTime() > FACEBOOK_GRACE_MS) {
-        await prisma.scheduledPost.update({
-          where: { id: post.id },
-          data: { status: 'failed', statusMessage: 'O Meta nao confirmou a publicacao a tempo.' },
-        });
+        await markFailed(post, new Error('O Meta nao confirmou a publicacao a tempo.'));
       }
     } catch (error) {
       console.error(`[worker] falha ao checar status do post ${post.id} no Facebook:`, errorMessage(error));
@@ -128,10 +159,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         data: { status: 'published', metaPostId: postId, statusMessage: null },
       });
     } catch (error) {
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'failed', statusMessage: errorMessage(error).slice(0, 500) },
-      });
+      await markFailed(post, error);
     }
   }
 

@@ -49,6 +49,10 @@ enum NotificationType {
   jobTaskDone
   teamMessageMention
   markedImportant
+  /// Um post agendado nao foi publicado. Criado pelo worker, nao por uma
+  /// acao de usuario — e o unico aviso de que algo falhou, ja que ninguem
+  /// fica olhando o calendario na hora marcada.
+  scheduledPostFailed
 }
 
 enum FinancialEntryType {
