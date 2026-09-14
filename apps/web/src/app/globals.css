@@ -85,27 +85,15 @@
   background: rgb(255 255 255 / 0.15);
 }
 
-/* --- custom cursor -------------------------------------------------------
+/* --- cursor companion ----------------------------------------------------
    Desktop-only (pointer: fine): a small orange dot with a subtle glow that
-   morphs into the Eve mark over anything the browser would render a pointer
-   cursor for. `!important` on the universal selector is needed because many
-   components set their own explicit `cursor: pointer/grab/...` — an
-   inherited `cursor: none` on <html> alone wouldn't beat those. Touch
-   devices are untouched: neither the native cursor is hidden nor the custom
-   one rendered there, since there is no pointer to replace. */
-@media (pointer: fine) {
-  * {
-    cursor: none !important;
-  }
-
-  input,
-  textarea,
-  select,
-  [contenteditable='true'] {
-    cursor: text !important;
-  }
-}
-
+   trails the pointer, morphing into the Eve mark over anything the browser
+   renders a pointer cursor for. The native cursor is deliberately left
+   alone — it stays visible and keeps its per-element shapes (text, grab,
+   resize, not-allowed), so precision interactions like dragging a slider
+   or selecting text behave exactly as the OS intends; the dot is pure
+   decoration layered a step behind it. Touch devices render nothing, since
+   there is no pointer to trail. */
 .eve-cursor {
   position: fixed;
   top: 0;
