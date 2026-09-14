@@ -1,4 +1,5 @@
 import { graphRequest, MetaGraphError } from './graph-client';
+import { mediaKindFromUrl, type MediaKind } from './shared';
 
 /**
  * Real publish calls against Meta's Graph API — used directly by the
@@ -58,7 +59,7 @@ export function assertMediaUrlIsPublic(mediaUrl: string): void {
 
   if (isUnreachableHost(url.hostname)) {
     throw new MetaGraphError(
-      `O Meta não consegue baixar a imagem em "${url.host}" — esse endereço só existe nesta rede. ` +
+      `O Meta não consegue baixar a mídia em "${url.host}" — esse endereço só existe nesta rede. ` +
         'Publique o app em um endereço público (ou exponha-o por um túnel) e defina PUBLIC_BASE_URL no .env.',
       422,
     );
@@ -150,20 +151,48 @@ export async function createInstagramContainer(
  * the Stories endpoint doesn't accept one. Reuses `pollInstagramContainerReady`
  * and `publishInstagramContainer` below unchanged, since neither cares which
  * media_type produced the container.
+ *
+ * Stories take a photo or a video, and the parameter name differs between the
+ * two (`image_url` vs `video_url`) — passing the wrong one is accepted and
+ * then fails during processing, so the kind is decided here from the URL.
  */
 export async function createInstagramStoryContainer(
   token: string,
   igUserId: string,
-  imageUrl: string,
+  mediaUrl: string,
+): Promise<InstagramContainerResult> {
+  const isVideo = mediaKindFromUrl(mediaUrl) === 'video';
+  const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
+    method: 'POST',
+    params: {
+      ...(isVideo ? { video_url: mediaUrl } : { image_url: mediaUrl }),
+      media_type: 'STORIES',
+    },
+  });
+  return { creationId: response.id };
+}
+
+/**
+ * Reels are video-only and always `media_type: 'REELS'` — a video posted to
+ * the Instagram feed *is* a Reel as far as the API is concerned, there is no
+ * separate feed-video container to create.
+ */
+export async function createInstagramReelContainer(
+  token: string,
+  igUserId: string,
+  videoUrl: string,
+  caption: string,
 ): Promise<InstagramContainerResult> {
   const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
     method: 'POST',
-    params: { image_url: imageUrl, media_type: 'STORIES' },
+    params: { video_url: videoUrl, media_type: 'REELS', caption },
   });
   return { creationId: response.id };
 }
 
 const POLL_ATTEMPTS = 6;
+/** Video has to be transcoded before it can be published, which takes far longer than an image. */
+const VIDEO_POLL_ATTEMPTS = 45;
 const POLL_DELAY_MS = 2_000;
 
 function sleep(ms: number): Promise<void> {
@@ -175,8 +204,13 @@ function sleep(ms: number): Promise<void> {
  * `status_code` a handful of times before giving up with a clear error,
  * rather than calling `media_publish` on a container that isn't ready.
  */
-export async function pollInstagramContainerReady(token: string, creationId: string): Promise<void> {
-  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+export async function pollInstagramContainerReady(
+  token: string,
+  creationId: string,
+  kind: MediaKind = 'image',
+): Promise<void> {
+  const attempts = kind === 'video' ? VIDEO_POLL_ATTEMPTS : POLL_ATTEMPTS;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     const response = await graphRequest<{ status_code?: string }>(token, `/${creationId}`, {
       params: { fields: 'status_code' },
     });

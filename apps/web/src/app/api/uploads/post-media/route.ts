@@ -5,8 +5,19 @@ import { saveUpload, UploadError } from '../../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
-const MAX_BYTES = 8 * 1024 * 1024;
-const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+// Reels and Story videos need video through the same endpoint; 200MB is a
+// deliberately generous ceiling for a short vertical clip, well under what
+// Meta itself accepts, and the disk is local.
+const MAX_BYTES = 200 * 1024 * 1024;
+const ALLOWED_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'video/mp4',
+  'video/quicktime',
+  'video/webm',
+];
 
 /**
  * Unlike the other upload endpoints, this URL has to be fetchable by Meta's

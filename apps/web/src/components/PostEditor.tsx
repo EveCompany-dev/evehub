@@ -1,7 +1,9 @@
 'use client';
 
+import { ALL_TARGETS, mediaKindFromUrl, targetAcceptsMedia, targetLabel, type PostTarget } from '@eve/connector-meta/shared';
 import { useMemo, useState, type FormEvent, type JSX } from 'react';
 import { ImageDropZone } from './ImageDropZone';
+import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
 import type { ClientOption, MetaAccount, ScheduledPostRow } from './scheduling-types';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -16,6 +18,15 @@ export interface PostEditorProps {
   onSaved: () => void;
 }
 
+/** Stories are the one target Meta gives no caption field. */
+function acceptsCaption(target: PostTarget): boolean {
+  return target.postType !== 'story';
+}
+
+function targetKey(target: PostTarget): string {
+  return `${target.platform}:${target.postType}`;
+}
+
 function toLocalInputValue(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -26,22 +37,56 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   const isEditing = Boolean(initial);
 
   const [clientId, setClientId] = useState(initial?.clientId ?? clients[0]?.id ?? '');
-  const [platform, setPlatform] = useState<ScheduledPostRow['platform']>(initial?.platform ?? 'instagram');
-  const [postType, setPostType] = useState<ScheduledPostRow['postType']>(initial?.postType ?? 'feed');
+
+  // Creating fans out to any number of targets; editing stays pinned to the
+  // one row being edited, since each row is published independently and
+  // retargeting an already-submitted post is not a thing Meta supports.
+  const [selected, setSelected] = useState<string[]>(() =>
+    initial ? [targetKey({ platform: initial.platform, postType: initial.postType })] : [targetKey(ALL_TARGETS[0]!)],
+  );
+
   const [connectorInstanceId, setConnectorInstanceId] = useState(initial?.connectorInstanceId ?? (accounts[0]?.id ?? ''));
   const [caption, setCaption] = useState(initial?.caption ?? '');
   const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl ?? '');
   const [scheduledFor, setScheduledFor] = useState(() =>
     toLocalInputValue(initial ? new Date(initial.scheduledFor) : (defaultDate ?? new Date(Date.now() + 30 * 60 * 1000))),
   );
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const eligibleAccounts = platform === 'instagram' ? accounts.filter((account) => account.hasInstagram) : accounts;
+  const selectedTargets = useMemo(
+    () => ALL_TARGETS.filter((target) => selected.includes(targetKey(target))),
+    [selected],
+  );
+
+  const mediaKind = mediaUrl ? mediaKindFromUrl(mediaUrl) : null;
+
+  // Which selected targets the chosen media cannot go to — shown inline on
+  // the picker rather than only on submit, so the conflict is visible while
+  // the choice is being made.
+  const incompatible = useMemo(
+    () => (mediaKind ? selectedTargets.filter((target) => !targetAcceptsMedia(target, mediaKind)) : []),
+    [selectedTargets, mediaKind],
+  );
+
+  const needsInstagram = selectedTargets.some((target) => target.platform === 'instagram');
+  const eligibleAccounts = needsInstagram ? accounts.filter((account) => account.hasInstagram) : accounts;
   const accountLabel = useMemo(
     () => accounts.find((account) => account.id === connectorInstanceId)?.label ?? '',
     [accounts, connectorInstanceId],
   );
+
+  const showCaption = selectedTargets.some(acceptsCaption);
+
+  // The preview shows one target at a time; default to the first selected one
+  // so it always shows something relevant even as the selection changes.
+  const previewTarget = selectedTargets.find((target) => targetKey(target) === previewKey) ?? selectedTargets[0] ?? null;
+
+  const toggleTarget = (target: PostTarget) => {
+    const key = targetKey(target);
+    setSelected((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
+  };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -55,7 +100,19 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
       return;
     }
     if (!mediaUrl) {
-      setError('Escolha uma imagem.');
+      setError('Escolha uma imagem ou vídeo.');
+      setBusy(false);
+      return;
+    }
+    if (!isEditing && selectedTargets.length === 0) {
+      setError('Escolha ao menos um destino.');
+      setBusy(false);
+      return;
+    }
+    if (incompatible.length > 0) {
+      setError(
+        `${incompatible.map(targetLabel).join(', ')}: ${mediaKind === 'video' ? 'não aceita vídeo' : 'precisa de um vídeo'}.`,
+      );
       setBusy(false);
       return;
     }
@@ -78,17 +135,32 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             body: JSON.stringify({
               connectorInstanceId,
               client: { id: client.id, label: client.label },
-              platform,
-              postType,
+              targets: selectedTargets,
               caption,
               mediaUrl,
               scheduledFor: new Date(scheduledFor).toISOString(),
             }),
           });
 
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        errors?: string[];
+        posts?: ScheduledPostRow[];
+      };
       if (!response.ok) {
         setError(body.error ?? `HTTP ${response.status}`);
+        return;
+      }
+
+      // Partial success: some rows exist now and must not be created twice,
+      // so the ones that worked are dropped from the selection and the editor
+      // stays open showing what didn't — resubmitting retries only those.
+      if (body.errors && body.errors.length > 0) {
+        const createdKeys = (body.posts ?? []).map((post) =>
+          targetKey({ platform: post.platform, postType: post.postType }),
+        );
+        setSelected((current) => current.filter((key) => !createdKeys.includes(key)));
+        setError(body.errors.join(' '));
         return;
       }
 
@@ -124,39 +196,35 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
           {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
           {!isEditing && (
-            <div className="eve-post-editor__type-row">
-              <div className="eve-segmented">
-                <button
-                  type="button"
-                  className={platform === 'instagram' ? 'eve-segmented__btn is-active' : 'eve-segmented__btn'}
-                  onClick={() => setPlatform('instagram')}
-                >
-                  Instagram
-                </button>
-                <button
-                  type="button"
-                  className={platform === 'facebook' ? 'eve-segmented__btn is-active' : 'eve-segmented__btn'}
-                  onClick={() => setPlatform('facebook')}
-                >
-                  Facebook
-                </button>
+            <div className="eve-field">
+              <span className="eve-field__label">Onde publicar</span>
+              <div className="eve-targets">
+                {ALL_TARGETS.map((target) => {
+                  const key = targetKey(target);
+                  const active = selected.includes(key);
+                  const blocked = active && incompatible.includes(target);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`eve-target${active ? ' is-active' : ''}${blocked ? ' is-blocked' : ''}`}
+                      onClick={() => toggleTarget(target)}
+                      aria-pressed={active}
+                      title={
+                        blocked
+                          ? `${targetLabel(target)} ${mediaKind === 'video' ? 'não aceita vídeo' : 'precisa de um vídeo'}`
+                          : targetLabel(target)
+                      }
+                    >
+                      <PlatformIcon platform={target.platform} size={18} />
+                      <span>{targetLabel(target).replace(/^(Instagram|Facebook) /, '')}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="eve-segmented">
-                <button
-                  type="button"
-                  className={postType === 'feed' ? 'eve-segmented__btn is-active' : 'eve-segmented__btn'}
-                  onClick={() => setPostType('feed')}
-                >
-                  Feed
-                </button>
-                <button
-                  type="button"
-                  className={postType === 'story' ? 'eve-segmented__btn is-active' : 'eve-segmented__btn'}
-                  onClick={() => setPostType('story')}
-                >
-                  Story
-                </button>
-              </div>
+              <span className="eve-setup__hint">
+                Marque quantos quiser — cada destino vira um post próprio, publicado e acompanhado separadamente.
+              </span>
             </div>
           )}
 
@@ -191,7 +259,7 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             </label>
           )}
 
-          {postType === 'feed' && (
+          {showCaption && (
             <label className="eve-field">
               <span className="eve-field__label">Legenda</span>
               <textarea
@@ -201,18 +269,22 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
                 maxLength={2200}
                 required
               />
+              {selectedTargets.some((target) => !acceptsCaption(target)) && (
+                <span className="eve-setup__hint">Stories saem sem legenda — o Meta não aceita uma.</span>
+              )}
             </label>
           )}
 
           <label className="eve-field">
-            <span className="eve-field__label">Imagem</span>
+            <span className="eve-field__label">Mídia</span>
             <ImageDropZone
               value={mediaUrl || null}
               onChange={(url) => setMediaUrl(url ?? '')}
               endpoint="/api/uploads/post-media"
-              dropHint="Arraste uma imagem aqui ou clique para escolher"
+              accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
+              dropHint="Arraste uma imagem ou vídeo aqui ou clique para escolher"
               uploadingHint="Enviando..."
-              removeLabel="Remover imagem"
+              removeLabel="Remover mídia"
             />
           </label>
 
@@ -229,7 +301,7 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
 
           <div className="eve-profile__actions">
             <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
-              {isEditing ? 'Salvar' : 'Agendar'}
+              {isEditing ? 'Salvar' : `Agendar${selectedTargets.length > 1 ? ` (${selectedTargets.length})` : ''}`}
             </button>
             {isEditing && (
               <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
@@ -244,13 +316,38 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
 
         <div className="eve-post-editor__preview">
           <span className="eve-dim eve-post-editor__preview-label">Pré-visualização</span>
-          <PostPreview
-            platform={platform}
-            postType={postType}
-            accountLabel={accountLabel}
-            caption={caption}
-            mediaUrl={mediaUrl || null}
-          />
+
+          {selectedTargets.length > 1 && (
+            <div className="eve-preview-tabs">
+              {selectedTargets.map((target) => {
+                const key = targetKey(target);
+                const active = previewTarget !== null && targetKey(previewTarget) === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={active ? 'eve-preview-tab is-active' : 'eve-preview-tab'}
+                    onClick={() => setPreviewKey(key)}
+                  >
+                    <PlatformIcon platform={target.platform} size={14} />
+                    {targetLabel(target).replace(/^(Instagram|Facebook) /, '')}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {previewTarget ? (
+            <PostPreview
+              platform={previewTarget.platform}
+              postType={previewTarget.postType}
+              accountLabel={accountLabel}
+              caption={caption}
+              mediaUrl={mediaUrl || null}
+            />
+          ) : (
+            <p className="eve-dim">Escolha um destino para ver a prévia.</p>
+          )}
         </div>
       </form>
     </div>

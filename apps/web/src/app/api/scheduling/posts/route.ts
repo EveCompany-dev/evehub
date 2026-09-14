@@ -1,5 +1,14 @@
 import { loadConnectorContext, prisma, type PostStatus, type PostType } from '@eve/core';
-import { assertMediaUrlIsPublic, scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
+import {
+  ALL_TARGETS,
+  assertMediaUrlIsPublic,
+  mediaKindFromUrl,
+  scheduleFacebookPost,
+  targetAcceptsMedia,
+  targetLabel,
+  type MetaConfig,
+  type MetaCredentials,
+} from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../lib/api';
@@ -18,8 +27,22 @@ const createSchema = z.object({
     id: z.string().min(1),
     label: z.string().min(1),
   }),
-  platform: z.enum(['instagram', 'facebook']),
-  postType: z.enum(['feed', 'story']).default('feed'),
+  /**
+   * One submit can fan out to several places at once — IG post + IG story +
+   * FB post, say. Each becomes its own ScheduledPost row, because each is
+   * published independently and can independently fail; collapsing them into
+   * one row would mean a single status that cannot describe "the story went
+   * out, the feed post didn't".
+   */
+  targets: z
+    .array(
+      z.object({
+        platform: z.enum(['instagram', 'facebook']),
+        postType: z.enum(['feed', 'story', 'reel']),
+      }),
+    )
+    .min(1, 'Escolha ao menos um destino.')
+    .max(ALL_TARGETS.length),
   caption: z.string().max(2200),
   mediaUrl: z.string().url(),
   scheduledFor: z.string().datetime(),
@@ -86,7 +109,6 @@ export async function POST(request: Request): Promise<Response> {
     }
     const scheduledFor = new Date(body.data.scheduledFor);
     const leadMs = scheduledFor.getTime() - Date.now();
-    const postType: PostType = body.data.postType;
 
     const clientFields = {
       clientSource: 'local' as const,
@@ -95,10 +117,10 @@ export async function POST(request: Request): Promise<Response> {
       clientLabel: body.data.client.label,
     };
 
-    // Meta downloads the image from this URL with its own servers, so an
+    // Meta downloads the media from this URL with its own servers, so an
     // address that only resolves on this machine or LAN can never publish.
     // Rejecting it here — while the user is still looking at the editor and
-    // can pick a different image or fix the host — beats accepting the post
+    // can pick different media or fix the host — beats accepting the post
     // and failing at the scheduled time, hours later, in the worker.
     try {
       assertMediaUrlIsPublic(body.data.mediaUrl);
@@ -106,65 +128,98 @@ export async function POST(request: Request): Promise<Response> {
       return fail(400, error instanceof Error ? error.message : String(error));
     }
 
-    if (body.data.platform === 'facebook' && postType === 'feed') {
-      if (leadMs < MIN_LEAD_MS || leadMs > MAX_LEAD_MS) {
-        return fail(400, 'O Facebook so agenda posts entre 10 minutos e 75 dias no futuro.');
-      }
+    const kind = mediaKindFromUrl(body.data.mediaUrl);
 
-      let scheduled;
-      try {
-        scheduled = await scheduleFacebookPost(
-          credentials.pageAccessToken,
-          config.pageId,
-          body.data.mediaUrl,
-          body.data.caption,
-          Math.floor(scheduledFor.getTime() / 1000),
+    // The same target twice would publish the same thing twice.
+    const targets = body.data.targets.filter(
+      (target, index, all) =>
+        all.findIndex((other) => other.platform === target.platform && other.postType === target.postType) === index,
+    );
+
+    const created = [];
+    const errors: string[] = [];
+
+    for (const target of targets) {
+      const label = targetLabel(target);
+
+      if (!targetAcceptsMedia(target, kind)) {
+        errors.push(
+          `${label}: ${kind === 'video' ? 'não aceita vídeo' : 'precisa de um vídeo'} — troque a mídia ou desmarque esse destino.`,
         );
-      } catch (error) {
-        return fail(502, error instanceof Error ? error.message : String(error));
+        continue;
       }
 
-      const post = await prisma.scheduledPost.create({
-        data: {
-          workspaceId: user.workspaceId,
-          connectorInstanceId: instance.id,
-          ...clientFields,
-          platform: 'facebook',
-          postType,
-          caption: body.data.caption,
-          mediaUrl: body.data.mediaUrl,
-          scheduledFor,
-          status: 'scheduled',
-          metaPostId: scheduled.postId,
-          createdBy: user.id,
-        },
-      });
+      if (target.platform === 'instagram' && !config.instagramBusinessAccountId) {
+        errors.push(`${label}: configure o ID da conta do Instagram nesta instância do Meta.`);
+        continue;
+      }
 
-      return ok({ post }, 201);
+      // Facebook feed is the one target Meta schedules natively, so it is
+      // submitted now with a future publish time; everything else is stored
+      // and fired by the worker at the scheduled moment.
+      if (target.platform === 'facebook' && target.postType === 'feed') {
+        if (leadMs < MIN_LEAD_MS || leadMs > MAX_LEAD_MS) {
+          errors.push(`${label}: o Facebook só agenda posts entre 10 minutos e 75 dias no futuro.`);
+          continue;
+        }
+
+        let scheduled;
+        try {
+          scheduled = await scheduleFacebookPost(
+            credentials.pageAccessToken,
+            config.pageId,
+            body.data.mediaUrl,
+            body.data.caption,
+            Math.floor(scheduledFor.getTime() / 1000),
+          );
+        } catch (error) {
+          errors.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
+          continue;
+        }
+
+        created.push(
+          await prisma.scheduledPost.create({
+            data: {
+              workspaceId: user.workspaceId,
+              connectorInstanceId: instance.id,
+              ...clientFields,
+              platform: 'facebook',
+              postType: 'feed',
+              caption: body.data.caption,
+              mediaUrl: body.data.mediaUrl,
+              scheduledFor,
+              status: 'scheduled',
+              metaPostId: scheduled.postId,
+              createdBy: user.id,
+            },
+          }),
+        );
+        continue;
+      }
+
+      created.push(
+        await prisma.scheduledPost.create({
+          data: {
+            workspaceId: user.workspaceId,
+            connectorInstanceId: instance.id,
+            ...clientFields,
+            platform: target.platform,
+            postType: target.postType as PostType,
+            caption: body.data.caption,
+            mediaUrl: body.data.mediaUrl,
+            scheduledFor,
+            status: 'scheduled',
+            createdBy: user.id,
+          },
+        }),
+      );
     }
 
-    // Instagram (feed or story) and Facebook Stories: no Meta call yet, the
-    // worker publishes at scheduledFor — nothing to lose from validating
-    // config now, before the row even exists.
-    if (body.data.platform === 'instagram' && !config.instagramBusinessAccountId) {
-      return fail(400, 'Configure o ID da conta do Instagram nesta instancia do Meta antes de agendar.');
-    }
+    // Nothing got through: this is a plain failure, not a partial success.
+    if (created.length === 0) return fail(400, errors.join(' '));
 
-    const post = await prisma.scheduledPost.create({
-      data: {
-        workspaceId: user.workspaceId,
-        connectorInstanceId: instance.id,
-        ...clientFields,
-        platform: body.data.platform,
-        postType,
-        caption: body.data.caption,
-        mediaUrl: body.data.mediaUrl,
-        scheduledFor,
-        status: 'scheduled',
-        createdBy: user.id,
-      },
-    });
-
-    return ok({ post }, 201);
+    // Some did: the rows that exist are real and must not be rolled back, so
+    // the caller gets both halves and decides what to say about it.
+    return ok({ posts: created, errors }, 201);
   });
 }

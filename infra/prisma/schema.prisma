@@ -29,6 +29,8 @@ enum PostPlatform {
 enum PostType {
   feed
   story
+  /// So Instagram, e so com video: o container usa media_type REELS.
+  reel
 }
 
 enum PostStatus {

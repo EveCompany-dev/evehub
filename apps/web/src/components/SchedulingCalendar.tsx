@@ -1,5 +1,6 @@
 'use client';
 
+import { mediaKindFromUrl } from '@eve/connector-meta/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { MonthGrid } from './MonthGrid';
@@ -13,6 +14,7 @@ type StatusFilter = 'all' | ScheduledPostRow['status'];
 const TYPE_LABEL: Record<ScheduledPostRow['postType'], string> = {
   feed: 'post',
   story: 'story',
+  reel: 'reel',
 };
 
 const STATUS_LABEL: Record<ScheduledPostRow['status'], string> = {
@@ -38,6 +40,16 @@ function dayAndTime(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+/**
+ * A Reel's media is video, and a <img src="...mp4"> is just a broken image —
+ * so every place a thumbnail appears has to branch on the media kind.
+ */
+function MediaThumb({ url, className }: { url: string; className: string }): JSX.Element {
+  if (mediaKindFromUrl(url) === 'video') return <video className={className} src={url} muted playsInline preload="metadata" />;
+  // eslint-disable-next-line @next/next/no-img-element -- uploaded URL, not a static asset.
+  return <img className={className} src={url} alt="" />;
+}
+
 export interface SchedulingCalendarProps {
   /** Lets the parent refresh things derived from posts, e.g. the failed-post "!" badge. */
   onPostsChanged?: () => void;
@@ -59,6 +71,11 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
     new Set(['instagram', 'facebook']),
   );
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
+  // "Upcoming" needs a clock, and reading one during render is impure: the
+  // same posts would classify differently on an unrelated re-render. Stamped
+  // when the posts are fetched instead, so the split is a property of the
+  // data that was loaded.
+  const [loadedAtMs, setLoadedAtMs] = useState(0);
   const [editor, setEditor] = useState<EditorState>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,6 +117,7 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
       }
       const body = (await response.json()) as { posts: ScheduledPostRow[] };
       setPosts(body.posts.filter((post) => filterPlatforms.has(post.platform)));
+      setLoadedAtMs(Date.now());
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -140,9 +158,9 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
   const upcoming = useMemo(
     () =>
       posts
-        .filter((post) => post.status !== 'failed' && new Date(post.scheduledFor).getTime() >= Date.now())
+        .filter((post) => post.status !== 'failed' && new Date(post.scheduledFor).getTime() >= loadedAtMs)
         .slice(0, UPCOMING_LIMIT),
-    [posts],
+    [posts, loadedAtMs],
   );
 
   const togglePlatform = (platform: ScheduledPostRow['platform']) => {
@@ -169,8 +187,7 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
       onClick={() => setEditor({ mode: 'edit', post })}
     >
       {post.mediaUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- uploaded URL, not a static asset.
-        <img className="eve-post-row__thumb" src={post.mediaUrl} alt="" />
+        <MediaThumb url={post.mediaUrl} className="eve-post-row__thumb" />
       ) : (
         <span className="eve-post-row__thumb eve-post-row__thumb--empty" aria-hidden="true" />
       )}
@@ -294,10 +311,7 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
                         : `${timeOnly(post.scheduledFor)} · ${STATUS_LABEL[post.status]} — ${post.caption}`
                     }
                   >
-                    {post.mediaUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element -- uploaded URL, not a static asset.
-                      <img className="eve-month__chip-thumb" src={post.mediaUrl} alt="" />
-                    )}
+                    {post.mediaUrl && <MediaThumb url={post.mediaUrl} className="eve-month__chip-thumb" />}
                     <PlatformIcon platform={post.platform} size={13} />
                     <span className="eve-month__chip-time">{timeOnly(post.scheduledFor)}</span>
                     <span className="eve-month__chip-label">
@@ -346,7 +360,12 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
           accounts={accounts}
           initial={editor.mode === 'edit' ? editor.post : null}
           defaultDate={editor.mode === 'new' ? editor.date : undefined}
-          onClose={() => setEditor(null)}
+          onClose={() => {
+            setEditor(null);
+            // A partial-success submit creates rows without ever reaching
+            // onSaved, so closing has to reconcile too.
+            refresh();
+          }}
           onSaved={() => {
             setEditor(null);
             refresh();

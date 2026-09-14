@@ -17,7 +17,7 @@ export interface ScheduledPostRow {
   clientId: string | null;
   clientLabel: string;
   platform: 'instagram' | 'facebook';
-  postType: 'feed' | 'story';
+  postType: 'feed' | 'story' | 'reel';
   caption: string;
   mediaUrl: string;
   scheduledFor: string;

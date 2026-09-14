@@ -3,7 +3,9 @@ import {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
   createInstagramContainer,
+  createInstagramReelContainer,
   createInstagramStoryContainer,
+  mediaKindFromUrl,
   pollInstagramContainerReady,
   publishFacebookStory,
   publishInstagramContainer,
@@ -90,15 +92,25 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       const { creationId } =
         post.postType === 'story'
           ? await createInstagramStoryContainer(credentials.pageAccessToken, config.instagramBusinessAccountId, post.mediaUrl)
-          : await createInstagramContainer(
-              credentials.pageAccessToken,
-              config.instagramBusinessAccountId,
-              post.mediaUrl,
-              post.caption,
-            );
+          : post.postType === 'reel'
+            ? await createInstagramReelContainer(
+                credentials.pageAccessToken,
+                config.instagramBusinessAccountId,
+                post.mediaUrl,
+                post.caption,
+              )
+            : await createInstagramContainer(
+                credentials.pageAccessToken,
+                config.instagramBusinessAccountId,
+                post.mediaUrl,
+                post.caption,
+              );
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { metaCreationId: creationId } });
 
-      await pollInstagramContainerReady(credentials.pageAccessToken, creationId);
+      // Video containers are transcoded before they can be published, which
+      // takes much longer than an image — polling with the wrong budget gives
+      // up on a Reel that was going to succeed.
+      await pollInstagramContainerReady(credentials.pageAccessToken, creationId, mediaKindFromUrl(post.mediaUrl));
       const { mediaId } = await publishInstagramContainer(
         credentials.pageAccessToken,
         config.instagramBusinessAccountId,

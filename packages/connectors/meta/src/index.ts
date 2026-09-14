@@ -5,6 +5,7 @@ export {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
   createInstagramContainer,
+  createInstagramReelContainer,
   createInstagramStoryContainer,
   deleteFacebookPost,
   pollInstagramContainerReady,
@@ -15,3 +16,13 @@ export {
   type FacebookStoryResult,
   type InstagramContainerResult,
 } from './publish';
+export {
+  ALL_TARGETS,
+  mediaKindFromUrl,
+  targetAcceptsMedia,
+  targetLabel,
+  type MediaKind,
+  type Platform,
+  type PostTarget,
+  type PostTypeName,
+} from './shared';
