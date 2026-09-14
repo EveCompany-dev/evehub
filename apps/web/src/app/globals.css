@@ -1006,9 +1006,18 @@ body[data-rail='hidden'] {
   flex-wrap: wrap;
 }
 
-/* --- post editor (two-column: form + live preview) ------------------------ */
+/* --- post editor (two-column: form + live preview) ------------------------
+   The compound `.eve-modal.eve-post-editor` selector is deliberate. The form
+   carries both classes, and `.eve-modal`'s own `flex-direction: column` /
+   `gap: 4px` are declared *later* in this file — at equal specificity the
+   later rule wins, so a bare `.eve-post-editor` here lost the cascade: the
+   preview dropped below the form instead of sitting beside it, and
+   `align-items: flex-start` on the resulting column container shrank the
+   field block to its content width, cramming the whole editor into the left
+   half of a 980px modal. Qualifying the selector makes the two-column
+   intent win regardless of source order. */
 
-.eve-post-editor {
+.eve-modal.eve-post-editor {
   flex-direction: row;
   align-items: flex-start;
   gap: 24px;
@@ -1048,9 +1057,20 @@ body[data-rail='hidden'] {
   flex-wrap: wrap;
 }
 
+/* Too narrow for two columns: stack them, preview under the form. Same
+   compound selector as above, for the same cascade reason — and `stretch`
+   so the stacked children fill the modal instead of shrinking to their
+   content width. */
 @media (max-width: 720px) {
-  .eve-post-editor {
+  .eve-modal.eve-post-editor {
     flex-direction: column;
+    align-items: stretch;
+    overflow-y: auto;
+  }
+
+  .eve-post-editor__fields {
+    max-height: none;
+    overflow-y: visible;
   }
 
   .eve-post-editor__preview {
