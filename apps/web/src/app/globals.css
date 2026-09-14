@@ -112,6 +112,13 @@
   }
 }
 
+/* Off switch (/settings → Interface). The root layout stamps this on <html>
+   server-side and skips the mount entirely; the attribute exists so the
+   checkbox can also take effect on the spot, before any reload. */
+[data-cursor-follower='off'] .eve-cursor {
+  display: none;
+}
+
 .eve-cursor__dot {
   position: absolute;
   top: -5px;

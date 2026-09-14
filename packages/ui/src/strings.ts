@@ -56,6 +56,9 @@ export const strings = {
     railFullHide: 'Esconder barra lateral por completo',
     railFullHideHint:
       'Quando ligado, a seta da barra lateral esconde ela inteira em vez de só alternar entre ícone e ícone com texto.',
+    cursorFollower: 'Bolinha que segue o mouse',
+    cursorFollowerHint:
+      'Quando ligado, uma bolinha laranja acompanha o ponteiro com um leve atraso. O cursor normal do sistema continua igual nos dois casos.',
     behaviorTitle: 'Comportamento',
     liveUpdates: 'Atualizar automaticamente',
     liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, só atualiza no "sincronizar agora".',

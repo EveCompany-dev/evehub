@@ -191,6 +191,24 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
         <span>{strings.dashboardSettings.railFullHide}</span>
       </label>
       <p className="eve-setup__hint">{strings.dashboardSettings.railFullHideHint}</p>
+
+      <label className="eve-check">
+        <input
+          type="checkbox"
+          checked={settings.cursorFollower}
+          onChange={(event) => {
+            const cursorFollower = event.target.checked;
+            // Applied live for the same reason the scale is: the root layout
+            // only renders <CustomCursor /> and this attribute on page load,
+            // so without this the dot would linger (or stay missing) until a
+            // reload. The mount itself is settled server-side next load.
+            document.documentElement.dataset.cursorFollower = cursorFollower ? 'on' : 'off';
+            onChange({ cursorFollower });
+          }}
+        />
+        <span>{strings.dashboardSettings.cursorFollower}</span>
+      </label>
+      <p className="eve-setup__hint">{strings.dashboardSettings.cursorFollowerHint}</p>
     </section>
   );
 }

@@ -96,7 +96,10 @@ export function SettingsWorkspace(): JSX.Element {
             <button
               type="button"
               className="eve-btn eve-btn--block"
-              onClick={() =>
+              onClick={() => {
+                // Same live-apply the Interface toggle does, so a reset puts
+                // the dot back on the spot instead of on next load.
+                document.documentElement.dataset.cursorFollower = 'on';
                 handleChange({
                   backgroundImage: null,
                   backgroundColor: null,
@@ -104,8 +107,9 @@ export function SettingsWorkspace(): JSX.Element {
                   liveUpdates: true,
                   uiScale: 1.5,
                   railFullHide: false,
-                })
-              }
+                  cursorFollower: true,
+                });
+              }}
             >
               {strings.dashboardSettings.reset}
             </button>
