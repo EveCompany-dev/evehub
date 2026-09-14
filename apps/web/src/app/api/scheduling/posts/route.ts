@@ -1,5 +1,5 @@
 import { loadConnectorContext, prisma, type PostStatus, type PostType } from '@eve/core';
-import { scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
+import { assertMediaUrlIsPublic, scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../lib/api';
@@ -94,6 +94,17 @@ export async function POST(request: Request): Promise<Response> {
       clientRemoteId: null,
       clientLabel: body.data.client.label,
     };
+
+    // Meta downloads the image from this URL with its own servers, so an
+    // address that only resolves on this machine or LAN can never publish.
+    // Rejecting it here — while the user is still looking at the editor and
+    // can pick a different image or fix the host — beats accepting the post
+    // and failing at the scheduled time, hours later, in the worker.
+    try {
+      assertMediaUrlIsPublic(body.data.mediaUrl);
+    } catch (error) {
+      return fail(400, error instanceof Error ? error.message : String(error));
+    }
 
     if (body.data.platform === 'facebook' && postType === 'feed') {
       if (leadMs < MIN_LEAD_MS || leadMs > MAX_LEAD_MS) {

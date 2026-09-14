@@ -2,6 +2,7 @@
 export { metaConnector, type MetaConfig, type MetaCredentials } from './connector';
 export { MetaGraphError } from './graph-client';
 export {
+  assertMediaUrlIsPublic,
   checkFacebookPostStatus,
   createInstagramContainer,
   createInstagramStoryContainer,

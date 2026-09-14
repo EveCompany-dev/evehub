@@ -1,5 +1,6 @@
 import { loadConnectorContext, prisma } from '@eve/core';
 import {
+  assertMediaUrlIsPublic,
   checkFacebookPostStatus,
   createInstagramContainer,
   createInstagramStoryContainer,
@@ -45,6 +46,9 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       if (!config.instagramBusinessAccountId) {
         throw new Error('Instancia do Meta sem ID da conta do Instagram configurado.');
       }
+
+      // Cheaper and far clearer than letting Meta fail the fetch itself.
+      assertMediaUrlIsPublic(post.mediaUrl);
 
       const { creationId } =
         post.postType === 'story'
@@ -114,6 +118,8 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       const { ctx } = loadConnectorContext(post.connectorInstance);
       const config = ctx.config as MetaConfig;
       const credentials = ctx.credentials as MetaCredentials;
+
+      assertMediaUrlIsPublic(post.mediaUrl);
 
       const { postId } = await publishFacebookStory(credentials.pageAccessToken, config.pageId, post.mediaUrl);
 
