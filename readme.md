@@ -8,6 +8,23 @@ sozinho — em vez de um card bonito plugado em dado estatico.
 autenticacao, grid de widgets) com um connector de demonstracao no lugar das
 integracoes reais. Notion, Meta Ads e Google Ads entram em v0.0.4.
 
+## A dashboard
+
+Em `/` a dashboard e um **board livre** (canvas): modulo em qualquer lugar, o
+mesmo modulo quantas vezes quiser, texto e imagem soltos no board. Botao
+direito abre o menu de adicionar / travar / duplicar / remover; ligar dois
+modulos cria uma **tela** — um grupo com nome, que o Ctrl+K encontra e para
+onde ele leva a visao do board.
+
+Atalhos: `Ctrl+K` busca tudo (paginas, cada configuracao, modulos, telas),
+`Ctrl+Z`/`Ctrl+Shift+Z` desfaz/refaz, `Ctrl+D` duplica, `Ctrl+1` enquadra,
+`Ctrl+0` volta pra 100%, `Del` remove, `Ctrl+wheel` (ou pinca) da zoom,
+espaco+arrastar (ou botao do meio) da pan.
+
+A grade de 12 colunas continua existindo: **Configuracoes > Layout > Modo da
+dashboard**. Cada modo guarda o seu proprio arranjo, entao trocar nao apaga
+nada.
+
 ## Documentos
 
 | Arquivo | Conteudo |
