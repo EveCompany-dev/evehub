@@ -7,6 +7,7 @@ function baseConnector(overrides: Partial<EveConnector<{ n: number }>> = {}): Ev
   return {
     id: 'test',
     label: 'Test',
+    category: 'external',
     auth: 'none',
     capabilities: { read: true, write: false, webhook: false },
     configSchema: z.object({ n: z.number() }),
