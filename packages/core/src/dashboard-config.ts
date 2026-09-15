@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { canvasStateSchema, emptyCanvasState, type CanvasState } from './canvas';
+import { viewConfigSchema, type ViewConfig } from './widget-view';
 
 /** One tile on the 12-column grid. `i` is the ConnectorInstance id. */
 export const widgetLayoutSchema = z.object({
@@ -7,17 +9,6 @@ export const widgetLayoutSchema = z.object({
   y: z.number().int().min(0),
   w: z.number().int().min(1).max(12),
   h: z.number().int().min(1).max(40),
-});
-
-/**
- * How a widget's synced data renders, chosen by the user from the widget's
- * own menu — not by editing any widget component. `fields: null` means "show
- * every field the connector/auto-detection reports" (up to the view's own
- * cap); an explicit array is both the subset AND the display order.
- */
-export const viewConfigSchema = z.object({
-  kind: z.enum(['table', 'stat-cards']).default('table'),
-  fields: z.array(z.string()).nullable().default(null),
 });
 
 export const widgetSettingsSchema = z.object({
@@ -35,7 +26,16 @@ export const widgetSettingsSchema = z.object({
 });
 
 export const dashboardConfigSchema = z.object({
+  /**
+   * Which dashboard the user gets at `/`. 'canvas' is the default: a
+   * freeform board where modules can be placed, duplicated and connected.
+   * 'grid' is the original 12-column layout, kept as a choice in Settings
+   * rather than deleted — the stored `layout` below is untouched either way,
+   * so switching back and forth loses nothing.
+   */
+  mode: z.enum(['canvas', 'grid']).default('canvas'),
   layout: z.array(widgetLayoutSchema).default([]),
+  canvas: canvasStateSchema.default(emptyCanvasState),
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
   theme: z.enum(['dark', 'light', 'system']).default('system'),
   activeClient: z.string().nullable().default(null),
@@ -72,13 +72,17 @@ export const dashboardConfigSchema = z.object({
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
-export type ViewConfig = z.infer<typeof viewConfigSchema>;
+export type DashboardMode = DashboardConfig['mode'];
+export { viewConfigSchema } from './widget-view';
+export type { ViewConfig } from './widget-view';
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 export type DashboardDensity = DashboardConfig['density'];
 
 export const emptyDashboardConfig: DashboardConfig = {
+  mode: 'canvas',
   layout: [],
+  canvas: emptyCanvasState,
   widgets: {},
   theme: 'system',
   activeClient: null,
@@ -131,6 +135,7 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
 
 export type GeneralSettings = Pick<
   DashboardConfig,
+  | 'mode'
   | 'backgroundImage'
   | 'backgroundColor'
   | 'density'
@@ -143,4 +148,13 @@ export type GeneralSettings = Pick<
 /** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */
 export function updateGeneralSettings(config: DashboardConfig, patch: Partial<GeneralSettings>): DashboardConfig {
   return { ...config, ...patch };
+}
+
+/** Replaces the whole board. The canvas owns its own reducers in canvas.ts; this is the only seam into the config. */
+export function setCanvas(config: DashboardConfig, canvas: CanvasState): DashboardConfig {
+  return { ...config, canvas };
+}
+
+export function setDashboardMode(config: DashboardConfig, mode: DashboardMode): DashboardConfig {
+  return { ...config, mode };
 }

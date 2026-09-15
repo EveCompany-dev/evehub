@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { listConnectors } from '../connectors';
 import { DashboardShell, type AvailableConnector } from '../components/DashboardShell';
-import { canCreateInstance } from '../lib/permissions';
+import { canCreateInstance, getVisibleTabs } from '../lib/permissions';
 import { getSessionUser } from '../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +33,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     defaultSize: connector.defaultSize ?? { w: 6, h: 6 },
     canCreate: canCreateInstance(user, connector.auth),
     needsCredentials: connector.auth !== 'none',
+    category: connector.category,
   }));
 
   return (
@@ -44,6 +45,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
       initialConfig={parseDashboardConfig(row?.dashboardConfig)}
       initialInstances={instances}
       available={available}
+      visibleTabs={[...getVisibleTabs(user)]}
     />
   );
 }

@@ -4,8 +4,18 @@ import { useEffect, useRef, useState, type JSX, type MouseEvent as ReactMouseEve
 
 export interface ContextMenuItem {
   label: string;
-  onSelect: () => void;
+  /** Omit when the item only opens a submenu, or when it's a separator. */
+  onSelect?: () => void;
   danger?: boolean;
+  disabled?: boolean;
+  /** Right-aligned hint, for a keyboard shortcut or a value ("Ctrl+D", "150%"). */
+  hint?: string;
+  /** Renders a check mark, for items that toggle something. */
+  checked?: boolean;
+  /** A horizontal rule instead of an item. Everything else on it is ignored. */
+  separator?: boolean;
+  /** Nested items, opened as a flyout on hover — e.g. the list of modules to add. */
+  items?: ContextMenuItem[];
 }
 
 interface ContextMenuState {
@@ -16,26 +26,47 @@ interface ContextMenuState {
 
 export interface ContextMenuControls {
   open: (event: ReactMouseEvent, items: ContextMenuItem[]) => void;
+  close: () => void;
   render: () => JSX.Element | null;
+}
+
+const ITEM_HEIGHT = 34;
+const MENU_WIDTH = 220;
+
+/** Flips a menu back on-screen near the right/bottom edges. */
+function fit(x: number, y: number, count: number): { left: number; top: number } {
+  return {
+    left: Math.max(8, Math.min(x, window.innerWidth - MENU_WIDTH - 8)),
+    top: Math.max(8, Math.min(y, window.innerHeight - count * ITEM_HEIGHT - 16)),
+  };
 }
 
 /**
  * Right-click menu, positioned at the cursor — the Office-style alternative
- * to a fixed toolbar for row/column actions. `open` is meant to be wired to
- * an element's `onContextMenu`; `render()` renders the floating menu (or
- * nothing) and should be called once near the root of whatever uses it.
+ * to a fixed toolbar for row/column actions, and the canvas's main way to add,
+ * lock, edit and remove modules. `open` is meant to be wired to an element's
+ * `onContextMenu`; `render()` renders the floating menu (or nothing) and
+ * should be called once near the root of whatever uses it.
+ *
+ * One level of submenu is supported, which is enough for "add module ▸ list
+ * of connectors" without turning this into a general menu framework.
  */
 export function useContextMenu(): ContextMenuControls {
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const [openSub, setOpenSub] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const open = (event: ReactMouseEvent, items: ContextMenuItem[]) => {
     event.preventDefault();
     event.stopPropagation();
     setMenu({ x: event.clientX, y: event.clientY, items });
+    setOpenSub(null);
   };
 
-  const close = () => setMenu(null);
+  const close = () => {
+    setMenu(null);
+    setOpenSub(null);
+  };
 
   useEffect(() => {
     if (!menu) return;
@@ -47,6 +78,10 @@ export function useContextMenu(): ContextMenuControls {
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
+    // Not `true`-phase on the canvas: panning the board fires scroll-ish
+    // events constantly, and the menu closing under the cursor mid-gesture is
+    // worse than it lingering. Capture-phase scroll is still what closes it
+    // inside a scrolling table.
     document.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
@@ -55,38 +90,83 @@ export function useContextMenu(): ContextMenuControls {
     };
   }, [menu]);
 
-  const render = (): JSX.Element | null => {
-    if (!menu) return null;
+  const renderItem = (item: ContextMenuItem, index: number, parentLeft: number, parentTop: number): JSX.Element => {
+    if (item.separator) return <div key={`sep-${index}`} className="eve-menu__separator" role="separator" />;
 
-    // Keep the menu on-screen near the right/bottom edges.
-    const width = 200;
-    const left = Math.min(menu.x, window.innerWidth - width - 8);
-    const top = Math.min(menu.y, window.innerHeight - menu.items.length * 34 - 16);
+    const hasSub = Boolean(item.items && item.items.length > 0);
+    const className = [
+      'eve-menu__item',
+      item.danger ? 'eve-menu__item--danger' : null,
+      hasSub ? 'eve-menu__item--parent' : null,
+      openSub === index ? 'is-open' : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     return (
-      <div
-        ref={ref}
-        className="eve-menu eve-contextmenu"
-        role="menu"
-        style={{ position: 'fixed', top, left, right: 'auto' }}
-      >
-        {menu.items.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            role="menuitem"
-            className={item.danger ? 'eve-menu__item eve-menu__item--danger' : 'eve-menu__item'}
-            onClick={() => {
-              item.onSelect();
-              close();
+      <div key={`${item.label}-${index}`} className="eve-menu__row" onMouseEnter={() => setOpenSub(hasSub ? index : null)}>
+        <button
+          type="button"
+          role="menuitem"
+          className={className}
+          disabled={item.disabled}
+          onClick={() => {
+            if (hasSub || !item.onSelect) return;
+            item.onSelect();
+            close();
+          }}
+        >
+          <span className="eve-menu__label">
+            {item.checked ? '✓ ' : ''}
+            {item.label}
+          </span>
+          {item.hint && <span className="eve-menu__hint">{item.hint}</span>}
+          {hasSub && <span className="eve-menu__chevron" aria-hidden="true">›</span>}
+        </button>
+
+        {hasSub && openSub === index && (
+          <div
+            className="eve-menu eve-menu--sub"
+            role="menu"
+            style={{
+              position: 'fixed',
+              left: Math.min(parentLeft + MENU_WIDTH - 4, window.innerWidth - MENU_WIDTH - 8),
+              top: Math.min(parentTop + index * ITEM_HEIGHT, window.innerHeight - item.items!.length * ITEM_HEIGHT - 16),
             }}
           >
-            {item.label}
-          </button>
-        ))}
+            {item.items!.map((sub, subIndex) => (
+              <button
+                key={`${sub.label}-${subIndex}`}
+                type="button"
+                role="menuitem"
+                className={sub.danger ? 'eve-menu__item eve-menu__item--danger' : 'eve-menu__item'}
+                disabled={sub.disabled}
+                onClick={() => {
+                  sub.onSelect?.();
+                  close();
+                }}
+              >
+                <span className="eve-menu__label">{sub.label}</span>
+                {sub.hint && <span className="eve-menu__hint">{sub.hint}</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
 
-  return { open, render };
+  const render = (): JSX.Element | null => {
+    if (!menu) return null;
+
+    const { left, top } = fit(menu.x, menu.y, menu.items.length);
+
+    return (
+      <div ref={ref} className="eve-menu eve-contextmenu" role="menu" style={{ position: 'fixed', top, left, right: 'auto' }}>
+        {menu.items.map((item, index) => renderItem(item, index, left, top))}
+      </div>
+    );
+  };
+
+  return { open, close, render };
 }

@@ -51,7 +51,7 @@ export function AppearanceSection({ settings, onChange }: SettingsSectionProps):
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.backgroundTitle}</h4>
 
-      <label className="eve-field">
+      <label className="eve-field" data-setting-id="backgroundImage">
         <span className="eve-field__label">{strings.dashboardSettings.backgroundImage}</span>
         <div
           className={dragOver ? 'eve-upload-drop is-drag-over' : 'eve-upload-drop'}
@@ -92,7 +92,7 @@ export function AppearanceSection({ settings, onChange }: SettingsSectionProps):
         <span className="eve-setup__hint">{strings.dashboardSettings.backgroundImageHint}</span>
       </label>
 
-      <label className="eve-field">
+      <label className="eve-field" data-setting-id="backgroundColor">
         <span className="eve-field__label">{strings.dashboardSettings.backgroundColor}</span>
         <input
           className="eve-input"
@@ -112,7 +112,23 @@ export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.layoutTitle}</h4>
 
-      <label className="eve-field">
+      {/* The board is the default dashboard; the 12-column grid lives on as a
+          choice here. Each mode keeps its own arrangement, so switching is
+          never destructive — see dashboardConfigSchema's `mode`. */}
+      <label className="eve-field" data-setting-id="mode">
+        <span className="eve-field__label">{strings.canvas.modeTitle}</span>
+        <select
+          className="eve-input"
+          value={settings.mode}
+          onChange={(event) => onChange({ mode: event.target.value as GeneralSettings['mode'] })}
+        >
+          <option value="canvas">{strings.canvas.modeCanvas}</option>
+          <option value="grid">{strings.canvas.modeGrid}</option>
+        </select>
+        <span className="eve-setup__hint">{strings.canvas.modeHint}</span>
+      </label>
+
+      <label className="eve-field" data-setting-id="density">
         <span className="eve-field__label">{strings.dashboardSettings.density}</span>
         <select
           className="eve-input"
@@ -160,7 +176,7 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.interfaceTitle}</h4>
 
-      <label className="eve-field">
+      <label className="eve-field" data-setting-id="uiScale">
         <span className="eve-field__label">
           {strings.dashboardSettings.uiScale} — {Math.round(draftScale * 100)}%
         </span>
@@ -182,7 +198,7 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
         <span className="eve-setup__hint">{strings.dashboardSettings.uiScaleHint}</span>
       </label>
 
-      <label className="eve-check">
+      <label className="eve-check" data-setting-id="railFullHide">
         <input
           type="checkbox"
           checked={settings.railFullHide}
@@ -192,7 +208,7 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
       </label>
       <p className="eve-setup__hint">{strings.dashboardSettings.railFullHideHint}</p>
 
-      <label className="eve-check">
+      <label className="eve-check" data-setting-id="cursorFollower">
         <input
           type="checkbox"
           checked={settings.cursorFollower}
@@ -218,7 +234,7 @@ export function BehaviorSection({ settings, onChange }: SettingsSectionProps): J
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.behaviorTitle}</h4>
 
-      <label className="eve-check">
+      <label className="eve-check" data-setting-id="liveUpdates">
         <input
           type="checkbox"
           checked={settings.liveUpdates}

@@ -8,7 +8,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./prisma": "./src/prisma.ts",
-    "./dashboard": "./src/dashboard-config.ts"
+    "./dashboard": "./src/dashboard-config.ts",
+    "./canvas": "./src/canvas.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
