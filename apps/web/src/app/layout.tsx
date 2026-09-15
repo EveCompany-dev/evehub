@@ -30,6 +30,7 @@ interface LayoutSession {
   visibleTabs: Set<TabKey>;
   uiScale: number;
   railFullHide: boolean;
+  cursorFollower: boolean;
 }
 
 const DEFAULT_UI_SCALE = 1.5;
@@ -44,13 +45,13 @@ const DEFAULT_UI_SCALE = 1.5;
  */
 async function resolveSession(): Promise<LayoutSession> {
   const user = await getSessionUser();
-  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false };
+  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false, cursorFollower: true };
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
     select: { dashboardConfig: true, isOwner: true, isSocialMedia: true, role: { select: { tabs: true } } },
   });
-  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false };
+  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false, cursorFollower: true };
 
   const config = parseDashboardConfig(row.dashboardConfig);
   return {
@@ -59,11 +60,12 @@ async function resolveSession(): Promise<LayoutSession> {
     visibleTabs: getVisibleTabs(toTabSubject(row)),
     uiScale: config.uiScale,
     railFullHide: config.railFullHide,
+    cursorFollower: config.cursorFollower,
   };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<JSX.Element> {
-  const { theme, isOwner, visibleTabs, uiScale, railFullHide } = await resolveSession();
+  const { theme, isOwner, visibleTabs, uiScale, railFullHide, cursorFollower } = await resolveSession();
 
   return (
     // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
@@ -73,6 +75,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
     <html
       lang="pt-BR"
       data-theme={theme ?? undefined}
+      data-cursor-follower={cursorFollower ? 'on' : 'off'}
       className={`${display.variable} ${inter.variable}`}
       suppressHydrationWarning
     >
@@ -82,7 +85,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
         <style>{`html { zoom: ${uiScale}; }`}</style>
       </head>
       <body>
-        <CustomCursor />
+        {cursorFollower ? <CustomCursor /> : null}
         {isOwner !== null ? (
           <TimerProvider>
             {children}

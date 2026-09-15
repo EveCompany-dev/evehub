@@ -1,8 +1,9 @@
+import { mediaKindFromUrl } from '@eve/connector-meta/shared';
 import type { JSX } from 'react';
 
 export interface PostPreviewProps {
   platform: 'instagram' | 'facebook';
-  postType: 'feed' | 'story';
+  postType: 'feed' | 'story' | 'reel';
   accountLabel: string;
   caption: string;
   mediaUrl: string | null;
@@ -82,12 +83,40 @@ export function PostPreview({ platform, postType, accountLabel, caption, mediaUr
       {initialsFrom(label)}
     </span>
   );
-  const media = mediaUrl ? (
+  // Reels and Story videos go through the same field as images, so the
+  // preview has to render whichever kind was uploaded. Muted + playsInline is
+  // what lets it autoplay at all under browser autoplay policies.
+  const media = !mediaUrl ? (
+    <div className="eve-preview__placeholder">Escolha uma imagem ou vídeo</div>
+  ) : mediaKindFromUrl(mediaUrl) === 'video' ? (
+    <video src={mediaUrl} muted loop autoPlay playsInline />
+  ) : (
     // eslint-disable-next-line @next/next/no-img-element -- external/uploaded URL, not a static asset next/image can optimize.
     <img src={mediaUrl} alt="" />
-  ) : (
-    <div className="eve-preview__placeholder">Escolha uma imagem</div>
   );
+
+  if (postType === 'reel') {
+    return (
+      <div className="eve-preview eve-preview--reel">
+        <div className="eve-preview__reel-media">{media}</div>
+        <span className="eve-preview__reel-tag">Reels</span>
+        <div className="eve-preview__reel-actions">
+          <HeartIcon />
+          <CommentIcon />
+          <ShareIcon />
+        </div>
+        <div className="eve-preview__reel-foot">
+          {avatar}
+          <div className="eve-preview__reel-text">
+            <span className="eve-preview__reel-name">{label}</span>
+            <span className="eve-preview__reel-caption">
+              {caption || 'Sua legenda aparece aqui...'}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (postType === 'story') {
     return (
