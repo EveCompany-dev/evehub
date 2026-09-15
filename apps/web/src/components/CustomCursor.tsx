@@ -4,17 +4,29 @@ import { EveArch } from '@eve/ui';
 import { useEffect, useRef, type JSX } from 'react';
 
 /**
- * Site-wide custom cursor: a small orange dot with a soft glow by default,
- * morphing into the Eve mark when hovering anything the browser would show
- * a pointer cursor for. Desktop-only — `globals.css` hides the native
- * cursor and this component's own render only under `(pointer: fine)`;
- * touch devices keep whatever they already had, there is nothing to
- * replace there.
+ * Site-wide cursor companion: a small orange dot with a soft glow that
+ * trails the native pointer, morphing into the Eve mark over anything the
+ * browser would show a pointer cursor for. The real system cursor stays
+ * visible and authoritative — this only decorates it, a step behind.
+ * Desktop-only: the render is suppressed under `(pointer: coarse)` in
+ * `globals.css`, since there is no pointer to trail on touch.
  *
  * Position and hover state are written straight to the DOM via refs
  * instead of React state, since pointermove fires far too often for
  * re-renders.
  */
+
+/**
+ * Fraction of the remaining distance the dot closes each animation frame.
+ * Lower trails further behind the pointer; 1 would pin it exactly on top.
+ * ~0.15 reads as a soft, deliberate lag at 60fps without ever feeling
+ * detached from the pointer.
+ */
+const FOLLOW_EASE = 0.15;
+
+/** Below this much remaining travel (px) the dot has effectively arrived. */
+const SETTLE_EPSILON = 0.1;
+
 /**
  * The site-wide `zoom` scale (see layout.tsx / the /settings Interface tab) is
  * applied on <html>, and that scale multiplies CSS pixel values used by
@@ -36,17 +48,49 @@ export function CustomCursor(): JSX.Element | null {
 
   useEffect(() => {
     if (!window.matchMedia('(pointer: fine)').matches) return;
+    // The trailing motion is decoration; honour a reduced-motion preference
+    // by pinning the dot straight onto the pointer instead.
+    const ease = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : FOLLOW_EASE;
 
     const root = rootRef.current;
     if (!root) return;
 
+    const target = { x: 0, y: 0 };
+    const dot = { x: 0, y: 0 };
+    // The first sample snaps, so the dot doesn't fly in from the corner.
+    let placed = false;
+    let frame = 0;
+
+    const draw = () => {
+      frame = 0;
+      dot.x += (target.x - dot.x) * ease;
+      dot.y += (target.y - dot.y) * ease;
+      const zoom = currentZoom();
+      root.style.transform = `translate3d(${dot.x / zoom}px, ${dot.y / zoom}px, 0)`;
+      // Keep the loop alive only while there is distance left to close, so an
+      // idle pointer costs nothing.
+      if (
+        Math.abs(target.x - dot.x) > SETTLE_EPSILON ||
+        Math.abs(target.y - dot.y) > SETTLE_EPSILON
+      ) {
+        frame = requestAnimationFrame(draw);
+      }
+    };
+
     const onMove = (event: PointerEvent) => {
       root.style.opacity = '1';
-      const zoom = currentZoom();
-      root.style.transform = `translate3d(${event.clientX / zoom}px, ${event.clientY / zoom}px, 0)`;
-      const target = event.target;
-      const hover = target instanceof Element && window.getComputedStyle(target).cursor === 'pointer';
+      target.x = event.clientX;
+      target.y = event.clientY;
+      if (!placed) {
+        dot.x = target.x;
+        dot.y = target.y;
+        placed = true;
+      }
+      const element = event.target;
+      const hover =
+        element instanceof Element && window.getComputedStyle(element).cursor === 'pointer';
       root.classList.toggle('is-hover', hover);
+      if (!frame) frame = requestAnimationFrame(draw);
     };
 
     // Mouse leaving the browser window entirely — otherwise a stray dot
@@ -60,6 +104,7 @@ export function CustomCursor(): JSX.Element | null {
     return () => {
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('mouseout', onLeave);
+      if (frame) cancelAnimationFrame(frame);
     };
   }, []);
 

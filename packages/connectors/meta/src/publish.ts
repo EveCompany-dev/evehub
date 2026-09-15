@@ -1,4 +1,5 @@
 import { graphRequest, MetaGraphError } from './graph-client';
+import { mediaKindFromUrl, type MediaKind } from './shared';
 
 /**
  * Real publish calls against Meta's Graph API — used directly by the
@@ -10,6 +11,60 @@ import { graphRequest, MetaGraphError } from './graph-client';
  * Instagram has no equivalent, so publishing there is a real two-step
  * container-then-publish call fired by our own worker at the scheduled time.
  */
+
+/**
+ * Hosts Meta's servers can never reach: loopback, link-local, RFC1918 LANs,
+ * and the 100.64/10 CGNAT range a tailnet hands out. Matched on the hostname
+ * only — we cannot resolve DNS here, so a public name pointing at a private
+ * address still gets through and fails at Meta, which is the best a cheap
+ * check can do.
+ */
+function isUnreachableHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return true;
+  if (host === '::1' || host === '0.0.0.0') return true;
+
+  const octets = host.split('.').map(Number);
+  if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part))) return false;
+  const [a, b] = octets as [number, number, number, number];
+  if (a === 127 || a === 10 || a === 0) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  return false;
+}
+
+/**
+ * Meta downloads the media itself from the `url`/`image_url` we hand it, so
+ * that URL has to resolve on the public internet. When the app is reached at
+ * `http://localhost:3000` the upload endpoint necessarily builds a localhost
+ * URL from the request origin, Meta's fetch fails, and the Graph API reports
+ * it as the thoroughly misleading "Only photo or video can be accepted as
+ * media type" — which reads like a rejected file format, not an unreachable
+ * address. Checking up front turns a confusing dead end into an actionable
+ * error, and costs one URL parse.
+ */
+export function assertMediaUrlIsPublic(mediaUrl: string): void {
+  let url: URL;
+  try {
+    url = new URL(mediaUrl);
+  } catch {
+    throw new MetaGraphError(`URL de mídia inválida: ${mediaUrl}`, 422);
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new MetaGraphError(`URL de mídia precisa ser http(s): ${mediaUrl}`, 422);
+  }
+
+  if (isUnreachableHost(url.hostname)) {
+    throw new MetaGraphError(
+      `O Meta não consegue baixar a mídia em "${url.host}" — esse endereço só existe nesta rede. ` +
+        'Publique o app em um endereço público (ou exponha-o por um túnel) e defina PUBLIC_BASE_URL no .env.',
+      422,
+    );
+  }
+}
 
 export interface FacebookScheduleResult {
   postId: string;
@@ -96,21 +151,49 @@ export async function createInstagramContainer(
  * the Stories endpoint doesn't accept one. Reuses `pollInstagramContainerReady`
  * and `publishInstagramContainer` below unchanged, since neither cares which
  * media_type produced the container.
+ *
+ * Stories take a photo or a video, and the parameter name differs between the
+ * two (`image_url` vs `video_url`) — passing the wrong one is accepted and
+ * then fails during processing, so the kind is decided here from the URL.
  */
 export async function createInstagramStoryContainer(
   token: string,
   igUserId: string,
-  imageUrl: string,
+  mediaUrl: string,
 ): Promise<InstagramContainerResult> {
+  const isVideo = mediaKindFromUrl(mediaUrl) === 'video';
   const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
     method: 'POST',
-    params: { image_url: imageUrl, media_type: 'STORIES' },
+    params: {
+      ...(isVideo ? { video_url: mediaUrl } : { image_url: mediaUrl }),
+      media_type: 'STORIES',
+    },
   });
   return { creationId: response.id };
 }
 
-const POLL_ATTEMPTS = 6;
-const POLL_DELAY_MS = 2_000;
+/**
+ * Reels are video-only and always `media_type: 'REELS'` — a video posted to
+ * the Instagram feed *is* a Reel as far as the API is concerned, there is no
+ * separate feed-video container to create.
+ */
+export async function createInstagramReelContainer(
+  token: string,
+  igUserId: string,
+  videoUrl: string,
+  caption: string,
+): Promise<InstagramContainerResult> {
+  const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
+    method: 'POST',
+    params: { video_url: videoUrl, media_type: 'REELS', caption },
+  });
+  return { creationId: response.id };
+}
+
+const POLL_ATTEMPTS = 12;
+/** Video has to be transcoded before it can be published, which takes far longer than an image. */
+const VIDEO_POLL_ATTEMPTS = 24;
+const POLL_DELAY_MS = 5_000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -118,21 +201,41 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Container creation is asynchronous by contract even for images. Polls
- * `status_code` a handful of times before giving up with a clear error,
- * rather than calling `media_publish` on a container that isn't ready.
+ * `status_code` until the container is ready, rather than calling
+ * `media_publish` on one that isn't.
+ *
+ * The image budget (12 × 5s ≈ 55s of waiting) is deliberately under the
+ * worker's 60s SCHEDULING_INTERVAL_MS: a large image routinely takes longer
+ * than a couple of seconds, and the old 6 × 2s ≈ 12s budget failed those
+ * posts for being slow rather than broken. Video has to be transcoded first,
+ * which blows past any 60s budget, so it gets its own longer one (24 × 5s
+ * ≈ 115s) and deliberately runs past one worker tick. Re-entrancy is safe
+ * either way — the row is flipped to `publishing` before we get here and the
+ * due-post query only picks up `scheduled` ones.
  */
-export async function pollInstagramContainerReady(token: string, creationId: string): Promise<void> {
-  for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+export async function pollInstagramContainerReady(
+  token: string,
+  creationId: string,
+  kind: MediaKind = 'image',
+): Promise<void> {
+  const attempts = kind === 'video' ? VIDEO_POLL_ATTEMPTS : POLL_ATTEMPTS;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     const response = await graphRequest<{ status_code?: string }>(token, `/${creationId}`, {
       params: { fields: 'status_code' },
     });
 
-    if (response.status_code === 'FINISHED') return;
+    // PUBLISHED means a previous run already got it live — treat it as done
+    // instead of falling through to a second media_publish call.
+    if (response.status_code === 'FINISHED' || response.status_code === 'PUBLISHED') return;
     if (response.status_code === 'ERROR') {
       throw new MetaGraphError('O Instagram rejeitou o processamento da midia.', 422);
     }
+    if (response.status_code === 'EXPIRED') {
+      throw new MetaGraphError('O container do Instagram expirou antes de ser publicado.', 410);
+    }
 
-    await sleep(POLL_DELAY_MS);
+    // No sleep after the final look: it would only delay the error below.
+    if (attempt < attempts - 1) await sleep(POLL_DELAY_MS);
   }
 
   throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);

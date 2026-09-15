@@ -1,8 +1,11 @@
 import { loadConnectorContext, prisma } from '@eve/core';
 import {
+  assertMediaUrlIsPublic,
   checkFacebookPostStatus,
   createInstagramContainer,
+  createInstagramReelContainer,
   createInstagramStoryContainer,
+  mediaKindFromUrl,
   pollInstagramContainerReady,
   publishFacebookStory,
   publishInstagramContainer,
@@ -14,6 +17,43 @@ const FACEBOOK_GRACE_MS = 15 * 60 * 1000;
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+const TYPE_LABEL: Record<string, string> = { feed: 'post', story: 'story', reel: 'reel' };
+
+/**
+ * A post that fails is otherwise completely silent: it happens at a minute
+ * nobody is watching, and all it leaves behind is a row that quietly turns
+ * red in a calendar cell. Notifying whoever scheduled it is the only thing
+ * that actually reaches a person — hence a notification alongside the status
+ * write, not just the status write.
+ */
+async function markFailed(
+  post: { id: string; workspaceId: string; createdBy: string; clientLabel: string; platform: string; postType: string },
+  error: unknown,
+): Promise<void> {
+  const message = errorMessage(error).slice(0, 500);
+
+  await prisma.scheduledPost.update({
+    where: { id: post.id },
+    data: { status: 'failed', statusMessage: message },
+  });
+
+  // Never let the notification be the reason the tick dies: the status write
+  // above is the part that must not be lost.
+  try {
+    const what = `${post.platform === 'instagram' ? 'Instagram' : 'Facebook'} ${TYPE_LABEL[post.postType] ?? post.postType}`;
+    await prisma.notification.create({
+      data: {
+        workspaceId: post.workspaceId,
+        userId: post.createdBy,
+        type: 'scheduledPostFailed',
+        message: `O ${what} de ${post.clientLabel} não foi publicado: ${message}`,
+      },
+    });
+  } catch (cause) {
+    console.error(`[worker] falha ao notificar erro do post ${post.id}:`, errorMessage(cause));
+  }
 }
 
 /**
@@ -46,18 +86,31 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         throw new Error('Instancia do Meta sem ID da conta do Instagram configurado.');
       }
 
+      // Cheaper and far clearer than letting Meta fail the fetch itself.
+      assertMediaUrlIsPublic(post.mediaUrl);
+
       const { creationId } =
         post.postType === 'story'
           ? await createInstagramStoryContainer(credentials.pageAccessToken, config.instagramBusinessAccountId, post.mediaUrl)
-          : await createInstagramContainer(
-              credentials.pageAccessToken,
-              config.instagramBusinessAccountId,
-              post.mediaUrl,
-              post.caption,
-            );
+          : post.postType === 'reel'
+            ? await createInstagramReelContainer(
+                credentials.pageAccessToken,
+                config.instagramBusinessAccountId,
+                post.mediaUrl,
+                post.caption,
+              )
+            : await createInstagramContainer(
+                credentials.pageAccessToken,
+                config.instagramBusinessAccountId,
+                post.mediaUrl,
+                post.caption,
+              );
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { metaCreationId: creationId } });
 
-      await pollInstagramContainerReady(credentials.pageAccessToken, creationId);
+      // Video containers are transcoded before they can be published, which
+      // takes much longer than an image — polling with the wrong budget gives
+      // up on a Reel that was going to succeed.
+      await pollInstagramContainerReady(credentials.pageAccessToken, creationId, mediaKindFromUrl(post.mediaUrl));
       const { mediaId } = await publishInstagramContainer(
         credentials.pageAccessToken,
         config.instagramBusinessAccountId,
@@ -69,10 +122,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         data: { status: 'published', metaPostId: mediaId, statusMessage: null },
       });
     } catch (error) {
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'failed', statusMessage: errorMessage(error).slice(0, 500) },
-      });
+      await markFailed(post, error);
     }
   }
 
@@ -82,7 +132,16 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
   });
 
   for (const post of dueFacebookFeed) {
-    if (!post.metaPostId) continue;
+    // A Facebook feed row only gets created after scheduleFacebookPost
+    // succeeds, so a due one with no metaPostId is broken state, not a
+    // pending one — there is nothing on Meta's side to reconcile against and
+    // waiting another tick will never change that. Fail it loudly instead of
+    // skipping, which left the row sitting in `scheduled` forever with no
+    // error surfaced to whoever scheduled it.
+    if (!post.metaPostId) {
+      await markFailed(post, new Error('O post nao chegou a ser registrado no Meta. Reagende para tentar de novo.'));
+      continue;
+    }
 
     try {
       const { ctx } = loadConnectorContext(post.connectorInstance);
@@ -92,10 +151,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       if (isPublished) {
         await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'published' } });
       } else if (now.getTime() - post.scheduledFor.getTime() > FACEBOOK_GRACE_MS) {
-        await prisma.scheduledPost.update({
-          where: { id: post.id },
-          data: { status: 'failed', statusMessage: 'O Meta nao confirmou a publicacao a tempo.' },
-        });
+        await markFailed(post, new Error('O Meta nao confirmou a publicacao a tempo.'));
       }
     } catch (error) {
       console.error(`[worker] falha ao checar status do post ${post.id} no Facebook:`, errorMessage(error));
@@ -115,6 +171,8 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
       const config = ctx.config as MetaConfig;
       const credentials = ctx.credentials as MetaCredentials;
 
+      assertMediaUrlIsPublic(post.mediaUrl);
+
       const { postId } = await publishFacebookStory(credentials.pageAccessToken, config.pageId, post.mediaUrl);
 
       await prisma.scheduledPost.update({
@@ -122,10 +180,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         data: { status: 'published', metaPostId: postId, statusMessage: null },
       });
     } catch (error) {
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'failed', statusMessage: errorMessage(error).slice(0, 500) },
-      });
+      await markFailed(post, error);
     }
   }
 

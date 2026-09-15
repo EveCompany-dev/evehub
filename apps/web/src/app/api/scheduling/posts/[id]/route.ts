@@ -62,8 +62,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return fail(400, error instanceof Error ? error.message : String(error));
       }
 
+      // Split from the resubmit below on purpose: if the delete itself fails
+      // nothing has been destroyed yet, so the row can stay exactly as it was.
       try {
         await deleteFacebookPost(credentials.pageAccessToken, post.metaPostId);
+      } catch (error) {
+        return fail(502, error instanceof Error ? error.message : String(error));
+      }
+
+      try {
         const rescheduled = await scheduleFacebookPost(
           credentials.pageAccessToken,
           config.pageId,
@@ -73,7 +80,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         );
         metaPostId = rescheduled.postId;
       } catch (error) {
-        return fail(502, error instanceof Error ? error.message : String(error));
+        // Past this point the old post is already gone from Meta. Bailing out
+        // with the row untouched would leave it `scheduled` against a deleted
+        // post id — the worker would retry that forever and the post would
+        // silently never go live. Mark it failed so it shows up as such.
+        const message = error instanceof Error ? error.message : String(error);
+        await prisma.scheduledPost.update({
+          where: { id },
+          data: {
+            status: 'failed',
+            metaPostId: null,
+            statusMessage: `O post anterior foi cancelado, mas o reagendamento falhou: ${message}`.slice(0, 500),
+          },
+        });
+        return fail(502, message);
       }
     }
 

@@ -63,6 +63,12 @@ export const dashboardConfigSchema = z.object({
    * so alternar entre icone e icone+texto.
    */
   railFullHide: z.boolean().default(false),
+  /**
+   * false = so o cursor nativo do sistema, sem a bolinha laranja que o
+   * segue. A decoracao e puro enfeite; quem acha o rastro distraente (ou
+   * usa a interface o dia inteiro) desliga aqui.
+   */
+  cursorFollower: z.boolean().default(true),
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
@@ -83,6 +89,7 @@ export const emptyDashboardConfig: DashboardConfig = {
   liveUpdates: true,
   uiScale: 1.5,
   railFullHide: false,
+  cursorFollower: true,
 };
 
 /**
@@ -124,7 +131,13 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
 
 export type GeneralSettings = Pick<
   DashboardConfig,
-  'backgroundImage' | 'backgroundColor' | 'density' | 'liveUpdates' | 'uiScale' | 'railFullHide'
+  | 'backgroundImage'
+  | 'backgroundColor'
+  | 'density'
+  | 'liveUpdates'
+  | 'uiScale'
+  | 'railFullHide'
+  | 'cursorFollower'
 >;
 
 /** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */

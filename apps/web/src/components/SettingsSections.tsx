@@ -2,7 +2,7 @@
 
 import type { GeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
-import { useRef, useState, type DragEvent, type JSX } from 'react';
+import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
 
 export interface SettingsSectionProps {
   settings: GeneralSettings;
@@ -128,28 +128,56 @@ export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX
 }
 
 export function InterfaceSection({ settings, onChange }: SettingsSectionProps): JSX.Element {
+  // The slider's in-flight value, so the % label tracks the thumb while the
+  // user drags. The page `zoom` itself is only touched on release — see
+  // `commitScale`.
+  const [draftScale, setDraftScale] = useState(settings.uiScale);
+
+  // Adopt the value when it changes from outside this component (settings
+  // reloaded, another device, a reset), but not while a drag is in flight.
+  const draggingRef = useRef(false);
+  useEffect(() => {
+    if (!draggingRef.current) setDraftScale(settings.uiScale);
+  }, [settings.uiScale]);
+
+  /**
+   * Writing `zoom` on every input event re-lays out the page *underneath the
+   * pointer* mid-drag: the slider itself grows or shrinks, the thumb slides
+   * out from under the cursor, and the next pointer sample therefore reads a
+   * different value — the drag ends up fighting its own side effect and the
+   * handle judders instead of following the mouse. Committing once, on
+   * release, keeps the geometry still for the whole drag; the label below
+   * still updates live so the interaction stays legible.
+   */
+  const commitScale = () => {
+    draggingRef.current = false;
+    if (draftScale === settings.uiScale) return;
+    document.documentElement.style.zoom = String(draftScale);
+    onChange({ uiScale: draftScale });
+  };
+
   return (
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.interfaceTitle}</h4>
 
       <label className="eve-field">
         <span className="eve-field__label">
-          {strings.dashboardSettings.uiScale} — {Math.round(settings.uiScale * 100)}%
+          {strings.dashboardSettings.uiScale} — {Math.round(draftScale * 100)}%
         </span>
         <input
           type="range"
           min={0.5}
           max={2}
           step={0.05}
-          value={settings.uiScale}
-          onChange={(event) => {
-            const uiScale = Number(event.target.value);
-            // Applied live — the server-rendered <style> in the root layout
-            // only sets the *initial* scale on page load; without this, the
-            // new value wouldn't show until a full reload.
-            document.documentElement.style.zoom = String(uiScale);
-            onChange({ uiScale });
+          value={draftScale}
+          onPointerDown={() => {
+            draggingRef.current = true;
           }}
+          onChange={(event) => setDraftScale(Number(event.target.value))}
+          onPointerUp={commitScale}
+          onPointerCancel={commitScale}
+          onKeyUp={commitScale}
+          onBlur={commitScale}
         />
         <span className="eve-setup__hint">{strings.dashboardSettings.uiScaleHint}</span>
       </label>
@@ -163,6 +191,24 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
         <span>{strings.dashboardSettings.railFullHide}</span>
       </label>
       <p className="eve-setup__hint">{strings.dashboardSettings.railFullHideHint}</p>
+
+      <label className="eve-check">
+        <input
+          type="checkbox"
+          checked={settings.cursorFollower}
+          onChange={(event) => {
+            const cursorFollower = event.target.checked;
+            // Applied live for the same reason the scale is: the root layout
+            // only renders <CustomCursor /> and this attribute on page load,
+            // so without this the dot would linger (or stay missing) until a
+            // reload. The mount itself is settled server-side next load.
+            document.documentElement.dataset.cursorFollower = cursorFollower ? 'on' : 'off';
+            onChange({ cursorFollower });
+          }}
+        />
+        <span>{strings.dashboardSettings.cursorFollower}</span>
+      </label>
+      <p className="eve-setup__hint">{strings.dashboardSettings.cursorFollowerHint}</p>
     </section>
   );
 }
