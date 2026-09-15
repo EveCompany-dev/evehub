@@ -82,7 +82,22 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
   });
 
   for (const post of dueFacebookFeed) {
-    if (!post.metaPostId) continue;
+    // A Facebook feed row only gets created after scheduleFacebookPost
+    // succeeds, so a due one with no metaPostId is broken state, not a
+    // pending one — there is nothing on Meta's side to reconcile against and
+    // waiting another tick will never change that. Fail it loudly instead of
+    // skipping, which left the row sitting in `scheduled` forever with no
+    // error surfaced to whoever scheduled it.
+    if (!post.metaPostId) {
+      await prisma.scheduledPost.update({
+        where: { id: post.id },
+        data: {
+          status: 'failed',
+          statusMessage: 'O post nao chegou a ser registrado no Meta. Reagende para tentar de novo.',
+        },
+      });
+      continue;
+    }
 
     try {
       const { ctx } = loadConnectorContext(post.connectorInstance);
