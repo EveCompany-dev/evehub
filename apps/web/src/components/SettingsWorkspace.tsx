@@ -3,6 +3,7 @@
 import type { DashboardConfig, GeneralSettings } from '@eve/core/dashboard';
 import { updateGeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
+import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { SETTINGS_CATEGORIES } from './SettingsSections';
 
@@ -16,9 +17,17 @@ const SAVE_DEBOUNCE_MS = 500;
  * up live on the dashboard page.
  */
 export function SettingsWorkspace(): JSX.Element {
+  const searchParams = useSearchParams();
+  const requestedCategory = searchParams.get('category');
+  const requestedOption = searchParams.get('option');
+
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeId, setActiveId] = useState(SETTINGS_CATEGORIES[0]!.id);
+  const [activeId, setActiveId] = useState(
+    // Ctrl+K deep-links straight to one control: `?category=` picks the pane
+    // before first paint so the user never sees the wrong one flash past.
+    () => SETTINGS_CATEGORIES.find((category) => category.id === requestedCategory)?.id ?? SETTINGS_CATEGORIES[0]!.id,
+  );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
@@ -56,6 +65,23 @@ export function SettingsWorkspace(): JSX.Element {
       });
     }, SAVE_DEBOUNCE_MS);
   }, []);
+
+  /**
+   * Highlights the control named by `?option=` once its category is on
+   * screen. Waits for `config`, because the sections don't render at all
+   * until the settings have loaded and there would be nothing to scroll to.
+   */
+  useEffect(() => {
+    if (!requestedOption || !config) return;
+
+    const target = document.querySelector<HTMLElement>(`[data-setting-id="${requestedOption}"]`);
+    if (!target) return;
+
+    target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    target.classList.add('is-highlighted');
+    const timer = setTimeout(() => target.classList.remove('is-highlighted'), 2200);
+    return () => clearTimeout(timer);
+  }, [config, requestedOption, activeId]);
 
   const handleChange = (patch: Partial<GeneralSettings>) => {
     setConfig((current) => {

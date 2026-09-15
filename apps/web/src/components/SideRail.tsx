@@ -4,16 +4,9 @@ import { strings } from '@eve/ui';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
+import { visibleRoutes } from '../lib/navigation';
 import { NotificationBell } from './NotificationBell';
 import { RailSettings } from './RailSettings';
-
-interface RailItem {
-  href: string;
-  label: string;
-  icon: ReactNode;
-  /** Omit for items every authenticated user always sees (none currently — every item is tab-gated). */
-  tab?: string;
-}
 
 export interface SideRailProps {
   /** Computed server-side via getVisibleTabs() — owner already has every tab in here. */
@@ -174,17 +167,23 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     });
   };
 
-  const allItems: RailItem[] = [
-    { href: '/chat', label: strings.nav.chat, icon: <ChatIcon />, tab: 'chat' },
-    { href: '/jobs', label: strings.nav.jobs, icon: <JobsIcon />, tab: 'jobs' },
-    { href: '/tables', label: strings.nav.tables, icon: <TablesIcon />, tab: 'tables' },
-    { href: '/connectors', label: strings.nav.connectors, icon: <ConnectorsIcon />, tab: 'connectors' },
-    { href: '/automations', label: strings.nav.automations, icon: <AutomationsIcon />, tab: 'automations' },
-    { href: '/scheduling', label: strings.nav.scheduling, icon: <SchedulingIcon />, tab: 'scheduling' },
-    { href: '/financial', label: strings.nav.financial, icon: <FinancialIcon />, tab: 'financial' },
-    { href: '/team', label: strings.nav.team, icon: <TeamIcon />, tab: 'team' },
-  ];
-  const items = allItems.filter((item) => !item.tab || visibleTabs.includes(item.tab));
+  // Labels, hrefs and tab gating come from lib/navigation.ts, which the
+  // Ctrl+K palette indexes from the same list; only the icons live here.
+  const icons: Record<string, ReactNode> = {
+    '/chat': <ChatIcon />,
+    '/jobs': <JobsIcon />,
+    '/tables': <TablesIcon />,
+    '/connectors': <ConnectorsIcon />,
+    '/automations': <AutomationsIcon />,
+    '/scheduling': <SchedulingIcon />,
+    '/financial': <FinancialIcon />,
+    '/team': <TeamIcon />,
+  };
+
+  // The rail shows only the tab-gated workspaces, not every indexed route:
+  // the dashboard is the page behind it, and perfil/settings/notifications
+  // already have their own affordances (avatar, gear, bell).
+  const items = visibleRoutes(visibleTabs).filter((route) => route.tab && icons[route.href]);
 
   if (fullyHidden) {
     return (
@@ -235,7 +234,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
             aria-current={active ? 'page' : undefined}
             title={item.label}
           >
-            <span className="eve-rail__icon">{item.icon}</span>
+            <span className="eve-rail__icon">{icons[item.href]}</span>
             {expanded && <span className="eve-rail__label">{item.label}</span>}
           </Link>
         );

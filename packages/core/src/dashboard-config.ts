@@ -135,6 +135,7 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
 
 export type GeneralSettings = Pick<
   DashboardConfig,
+  | 'mode'
   | 'backgroundImage'
   | 'backgroundColor'
   | 'density'
