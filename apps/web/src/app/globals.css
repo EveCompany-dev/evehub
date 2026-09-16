@@ -3173,6 +3173,143 @@ video.eve-month__chip-thumb {
   background: var(--surface-2);
 }
 
+/* --- clientes e projetos ---------------------------------------------------- */
+
+.eve-clientpage,
+.eve-projectpage {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.eve-clientpage__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-clientpage__section-head h3 {
+  margin: 0;
+}
+
+.eve-clientpage__joblist,
+.eve-projectpage__joblist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-clientpage__joblist li,
+.eve-projectpage__joblist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.eve-clientpage__joblist li > a:first-child,
+.eve-projectpage__joblist li > a:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.eve-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.eve-projects-grid__card {
+  display: block;
+  padding: 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: inherit;
+  text-decoration: none;
+}
+
+.eve-projects-grid__card:hover {
+  border-color: var(--accent);
+}
+
+.eve-projects-grid__desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin: 4px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.eve-projectpage__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.eve-projectpage__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  cursor: text;
+  border-radius: var(--radius-input, 8px);
+  padding: 2px 4px;
+}
+
+.eve-projectpage__title:hover {
+  background: var(--surface-2);
+}
+
+.eve-projectpage__title-input {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.eve-projectpage__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eve-projectpage__commentlist,
+.eve-projectpage__filelist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eve-projectpage__commentlist li {
+  display: flex;
+  gap: 8px;
+}
+
+.eve-projectpage__filelist li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
 /* A name in the description matching a known local client (see
    JobDetailModal.tsx's renderDescription) — hover shows a floating prompt
    to link the job to that client, click confirms it. */

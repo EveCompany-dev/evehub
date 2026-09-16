@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 
 interface ClientRow {
@@ -215,7 +216,9 @@ export function ClientsPanel(): JSX.Element {
                     </>
                   ) : (
                     <>
-                      <td>{client.name}</td>
+                      <td>
+                        <Link href={`/clients/${client.id}`}>{client.name}</Link>
+                      </td>
                       <td className="eve-dim">{client.notes || '—'}</td>
                       <td>
                         <button type="button" className="eve-btn eve-btn--icon" aria-label="Editar" onClick={() => startEdit(client)}>

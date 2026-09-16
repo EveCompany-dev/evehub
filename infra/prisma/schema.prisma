@@ -85,6 +85,7 @@ model Workspace {
   dataTables         DataTable[]
   jobColumns         JobColumn[]
   jobs               Job[]
+  projects           Project[]
   notifications      Notification[]
   financialEntries   FinancialEntry[]
   teamMessages       TeamMessage[]
@@ -137,6 +138,7 @@ model User {
   editLogs          EditLog[]
   scheduledPosts    ScheduledPost[]
   createdJobs       Job[]                @relation("JobCreator")
+  createdProjects   Project[]
   jobCollaborations JobCollaborator[]
   assignedTasks     JobTask[]
   jobComments       JobComment[]
@@ -334,8 +336,39 @@ model Client {
   scheduledPosts   ScheduledPost[]
   jobs             Job[]
   financialEntries FinancialEntry[]
+  projects         Project[]
 
   @@index([workspaceId])
+}
+
+/// Um "projeto" e uma pasta dentro de um cliente — agrupa os jobs (e,
+/// atraves deles, tarefas/comentarios/anexos) de um periodo ou entrega
+/// especifica, ex.: "Setembro/2026" ou "Campanha de lancamento". Metadados
+/// puros (titulo/descricao/data); a associacao com Job e que da a ele
+/// conteudo de verdade.
+model Project {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  /// Data de referencia do projeto (ex.: o mes que ele representa) — sem
+  /// significado de prazo/deadline, que continua sendo Job.dueDate.
+  date        DateTime?
+
+  createdBy     String
+  createdByUser User   @relation(fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobs Job[]
+
+  @@index([workspaceId, clientId])
 }
 
 model ScheduledPost {
@@ -478,6 +511,12 @@ model Job {
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
+  /// Pasta opcional dentro do cliente acima. Definir um projeto sempre
+  /// implica o cliente dele — a API mantem clientId em sincronia ao gravar
+  /// projectId, em vez de deixar os dois divergirem.
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
   createdBy     String
   createdByUser User   @relation("JobCreator", fields: [createdBy], references: [id])
 
@@ -492,6 +531,7 @@ model Job {
   financialEntries FinancialEntry[]
 
   @@index([workspaceId, columnId, position])
+  @@index([projectId])
 }
 
 model JobCollaborator {

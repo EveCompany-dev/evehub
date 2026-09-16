@@ -1,6 +1,7 @@
 'use client';
 
 import { strings } from '@eve/ui';
+import Link from 'next/link';
 import { cloneElement, isValidElement, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { JobCommentsTab } from './JobCommentsTab';
 import { linkify } from './Linkify';
@@ -40,6 +41,19 @@ function DocIcon(): JSX.Element {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M6 3.5h9l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" />
       <path d="M9 12h7M9 16h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FolderIcon(): JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M3.5 6.5a1 1 0 0 1 1-1H10l2 2.2h7.5a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1V6.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -183,6 +197,7 @@ export function JobDetailModal({
   const [pendingAttachTaskId, setPendingAttachTaskId] = useState<string | null>(null);
   const [editingDescription, setEditingDescription] = useState(false);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [clientProjects, setClientProjects] = useState<{ id: string; title: string }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { textareaRef: descriptionRef, toolbar: descriptionToolbar } = useFormattingToolbar(description, setDescription);
 
@@ -200,6 +215,24 @@ export function JobDetailModal({
       }
     })();
   }, []);
+
+  // Reloads whenever the linked client changes — a job's project can only be
+  // one of that client's own folders.
+  useEffect(() => {
+    void (async () => {
+      if (!job.clientId) {
+        setClientProjects([]);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/clients/${job.clientId}/projects`, { cache: 'no-store' });
+        const body = (await response.json().catch(() => ({}))) as { projects?: { id: string; title: string }[] };
+        if (response.ok && body.projects) setClientProjects(body.projects);
+      } catch {
+        // Non-critical: the project picker just won't populate.
+      }
+    })();
+  }, [job.clientId]);
 
   const patchJob = async (patch: Record<string, unknown>) => {
     setError(null);
@@ -422,7 +455,9 @@ export function JobDetailModal({
           {creatorLabel && <span className="eve-jobs__subtitle">{strings.jobs.createdBy(creatorLabel)}</span>}
           {job.client && (
             <span className="eve-jobs__client-badge">
-              {job.client.name}
+              <Link href={`/clients/${job.client.id}`} onClick={(event) => event.stopPropagation()}>
+                {job.client.name}
+              </Link>
               <button type="button" className="eve-jobs__client-unlink" aria-label="Desvincular cliente" onClick={unlinkClient}>
                 &times;
               </button>
@@ -508,6 +543,31 @@ export function JobDetailModal({
               </span>
               <LocalizedDateInput value={job.dueDate} onChange={(iso) => void patchJob({ dueDate: iso })} />
             </label>
+
+            {job.clientId && (
+              <label className="eve-field">
+                <span className="eve-field__label eve-field__label--icon">
+                  <FolderIcon /> Projeto
+                </span>
+                <select
+                  className="eve-input"
+                  value={job.projectId ?? ''}
+                  onChange={(event) => void patchJob({ projectId: event.target.value || null })}
+                >
+                  <option value="">Sem projeto</option>
+                  {clientProjects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.title}
+                    </option>
+                  ))}
+                </select>
+                {job.project && (
+                  <Link href={`/projects/${job.project.id}`} className="eve-dim">
+                    Abrir pasta do projeto →
+                  </Link>
+                )}
+              </label>
+            )}
 
             <div className="eve-field">
               <span className="eve-field__label eve-field__label--icon">

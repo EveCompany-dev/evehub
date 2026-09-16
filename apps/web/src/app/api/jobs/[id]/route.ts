@@ -2,7 +2,7 @@ import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../lib/api';
-import { applyJobMove, JOB_INCLUDE, requireClient, requireJob } from '../../../../lib/jobs';
+import { applyJobMove, JOB_INCLUDE, requireClient, requireJob, requireProject } from '../../../../lib/jobs';
 import { notify } from '../../../../lib/notifications';
 import { requireUser } from '../../../../lib/session';
 
@@ -13,6 +13,7 @@ const patchSchema = z.object({
   description: z.string().trim().max(4000).nullable().optional(),
   dueDate: z.string().datetime().nullable().optional(),
   clientId: z.string().min(1).nullable().optional(),
+  projectId: z.string().min(1).nullable().optional(),
   important: z.boolean().optional(),
   move: z
     .object({
@@ -47,17 +48,41 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       if (moveError) return fail(400, moveError);
     }
 
-    const { title, description, dueDate, clientId, important } = body.data;
-    if (clientId) await requireClient(clientId, user.workspaceId);
+    const { title, description, dueDate, clientId, projectId, important } = body.data;
 
-    if (title !== undefined || description !== undefined || dueDate !== undefined || clientId !== undefined || important !== undefined) {
+    // A job's clientId always matches its project's clientId when a project
+    // is set — a project can't span clients. Setting a project takes the
+    // client from it (overriding any clientId also sent this request);
+    // changing the client directly (without also picking a new project)
+    // drops a now-stale project link instead of leaving the two inconsistent.
+    let nextClientId = clientId;
+    let nextProjectId = projectId;
+    if (projectId !== undefined && projectId !== null) {
+      const project = await requireProject(projectId, user.workspaceId);
+      nextClientId = project.clientId;
+    } else if (clientId !== undefined) {
+      if (clientId) await requireClient(clientId, user.workspaceId);
+      if (nextProjectId === undefined && existing.projectId && clientId !== existing.clientId) {
+        nextProjectId = null;
+      }
+    }
+
+    if (
+      title !== undefined ||
+      description !== undefined ||
+      dueDate !== undefined ||
+      nextClientId !== undefined ||
+      nextProjectId !== undefined ||
+      important !== undefined
+    ) {
       await prisma.job.update({
         where: { id },
         data: {
           ...(title !== undefined ? { title } : {}),
           ...(description !== undefined ? { description } : {}),
           ...(dueDate !== undefined ? { dueDate: dueDate ? new Date(dueDate) : null } : {}),
-          ...(clientId !== undefined ? { clientId } : {}),
+          ...(nextClientId !== undefined ? { clientId: nextClientId } : {}),
+          ...(nextProjectId !== undefined ? { projectId: nextProjectId } : {}),
           ...(important !== undefined ? { important } : {}),
         },
       });

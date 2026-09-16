@@ -17,6 +17,7 @@ export const JOB_INCLUDE = {
   collaborators: { include: { user: { select: JOB_MEMBER_SELECT } } },
   tasks: { orderBy: { position: 'asc' as const }, include: TASK_INCLUDE },
   client: { select: { id: true, name: true } },
+  project: { select: { id: true, title: true } },
 };
 
 export async function requireColumn(id: string, workspaceId: string) {
@@ -29,6 +30,12 @@ export async function requireClient(id: string, workspaceId: string) {
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client || client.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
   return client;
+}
+
+export async function requireProject(id: string, workspaceId: string) {
+  const project = await prisma.project.findUnique({ where: { id } });
+  if (!project || project.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
+  return project;
 }
 
 export async function requireJob(id: string, workspaceId: string) {

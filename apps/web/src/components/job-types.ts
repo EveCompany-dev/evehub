@@ -39,6 +39,11 @@ export interface JobClientSummary {
   name: string;
 }
 
+export interface JobProjectSummary {
+  id: string;
+  title: string;
+}
+
 export interface JobSummary {
   id: string;
   columnId: string;
@@ -50,6 +55,8 @@ export interface JobSummary {
   important: boolean;
   clientId: string | null;
   client: JobClientSummary | null;
+  projectId: string | null;
+  project: JobProjectSummary | null;
   collaborators: JobCollaboratorSummary[];
   tasks: JobTaskSummary[];
 }
