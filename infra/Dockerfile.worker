@@ -23,6 +23,14 @@ RUN pnpm install --frozen-lockfile
 FROM base AS runtime
 ENV NODE_ENV=production
 COPY --from=deps /app/node_modules ./node_modules
+# pnpm hoists shared deps into the root node_modules above, but each workspace
+# package still gets its own node_modules (mostly symlinks back into the
+# root). Copying only the root left @eve/worker's own package (tsx, ioredis,
+# bullmq...) and every @eve/* package unresolvable — ERR_MODULE_NOT_FOUND at
+# boot. Dockerfile.web already does this for apps/web; the worker never had
+# the equivalent line.
+COPY --from=deps /app/apps/worker/node_modules ./apps/worker/node_modules
+COPY --from=deps /app/packages ./packages
 COPY . .
 # The worker runs TypeScript directly through tsx; no bundling step to keep in
 # sync with the web app's.
