@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Eve">
+  <!--
+    A marca da Eve: arco de topo semicircular e base reta, full-bleed.
+    Redesenhado em vetor a partir de public/brand/eve-icon-orange.jpg porque o
+    jpg carrega um fundo claro opaco: numa aba escura ele viraria um quadrado
+    branco em volta do simbolo. Em vetor o fundo e transparente e a curva
+    continua limpa nos 16px em que o favicon realmente aparece.
+
+    O laranja e o mesmo do token eve-orange (packages/ui/src/tokens.css),
+    escrito aqui como literal de proposito: favicon e servido como arquivo
+    estatico, fora do alcance das variaveis CSS. Se o token mudar, mude aqui.
+  -->
+  <path d="M0 64V32a32 32 0 0 1 64 0v32Z" fill="#fa5300" />
+</svg>

@@ -1,0 +1,34 @@
+# Sem este arquivo o build manda ~850MB de contexto para o daemon E, pior,
+# o `COPY . .` do Dockerfile copia o node_modules do host por cima do que foi
+# instalado dentro da imagem. Como @node-rs/argon2 e binding nativo, isso
+# enfia binario de Windows num container Linux e o login quebra em runtime.
+node_modules
+**/node_modules
+
+# Artefatos de build: a imagem gera os seus.
+.next
+**/.next
+dist
+**/dist
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Prisma Client e gerado dentro da imagem (`pnpm db:generate`).
+packages/core/generated
+
+# Segredos. A imagem NAO pode carregar .env: em producao ele entra por
+# env_file/secret no runtime. Uma imagem com .env dentro vaza credencial de
+# cliente para qualquer um que der `docker save`.
+.env
+.env.*
+!.env.example
+
+# Nada disto muda o build, e tudo invalida cache.
+.git
+.gitignore
+.claude
+*.log
+README.md
+readme.md
+*.md
+!apps/web/AGENTS.md

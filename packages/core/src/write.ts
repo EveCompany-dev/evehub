@@ -202,7 +202,8 @@ export interface UndoableEdit {
   newValue: unknown;
   createdAt: string;
   expiresAt: string;
-  userId: string;
+  /** null quando a conta do autor foi apagada — ver EditLog.userLabel. */
+  userId: string | null;
   userName: string | null;
 }
 
@@ -232,6 +233,7 @@ export async function listUndoableEdits(instanceId: string): Promise<UndoableEdi
     createdAt: edit.createdAt.toISOString(),
     expiresAt: new Date(edit.createdAt.getTime() + UNDO_WINDOW_MS).toISOString(),
     userId: edit.userId,
-    userName: edit.user.name,
+    // A conta pode ter sido apagada; o label gravado na exclusao e o que resta.
+    userName: edit.user?.name ?? edit.userLabel,
   }));
 }

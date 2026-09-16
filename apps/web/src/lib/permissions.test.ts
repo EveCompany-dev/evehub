@@ -9,8 +9,10 @@ import {
   canWriteCredentials,
   getVisibleTabs,
   parseRoleTabs,
+  validateDelete,
   validateDisable,
   validateOwnerChange,
+  validateOwnerGrant,
 } from './permissions';
 
 const owner = { isOwner: true };
@@ -136,5 +138,42 @@ describe('tab visibility (roles)', () => {
     expect(parseRoleTabs('garbage')).toEqual([]);
     expect(parseRoleTabs(['financial', 42])).toEqual([]);
     expect(parseRoleTabs(['financial', 'team'])).toEqual(['financial', 'team']);
+  });
+
+  it('validateOwnerGrant refuses to hand out admin after the account exists', () => {
+    expect(validateOwnerGrant({ targetIsOwner: false, nextIsOwner: true }).ok).toBe(false);
+  });
+
+  it('validateOwnerGrant still allows taking admin away, and no-ops', () => {
+    expect(validateOwnerGrant({ targetIsOwner: true, nextIsOwner: false }).ok).toBe(true);
+    expect(validateOwnerGrant({ targetIsOwner: true, nextIsOwner: true }).ok).toBe(true);
+    expect(validateOwnerGrant({ targetIsOwner: false, nextIsOwner: false }).ok).toBe(true);
+  });
+
+  it('validateDelete requires the account to be deactivated first', () => {
+    const guard = validateDelete({
+      actorId: 'a',
+      targetId: 'b',
+      targetIsOwner: false,
+      targetDisabled: false,
+      ownerCount: 2,
+    });
+    expect(guard.ok).toBe(false);
+    expect(guard.reason).toMatch(/Desative a conta antes/);
+  });
+
+  it('validateDelete refuses self-deletion even when disabled', () => {
+    expect(
+      validateDelete({ actorId: 'a', targetId: 'a', targetIsOwner: false, targetDisabled: true, ownerCount: 2 }).ok,
+    ).toBe(false);
+  });
+
+  it('validateDelete refuses the last owner, and allows a disabled member', () => {
+    expect(
+      validateDelete({ actorId: 'a', targetId: 'b', targetIsOwner: true, targetDisabled: true, ownerCount: 1 }).ok,
+    ).toBe(false);
+    expect(
+      validateDelete({ actorId: 'a', targetId: 'b', targetIsOwner: false, targetDisabled: true, ownerCount: 1 }).ok,
+    ).toBe(true);
   });
 });

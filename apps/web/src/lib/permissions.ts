@@ -142,6 +142,51 @@ export function validateOwnerChange(input: {
   return { ok: true };
 }
 
+/**
+ * Conceder admin so acontece na criacao da conta.
+ *
+ * O botao da lista virou um caminho unico — tirar admin de alguem, nunca dar.
+ * Promover depois era o jeito facil de um owner distraido espalhar acesso a
+ * credencial de cliente pela equipe inteira; nascer admin e uma decisao
+ * consciente, tomada uma vez, com o nome e o e-mail da pessoa na frente.
+ */
+export function validateOwnerGrant(input: { targetIsOwner: boolean; nextIsOwner: boolean }): GuardResult {
+  if (!input.targetIsOwner && input.nextIsOwner) {
+    return {
+      ok: false,
+      reason: 'Acesso de admin só pode ser dado na criação da conta. Crie a conta já como admin, ou peça para a pessoa ser recriada.',
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * Apagar de vez, e nao so desativar.
+ *
+ * Tres travas, nesta ordem: a conta precisa ja estar desativada (desativar e o
+ * passo reversivel; apagar nao e), ninguem apaga a si mesmo, e o ultimo owner
+ * nunca sai. O conteudo de workspace e verificado separado, na rota — depende
+ * de contagem no banco, nao de regra pura.
+ */
+export function validateDelete(input: {
+  actorId: string;
+  targetId: string;
+  targetIsOwner: boolean;
+  targetDisabled: boolean;
+  ownerCount: number;
+}): GuardResult {
+  if (input.actorId === input.targetId) {
+    return { ok: false, reason: 'Você não pode apagar a própria conta.' };
+  }
+  if (!input.targetDisabled) {
+    return { ok: false, reason: 'Desative a conta antes de apagar. Assim ninguém apaga alguém por engano num clique só.' };
+  }
+  if (input.targetIsOwner && input.ownerCount <= 1) {
+    return { ok: false, reason: 'Este é o único owner do workspace.' };
+  }
+  return { ok: true };
+}
+
 /** Mesma logica para desativar: desativar o ultimo owner tambem tranca todo mundo. */
 export function validateDisable(input: {
   actorId: string;

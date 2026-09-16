@@ -64,6 +64,12 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState({ name: '', email: '', password: '', isOwner: false });
 
+  /**
+   * Id da conta com o "apagar" armado. Dois cliques em vez de um confirm()
+   * nativo: o dialog do browser trava a aba inteira e nao da para testar.
+   */
+  const [confirmingRemoveId, setConfirmingRemoveId] = useState<string | null>(null);
+
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [managingRoles, setManagingRoles] = useState(false);
   const [roleBusy, setRoleBusy] = useState(false);
@@ -154,6 +160,28 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
       return;
     }
     await load();
+  };
+
+  /** Apaga de vez. A API recusa se a conta ainda estiver ativa ou se houver conteudo dela no workspace. */
+  const removeMember = async (id: string) => {
+    setError(null);
+    setNotice(null);
+    setBusy(true);
+
+    try {
+      const response = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        // 409 aqui e uma trava proposital (conteudo no workspace), nao uma falha.
+        setError(body.error ?? `HTTP ${response.status}`);
+        return;
+      }
+      setNotice(strings.team.removed);
+      await load();
+    } finally {
+      setConfirmingRemoveId(null);
+      setBusy(false);
+    }
   };
 
   const resetRoleDraft = () => {
@@ -336,13 +364,12 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                       ))}
                     </select>
                   )}
-                  <button
-                    type="button"
-                    className="eve-btn"
-                    onClick={() => void patch(member.id, { isOwner: !member.isOwner })}
-                  >
-                    {member.isOwner ? strings.team.demote : strings.team.promote}
-                  </button>
+                  {/* So rebaixa. Dar admin e decisao da criacao da conta — ver validateOwnerGrant. */}
+                  {member.isOwner && (
+                    <button type="button" className="eve-btn" onClick={() => void patch(member.id, { isOwner: false })}>
+                      {strings.team.demote}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="eve-btn"
@@ -350,6 +377,32 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                   >
                     {member.disabled ? strings.team.enable : strings.team.disable}
                   </button>
+                  {/* Apagar so aparece depois de desativar: desativar e reversivel, apagar nao. */}
+                  {member.disabled &&
+                    member.id !== currentUserId &&
+                    (confirmingRemoveId === member.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="eve-btn eve-btn--danger"
+                          disabled={busy}
+                          onClick={() => void removeMember(member.id)}
+                        >
+                          {strings.team.confirmRemoveYes}
+                        </button>
+                        <button type="button" className="eve-btn" onClick={() => setConfirmingRemoveId(null)}>
+                          {strings.team.cancel}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        className="eve-btn eve-btn--danger"
+                        onClick={() => setConfirmingRemoveId(member.id)}
+                      >
+                        {strings.team.remove}
+                      </button>
+                    ))}
                 </span>
               )}
             </li>

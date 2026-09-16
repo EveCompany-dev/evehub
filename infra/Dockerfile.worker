@@ -11,7 +11,13 @@ COPY apps/worker/package.json apps/worker/
 COPY packages/core/package.json packages/core/
 COPY packages/connector-sdk/package.json packages/connector-sdk/
 COPY packages/ui/package.json packages/ui/
+COPY packages/connectors/calculator/package.json packages/connectors/calculator/
+COPY packages/connectors/calendar/package.json packages/connectors/calendar/
+COPY packages/connectors/chat/package.json packages/connectors/chat/
 COPY packages/connectors/demo/package.json packages/connectors/demo/
+COPY packages/connectors/meta/package.json packages/connectors/meta/
+COPY packages/connectors/notes/package.json packages/connectors/notes/
+COPY packages/connectors/notion/package.json packages/connectors/notion/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS runtime
