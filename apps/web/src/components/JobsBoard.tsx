@@ -293,24 +293,11 @@ function BoardColumn({
         </button>
       </div>
 
-      <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
-        <div
-          ref={setCardsRef}
-          className={isCardsOver ? 'eve-jobs__cards is-drop-target' : 'eve-jobs__cards'}
-          data-column-id={column.id}
-        >
-          {jobs.length === 0 && placeholderIndex === null ? (
-            <p className="eve-dim eve-jobs__empty-column">{strings.jobs.noJobs}</p>
-          ) : (
-            jobs.flatMap((job, index) => {
-              const card = <JobCard key={job.id} job={job} onOpen={onOpenJob} />;
-              return placeholderIndex === index ? [<DropPlaceholder key="__placeholder" />, card] : [card];
-            })
-          )}
-          {placeholderIndex !== null && placeholderIndex >= jobs.length && <DropPlaceholder />}
-        </div>
-      </SortableContext>
-
+      {/*
+        Fica logo abaixo do cabecalho, e nao no pe da coluna: numa coluna
+        cheia o pe esta fora da tela, entao o campo abria longe do "+" que
+        acabou de ser clicado e parecia que nada tinha acontecido.
+      */}
       {adding && (
         <div className="eve-jobs__add-form">
           <input
@@ -334,6 +321,24 @@ function BoardColumn({
           </div>
         </div>
       )}
+
+      <SortableContext items={jobs.map((job) => job.id)} strategy={verticalListSortingStrategy}>
+        <div
+          ref={setCardsRef}
+          className={isCardsOver ? 'eve-jobs__cards is-drop-target' : 'eve-jobs__cards'}
+          data-column-id={column.id}
+        >
+          {jobs.length === 0 && placeholderIndex === null ? (
+            <p className="eve-dim eve-jobs__empty-column">{strings.jobs.noJobs}</p>
+          ) : (
+            jobs.flatMap((job, index) => {
+              const card = <JobCard key={job.id} job={job} onOpen={onOpenJob} />;
+              return placeholderIndex === index ? [<DropPlaceholder key="__placeholder" />, card] : [card];
+            })
+          )}
+          {placeholderIndex !== null && placeholderIndex >= jobs.length && <DropPlaceholder />}
+        </div>
+      </SortableContext>
     </div>
   );
 }
