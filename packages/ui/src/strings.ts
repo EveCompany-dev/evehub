@@ -133,10 +133,12 @@ export const strings = {
     hasPassword: 'senha definida',
     googleOnly: 'só Google',
     disabled: 'desativado',
-    promote: 'Tornar admin',
     demote: 'Remover admin',
     disable: 'Desativar',
     enable: 'Reativar',
+    remove: 'Apagar conta',
+    confirmRemoveYes: 'Sim, apagar',
+    removed: 'Conta apagada.',
   },
 
   dashboard: {

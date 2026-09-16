@@ -275,8 +275,16 @@ model EditLog {
   connectorInstanceId String
   connectorInstance   ConnectorInstance @relation(fields: [connectorInstanceId], references: [id], onDelete: Cascade)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  /// Anulavel de proposito: a conta pode ser apagada depois da edicao, e a
+  /// trilha tem que sobreviver a isso. Ver `userLabel`.
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  /// Nome (ou e-mail) do autor, gravado no momento em que a conta dele e
+  /// apagada. Enquanto a conta existe isto fica null e o nome sai de `user`;
+  /// depois, e a unica coisa que impede a entrada de virar "autor
+  /// desconhecido".
+  userLabel String?
 
   remoteId  String
   fieldPath String
