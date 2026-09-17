@@ -200,7 +200,7 @@ export function TablesWorkspace(): JSX.Element {
         setError('Arquivo CSV vazio ou sem linhas de dados.');
         return;
       }
-      const [header, ...dataRows] = rows;
+      const [header, ...dataRows] = rows as [string[], ...string[][]];
 
       let clientIdsByLabel: Record<string, string> = {};
       if (table.columns.some((column) => column.type === 'client')) {
