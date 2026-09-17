@@ -17,7 +17,14 @@ import path from 'node:path';
  * practice, every upload — see that route's own comment for why). `public/
  * uploads` is gitignored either way, this is user content, not source.
  */
-export const UPLOAD_ROOT = getEnv().UPLOADS_DIR ?? path.join(process.cwd(), 'public', 'uploads');
+// A function, not a top-level constant: calling getEnv() at module load makes
+// Next's build-time page-data collection evaluate it too, and that
+// environment has no DATABASE_URL/CREDENTIALS_KEY — it would fail every route
+// that imports this file. Deferring to call time keeps it out of the build
+// and only runs it against the real runtime environment.
+export function getUploadRoot(): string {
+  return getEnv().UPLOADS_DIR ?? path.join(process.cwd(), 'public', 'uploads');
+}
 
 export class UploadError extends Error {}
 
@@ -51,7 +58,7 @@ export async function saveUpload(
     throw new UploadError('Tipo de arquivo não permitido.');
   }
 
-  const dir = path.join(UPLOAD_ROOT, subdir);
+  const dir = path.join(getUploadRoot(), subdir);
   await mkdir(dir, { recursive: true });
 
   const ext = safeExtension(file.name);
@@ -74,7 +81,7 @@ export async function deleteUpload(url: string): Promise<void> {
   try {
     const pathname = url.startsWith('/') ? url : new URL(url).pathname;
     if (!pathname.startsWith('/uploads/')) return;
-    await unlink(path.join(UPLOAD_ROOT, pathname.slice('/uploads/'.length)));
+    await unlink(path.join(getUploadRoot(), pathname.slice('/uploads/'.length)));
   } catch {
     // Already gone, or an unparseable url — either way, nothing more to do.
   }

@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
-import { UPLOAD_ROOT } from '../../../lib/uploads';
+import { getUploadRoot } from '../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
@@ -39,8 +39,9 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     return new Response('Not found', { status: 404 });
   }
 
-  const filePath = path.join(UPLOAD_ROOT, ...segments);
-  if (!filePath.startsWith(UPLOAD_ROOT + path.sep)) {
+  const uploadRoot = getUploadRoot();
+  const filePath = path.join(uploadRoot, ...segments);
+  if (!filePath.startsWith(uploadRoot + path.sep)) {
     return new Response('Not found', { status: 404 });
   }
 
