@@ -28,6 +28,14 @@ export function SchedulingTabs({ currentUserId }: SchedulingTabsProps): JSX.Elem
   // badge elsewhere — kept here too so refreshing after an edit stays cheap.
   const [failedCount, setFailedCount] = useState(0);
 
+  /**
+   * Whether anything is actually publishing scheduled posts. Null while
+   * unknown. This exists because of a real outage: the worker stopped, posts
+   * kept being accepted, and they simply sat at `scheduled` past their time
+   * with nothing anywhere saying publishing was down.
+   */
+  const [workerAlive, setWorkerAlive] = useState<boolean | null>(null);
+
   const loadFailedCount = useCallback(async () => {
     try {
       const response = await fetch('/api/scheduling/posts?status=failed', { cache: 'no-store' });
@@ -39,13 +47,33 @@ export function SchedulingTabs({ currentUserId }: SchedulingTabsProps): JSX.Elem
     }
   }, []);
 
+  const loadWorkerStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/scheduling/worker-status', { cache: 'no-store' });
+      if (!response.ok) return;
+      const body = (await response.json()) as { alive?: boolean };
+      setWorkerAlive(Boolean(body.alive));
+    } catch {
+      // Unknown stays unknown: claiming an outage because one fetch failed
+      // would cry wolf on a flaky connection.
+    }
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadFailedCount();
-  }, [loadFailedCount]);
+    void loadWorkerStatus();
+  }, [loadFailedCount, loadWorkerStatus]);
 
   return (
     <div className="eve-scheduling-tabs">
+      {workerAlive === false && (
+        <p className="eve-alert eve-alert--error">
+          O serviço que publica os posts agendados está fora do ar — nada agendado vai sair sozinho até ele voltar. Use
+          &quot;Postar agora&quot; para publicar na hora, que não depende dele.
+        </p>
+      )}
+
       {failedCount > 0 && (
         <p className="eve-alert eve-alert--error">
           {failedCount} post(s) não publicado(s) — role até &quot;Falharam&quot; na lista abaixo.

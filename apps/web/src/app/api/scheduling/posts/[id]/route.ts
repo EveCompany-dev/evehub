@@ -35,7 +35,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const post = await requirePost(id, user.workspaceId);
 
-    if (post.status !== 'draft' && post.status !== 'scheduled') {
+    // `failed` is editable on purpose: a post that failed usually failed
+    // *because* of something on it (unreachable media, a caption Meta
+    // rejected), so the fix is to edit it and publish again. Blocking that
+    // left deleting and recreating as the only way out.
+    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed') {
       return fail(409, 'Só dá para editar enquanto o post ainda não foi publicado.');
     }
 

@@ -29,13 +29,13 @@ describe('pollInstagramContainerReady', () => {
 
   it('returns as soon as the container is FINISHED', async () => {
     respondWith('FINISHED');
-    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBeUndefined();
+    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBe('FINISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(1);
   });
 
   it('treats PUBLISHED as done instead of publishing it twice', async () => {
     respondWith('PUBLISHED');
-    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBeUndefined();
+    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBe('PUBLISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(1);
   });
 
@@ -58,8 +58,21 @@ describe('pollInstagramContainerReady', () => {
     const pending = pollInstagramContainerReady('token', 'container');
     await vi.advanceTimersByTimeAsync(25_000);
 
-    await expect(pending).resolves.toBeUndefined();
+    await expect(pending).resolves.toBe('FINISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(6);
+  });
+
+  it('gives up early under a shorter budget, flagged as not-ready rather than rejected', async () => {
+    vi.useFakeTimers();
+    mockedGraphRequest.mockResolvedValue({ status_code: 'IN_PROGRESS' } as never);
+
+    const settled = expect(
+      pollInstagramContainerReady('token', 'container', 'image', { attempts: 2 }),
+    ).rejects.toMatchObject({ name: 'ContainerNotReadyError', creationId: 'container' });
+    await vi.advanceTimersByTimeAsync(5_000);
+    await settled;
+
+    expect(mockedGraphRequest).toHaveBeenCalledTimes(2);
   });
 
   it('gives up after the full budget without sleeping past the last look', async () => {

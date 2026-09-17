@@ -53,6 +53,15 @@ export {
   type ConnectorUpdatedEvent,
 } from './events';
 
+export {
+  FACEBOOK_GRACE_MS,
+  publishScheduledPost,
+  STALE_PUBLISHING_MS,
+  type PublishOptions,
+  type PublishOutcome,
+} from './publish-post';
+export { readWorkerHealth, touchWorkerHeartbeat, type WorkerHealth } from './worker-health';
+
 export { equalizeVerifyTiming, hashPassword, verifyPassword } from './password';
 export { errorMessage, loadConnectorContext, type LoadedConnector } from './connector-context';
 export { pruneSnapshots, runSync, type SyncOutcome } from './sync';

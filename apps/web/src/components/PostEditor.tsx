@@ -142,13 +142,37 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   };
 
   /**
-   * Shared by the normal submit (picked date) and "Postar agora" (now) — the
-   * only difference between them is which ISO string goes in `scheduledFor`.
-   * "Postar agora" still lands as a `scheduled` row due immediately, picked
-   * up by the worker's next tick exactly like anything else that's due — see
-   * postNowRef's comment above for why that matters.
+   * Publishes rows that already exist, in this request, and reports what
+   * actually happened to each. Anything that fails leaves the editor open
+   * with Meta's own message on screen — the whole point is that the person
+   * who clicked finds out now, not by noticing days later that nothing went
+   * out.
    */
-  const run = async (scheduledForIso: string) => {
+  const publishCreated = async (postIds: string[]): Promise<{ failures: string[]; processing: string[] }> => {
+    const failures: string[] = [];
+    const processing: string[] = [];
+
+    for (const postId of postIds) {
+      try {
+        const response = await fetch(`/api/scheduling/posts/${postId}/publish`, { method: 'POST' });
+        const body = (await response.json().catch(() => ({}))) as { error?: string; status?: string; message?: string };
+        if (!response.ok) failures.push(body.error ?? `HTTP ${response.status}`);
+        else if (body.status === 'processing' && body.message) processing.push(body.message);
+      } catch (cause) {
+        failures.push(cause instanceof Error ? cause.message : String(cause));
+      }
+    }
+
+    return { failures, processing };
+  };
+
+  /**
+   * Shared by the normal submit (picked date) and "Postar agora" (now). The
+   * scheduled case stores the row and lets the worker fire it at the chosen
+   * time; "Postar agora" stores it and then publishes it right here, without
+   * the worker in the way.
+   */
+  const run = async (scheduledForIso: string, publishNow = false) => {
     setBusy(true);
     setError(null);
 
@@ -230,6 +254,22 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
         return;
       }
 
+      if (publishNow) {
+        const ids = isEditing ? [initial!.id] : (body.posts ?? []).map((post) => post.id);
+        const { failures, processing } = await publishCreated(ids);
+
+        // The rows exist either way, so closing on a failure would hide the
+        // reason behind a calendar cell. Stay open and say it.
+        if (failures.length > 0) {
+          setError(failures.join(' '));
+          return;
+        }
+        if (processing.length > 0) {
+          setError(processing.join(' '));
+          return;
+        }
+      }
+
       onSaved();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -243,14 +283,10 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
     void run(new Date(scheduledFor).toISOString());
   };
 
-  // Reuses the exact same submit path with scheduledFor forced to now,
-  // rather than a separate immediate-publish call straight to Meta — it
-  // lands as a `scheduled` row due immediately, picked up by the worker's
-  // next tick exactly like anything else that's due, including the same
-  // per-account throttling (see apps/worker's SAME_ACCOUNT_GAP_MS) that
-  // keeps a burst of "post now" clicks across many client accounts from
-  // reading as automation abuse to Meta.
-  const postNow = () => void run(new Date().toISOString());
+  // Stores the row and publishes it in the same click. It used to only store
+  // it and wait for the worker's next tick, which meant a stopped worker made
+  // this button do nothing at all — silently, forever.
+  const postNow = () => void run(new Date().toISOString(), true);
 
   const remove = async () => {
     if (!initial) return;
@@ -367,8 +403,14 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
               {isEditing ? 'Salvar' : `Agendar${selectedTargets.length > 1 ? ` (${selectedTargets.length})` : ''}`}
             </button>
-            <button type="button" className="eve-btn" disabled={busy} onClick={postNow} title="Publica assim que o worker rodar, sem esperar o horário escolhido">
-              Postar agora
+            <button
+              type="button"
+              className="eve-btn"
+              disabled={busy}
+              onClick={postNow}
+              title="Publica agora mesmo, sem esperar o horário escolhido"
+            >
+              {busy ? 'Publicando...' : 'Postar agora'}
             </button>
             {isEditing && (
               <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>

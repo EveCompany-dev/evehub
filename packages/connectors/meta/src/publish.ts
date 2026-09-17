@@ -199,6 +199,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** What the container's `status_code` was when polling stopped. */
+export type ContainerReadyState = 'FINISHED' | 'PUBLISHED';
+
+export class ContainerNotReadyError extends MetaGraphError {
+  constructor(readonly creationId: string) {
+    super('O container do Instagram ainda está sendo processado.', 504);
+    this.name = 'ContainerNotReadyError';
+  }
+}
+
 /**
  * Container creation is asynchronous by contract even for images. Polls
  * `status_code` until the container is ready, rather than calling
@@ -209,24 +219,32 @@ function sleep(ms: number): Promise<void> {
  * than a couple of seconds, and the old 6 × 2s ≈ 12s budget failed those
  * posts for being slow rather than broken. Video has to be transcoded first,
  * which blows past any 60s budget, so it gets its own longer one (24 × 5s
- * ≈ 115s) and deliberately runs past one worker tick. Re-entrancy is safe
- * either way — the row is flipped to `publishing` before we get here and the
- * due-post query only picks up `scheduled` ones.
+ * ≈ 115s) and deliberately runs past one worker tick.
+ *
+ * `attempts` overrides that budget for callers that cannot wait it out — the
+ * publish-now request path holds an HTTP connection open, so it polls briefly
+ * and hands the container back to the next run rather than to a proxy
+ * timeout. Giving up that way throws ContainerNotReadyError specifically, so
+ * "not ready yet" stays distinguishable from "Meta rejected it".
+ *
+ * Returns the state it settled in: PUBLISHED means a previous run already got
+ * this container live, and the caller must NOT call media_publish again —
+ * doing so is how one post becomes two.
  */
 export async function pollInstagramContainerReady(
   token: string,
   creationId: string,
   kind: MediaKind = 'image',
-): Promise<void> {
-  const attempts = kind === 'video' ? VIDEO_POLL_ATTEMPTS : POLL_ATTEMPTS;
+  options: { attempts?: number } = {},
+): Promise<ContainerReadyState> {
+  const attempts = options.attempts ?? (kind === 'video' ? VIDEO_POLL_ATTEMPTS : POLL_ATTEMPTS);
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const response = await graphRequest<{ status_code?: string }>(token, `/${creationId}`, {
       params: { fields: 'status_code' },
     });
 
-    // PUBLISHED means a previous run already got it live — treat it as done
-    // instead of falling through to a second media_publish call.
-    if (response.status_code === 'FINISHED' || response.status_code === 'PUBLISHED') return;
+    if (response.status_code === 'FINISHED') return 'FINISHED';
+    if (response.status_code === 'PUBLISHED') return 'PUBLISHED';
     if (response.status_code === 'ERROR') {
       throw new MetaGraphError('O Instagram rejeitou o processamento da midia.', 422);
     }
@@ -238,7 +256,7 @@ export async function pollInstagramContainerReady(
     if (attempt < attempts - 1) await sleep(POLL_DELAY_MS);
   }
 
-  throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);
+  throw new ContainerNotReadyError(creationId);
 }
 
 /**

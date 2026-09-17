@@ -4,6 +4,7 @@ export { MetaGraphError } from './graph-client';
 export {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
+  ContainerNotReadyError,
   createInstagramCarouselContainer,
   createInstagramCarouselItemContainer,
   createInstagramContainer,
@@ -14,6 +15,7 @@ export {
   publishFacebookStory,
   publishInstagramContainer,
   scheduleFacebookPost,
+  type ContainerReadyState,
   type FacebookScheduleResult,
   type FacebookStoryResult,
   type InstagramContainerResult,

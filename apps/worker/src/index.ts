@@ -9,7 +9,7 @@ import '@eve/connector-notes';
 import '@eve/connector-notion';
 import '@eve/connector-overview';
 
-import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
+import { getEnv, prisma, pruneSnapshots, runSync, touchWorkerHeartbeat } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';
 import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
@@ -101,10 +101,10 @@ const worker = new Worker<SyncJobData>(
     }
 
     if (job.name === SCHEDULING_JOB) {
-      const { instagram, facebook, facebookStory } = await processDuePosts();
-      if (instagram || facebook || facebookStory) {
+      const { published, failed, processing, recovered } = await processDuePosts();
+      if (published || failed || processing || recovered) {
         console.log(
-          `[worker] agenda: ${instagram} post(s) do Instagram, ${facebook} do Facebook, ${facebookStory} story(ies) do Facebook processados`,
+          `[worker] agenda: ${published} publicado(s), ${failed} com falha, ${processing} ainda processando, ${recovered} recuperado(s) de publish interrompido`,
         );
       }
       return;
@@ -146,6 +146,9 @@ async function main(): Promise<void> {
   }
 
   await scheduleAll();
+  // Before the first tick, so the app stops warning that publishing is down
+  // the moment this process is actually up.
+  await touchWorkerHeartbeat();
   console.log('[worker] pronto.');
 }
 
