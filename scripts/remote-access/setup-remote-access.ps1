@@ -101,7 +101,6 @@ if (-not $SkipSsh) {
     New-NetFirewallRule `
       -Name 'EveHub-SSH-Tailscale-Only' `
       -DisplayName 'SSH (somente Tailscale)' `
-      -Enterprise `
       -Direction Inbound `
       -Protocol TCP `
       -LocalPort 22 `

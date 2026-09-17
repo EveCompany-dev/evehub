@@ -9,8 +9,8 @@ da para ler ele inteiro em cinco minutos, e vale a pena.
 notebook de casa                    maquina do escritorio
 ┌────────────────┐                  ┌──────────────────────────┐
 │ VS Code        │                  │ Node, Docker, Postgres,  │
-│ (so a tela)    │ ──Tailscale──▶   │ Redis, Claude Code        │
-│                │   (WireGuard)    │ (todo o processamento)    │
+│ (so a tela)    │ ──Tailscale ──   │ Redis, Claude Code       │
+│                │   (WireGuard)    │ (todo o processamento)   │
 └────────────────┘                  └──────────────────────────┘
 ```
 

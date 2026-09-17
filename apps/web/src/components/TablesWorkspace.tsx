@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type JSX } from 'react';
+import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { ClientsPanel } from './ClientsPanel';
 import { useContextMenu } from './ContextMenu';
 import { DataTableGrid } from './DataTableGrid';
@@ -32,6 +32,49 @@ function toCsv(columns: DataColumn[], rows: DataTableRowValue[], clientLabels: R
   return ['﻿' + header, ...lines].join('\n');
 }
 
+/** Parses RFC4180-ish CSV text (quoted fields, escaped quotes, CRLF/LF) into rows of raw string cells. */
+function parseCsv(text: string): string[][] {
+  const content = text.replace(/^﻿/, '');
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (content[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      row.push(field);
+      field = '';
+    } else if (char === '\n' || char === '\r') {
+      if (char === '\r' && content[i + 1] === '\n') i += 1;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else {
+      field += char;
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((cells) => cells.some((cell) => cell.trim() !== ''));
+}
+
 function downloadCsv(filename: string, content: string): void {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -51,6 +94,9 @@ export function TablesWorkspace(): JSX.Element {
   const [showWebhook, setShowWebhook] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'tables' | 'clients'>('tables');
+  const [importing, setImporting] = useState(false);
+  const [importedAt, setImportedAt] = useState(0);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const menu = useContextMenu();
 
@@ -144,6 +190,61 @@ export function TablesWorkspace(): JSX.Element {
     }
   };
 
+  const importCsv = async (table: DataTableSummary, file: File) => {
+    setError(null);
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const rows = parseCsv(text);
+      if (rows.length < 2) {
+        setError('Arquivo CSV vazio ou sem linhas de dados.');
+        return;
+      }
+      const [header, ...dataRows] = rows;
+
+      let clientIdsByLabel: Record<string, string> = {};
+      if (table.columns.some((column) => column.type === 'client')) {
+        const clientsResponse = await fetch('/api/scheduling/clients', { cache: 'no-store' });
+        const clientsBody = (await clientsResponse.json().catch(() => ({}))) as {
+          clients?: { id: string; label: string }[];
+        };
+        clientIdsByLabel = Object.fromEntries((clientsBody.clients ?? []).map((client) => [client.label, client.id]));
+      }
+
+      // Match CSV columns to table columns by header label (export uses column.label as the header).
+      const columnByIndex = header.map((cell) =>
+        table.columns.find((column) => column.label.trim().toLowerCase() === cell.trim().toLowerCase()),
+      );
+
+      let imported = 0;
+      let failed = 0;
+      for (const cells of dataRows) {
+        const data: Record<string, unknown> = {};
+        columnByIndex.forEach((column, index) => {
+          if (!column) return;
+          const raw = cells[index] ?? '';
+          if (raw === '') return;
+          data[column.key] = column.type === 'client' ? (clientIdsByLabel[raw] ?? raw) : raw;
+        });
+        if (Object.keys(data).length === 0) continue;
+        const response = await fetch(`/api/tables/${table.id}/rows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data }),
+        });
+        if (response.ok) imported += 1;
+        else failed += 1;
+      }
+
+      if (failed > 0) setError(`${imported} linha(s) importada(s), ${failed} falharam.`);
+      setImportedAt(Date.now());
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const selected = tables.find((table) => table.id === selectedId) ?? null;
 
   return (
@@ -217,6 +318,11 @@ export function TablesWorkspace(): JSX.Element {
                     onClick={(event) =>
                       menu.open(event, [
                         { label: 'Exportar CSV', onSelect: () => void exportCsv(selected) },
+                        {
+                          label: importing ? 'Importando...' : 'Importar CSV',
+                          disabled: importing,
+                          onSelect: () => importInputRef.current?.click(),
+                        },
                         { label: 'Automação (webhook)', onSelect: () => setShowWebhook(true) },
                         { label: 'Apagar tabela', danger: true, onSelect: () => void deleteTable(selected.id) },
                       ])
@@ -225,6 +331,17 @@ export function TablesWorkspace(): JSX.Element {
                     &#8942;
                   </button>
                 )}
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (file && selected) void importCsv(selected, file);
+                  }}
+                />
               </>
             )}
           </div>
@@ -246,7 +363,7 @@ export function TablesWorkspace(): JSX.Element {
 
           {selected && (
             <DataTableGrid
-              key={selected.id}
+              key={`${selected.id}-${importedAt}`}
               table={selected}
               onTableChange={(table) => setTables((current) => current.map((item) => (item.id === table.id ? table : item)))}
             />
