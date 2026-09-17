@@ -13,11 +13,13 @@ import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';
 import { Queue, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
+import { cleanupPublishedMedia } from './media-cleanup';
 import { processDuePosts } from './scheduling';
 
 // BullMQ 6 rejects ':' in queue names (it is their key separator).
 const SYNC_QUEUE = 'eve-sync';
 const PRUNE_JOB = 'prune-snapshots';
+const MEDIA_CLEANUP_JOB = 'media-cleanup';
 const SCHEDULING_JOB = 'scheduling-tick';
 const SCHEDULING_INTERVAL_MS = 60_000;
 
@@ -69,6 +71,12 @@ async function scheduleAll(): Promise<void> {
   );
 
   await queue.upsertJobScheduler(
+    MEDIA_CLEANUP_JOB,
+    { every: 24 * 60 * 60 * 1000 },
+    { name: MEDIA_CLEANUP_JOB, data: { instanceId: MEDIA_CLEANUP_JOB }, opts: { removeOnComplete: { count: 5 } } },
+  );
+
+  await queue.upsertJobScheduler(
     SCHEDULING_JOB,
     { every: SCHEDULING_INTERVAL_MS },
     { name: SCHEDULING_JOB, data: { instanceId: SCHEDULING_JOB }, opts: { removeOnComplete: { count: 20 } } },
@@ -83,6 +91,12 @@ const worker = new Worker<SyncJobData>(
     if (job.name === PRUNE_JOB) {
       const removed = await pruneSnapshots(env.SNAPSHOT_RETENTION_DAYS);
       console.log(`[worker] retencao: ${removed} snapshot(s) removido(s)`);
+      return;
+    }
+
+    if (job.name === MEDIA_CLEANUP_JOB) {
+      const removed = await cleanupPublishedMedia();
+      if (removed) console.log(`[worker] limpeza de midia: ${removed} arquivo(s) de posts ja publicados removido(s)`);
       return;
     }
 

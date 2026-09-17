@@ -45,8 +45,15 @@ services:
     environment:
       DATABASE_URL: postgresql://eve:eve@postgres:5432/evehub?schema=public
       REDIS_URL: redis://redis:6379
+      # Shared with worker below — both need to reach the same files (worker
+      # deletes old scheduled-post media once it's safely past its retention
+      # window; see apps/worker/src/media-cleanup.ts). Bounded, not
+      # unbounded: that cleanup job is what keeps this from growing forever.
+      UPLOADS_DIR: /data/uploads
     ports:
       - '3000:3000'
+    volumes:
+      - uploads_data:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +70,9 @@ services:
     environment:
       DATABASE_URL: postgresql://eve:eve@postgres:5432/evehub?schema=public
       REDIS_URL: redis://redis:6379
+      UPLOADS_DIR: /data/uploads
+    volumes:
+      - uploads_data:/data/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,3 +82,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+  uploads_data:

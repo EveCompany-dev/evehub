@@ -11,6 +11,28 @@ const envSchema = z.object({
   SYNC_INTERVAL_MS: z.coerce.number().int().min(30_000).default(300_000),
   SNAPSHOT_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
+  /**
+   * Absolute path to the shared uploads directory — set in
+   * docker-compose.yml to a volume mounted into both the web and worker
+   * containers (they're separate containers in production; without a shared
+   * path the worker's cleanup below can't reach files the web app wrote).
+   * Unset in native dev, where both processes already share one filesystem
+   * and each falls back to its own relative default.
+   */
+  UPLOADS_DIR: z.preprocess((value) => (value === '' ? undefined : value), z.string().min(1).optional()),
+  /**
+   * How long a published scheduled post's local media survives after
+   * publishing. Meta has already downloaded and now hosts its own copy by
+   * the time a post is `published`, so we don't need to keep serving ours
+   * forever — but deleting it immediately would break the calendar's
+   * thumbnail for a post someone might still want to glance back at. This is
+   * that grace window, not indefinite storage: local disk isn't unbounded,
+   * and unlike avatars/chat/job attachments, scheduled-post media has a
+   * natural point (Meta publishing it) after which our own copy stops being
+   * the only one that exists.
+   */
+  MEDIA_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
+
   /** Optional: the chat widget reports itself as unconfigured without this, same spirit as Google OAuth. */
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
 

@@ -2,6 +2,7 @@ import { stat } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { UPLOAD_ROOT } from '../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
@@ -28,8 +29,6 @@ const MIME_TYPES: Record<string, string> = {
   '.mov': 'video/quicktime',
   '.webm': 'video/webm',
 };
-
-const UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
 
 export async function GET(_request: Request, context: { params: Promise<{ path: string[] }> }): Promise<Response> {
   const { path: segments } = await context.params;

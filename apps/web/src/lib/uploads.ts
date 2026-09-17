@@ -1,3 +1,4 @@
+import { getEnv } from '@eve/core';
 import { randomUUID } from 'node:crypto';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -5,12 +6,18 @@ import path from 'node:path';
 /**
  * Local-disk storage shared by every upload feature in the app (dashboard
  * background image, job task attachments, ...) — one convention instead of
- * each feature inventing its own. Files land under `apps/web/public/uploads`
- * so Next's static file server exposes them at `/uploads/...` with zero
- * extra routing; `public/uploads` is gitignored, this is user content, not
- * source.
+ * each feature inventing its own. Files land under `UPLOADS_DIR` (a volume
+ * shared with the worker container in production — see docker-compose.yml
+ * and apps/worker/src/media-cleanup.ts) or, when that's unset (native dev,
+ * where web and worker already share one filesystem), the same
+ * `apps/web/public/uploads` this always used. Either way this app exposes
+ * them at `/uploads/...`: Next's own static file server serves whatever it
+ * already knew about at boot, and the fallback route in
+ * app/uploads/[...path]/route.ts covers everything written since (in
+ * practice, every upload — see that route's own comment for why). `public/
+ * uploads` is gitignored either way, this is user content, not source.
  */
-const UPLOAD_ROOT = path.join(process.cwd(), 'public', 'uploads');
+export const UPLOAD_ROOT = getEnv().UPLOADS_DIR ?? path.join(process.cwd(), 'public', 'uploads');
 
 export class UploadError extends Error {}
 
@@ -26,7 +33,7 @@ export interface SavedUpload {
 }
 
 /**
- * Saves an uploaded file under `public/uploads/<subdir>/`, naming it with a
+ * Saves an uploaded file under `UPLOAD_ROOT/<subdir>/`, naming it with a
  * random id (never the caller-supplied filename) to avoid path traversal and
  * collisions. `subdir` must be a single path-safe segment chosen by the
  * caller (e.g. "backgrounds", "attachments") — never derived from user input.
@@ -55,12 +62,20 @@ export async function saveUpload(
   return { url: `/uploads/${subdir}/${filename}`, filename, size: file.size };
 }
 
-/** Best-effort delete — a missing file (already gone, or never existed) is not an error worth surfacing. */
+/**
+ * Best-effort delete — a missing file (already gone, or never existed) is
+ * not an error worth surfacing. Accepts either the app-relative form
+ * (`/uploads/...`, what most callers store) or the absolute form
+ * (`https://.../uploads/...`, what ScheduledPost.mediaUrl stores — Meta has
+ * to be able to fetch it, so post-media's own upload route always returns
+ * an absolute URL) by reading only the pathname.
+ */
 export async function deleteUpload(url: string): Promise<void> {
-  if (!url.startsWith('/uploads/')) return;
   try {
-    await unlink(path.join(process.cwd(), 'public', url));
+    const pathname = url.startsWith('/') ? url : new URL(url).pathname;
+    if (!pathname.startsWith('/uploads/')) return;
+    await unlink(path.join(UPLOAD_ROOT, pathname.slice('/uploads/'.length)));
   } catch {
-    // Already gone — fine.
+    // Already gone, or an unparseable url — either way, nothing more to do.
   }
 }
