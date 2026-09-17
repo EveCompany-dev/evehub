@@ -9,7 +9,7 @@ import {
   targetLabel,
   type PostTarget,
 } from '@eve/connector-meta/shared';
-import { useMemo, useState, type FormEvent, type JSX } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type JSX } from 'react';
 import { CarouselDropZone } from './CarouselDropZone';
 import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
@@ -93,6 +93,33 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
 
   const needsInstagram = selectedTargets.some((target) => target.platform === 'instagram');
   const eligibleAccounts = needsInstagram ? accounts.filter((account) => account.hasInstagram) : accounts;
+
+  // `accounts`/`clients` load asynchronously (fetched by the parent), so
+  // their very first render can still be `[]` — this component's initial
+  // `useState` for connectorInstanceId/clientId only runs once, on mount, so
+  // it locks onto '' right then and never re-evaluates once the real list
+  // arrives a moment later. Autofilling this here (only when the current
+  // selection isn't actually valid) is what "Agendar Post" from the Agenda
+  // nav dropdown exposed: it opens straight into this editor before that
+  // first fetch settles, so the <select> visually shows the first real
+  // option (the browser's own fallback for a value matching no <option>)
+  // while the state stays '' underneath — submitting sent an empty
+  // connectorInstanceId straight past client-side validation into the
+  // server's raw "Too small: expected string to have >=1 characters".
+  useEffect(() => {
+    if (isEditing) return;
+    if (eligibleAccounts.length > 0 && !eligibleAccounts.some((account) => account.id === connectorInstanceId)) {
+      setConnectorInstanceId(eligibleAccounts[0]!.id);
+    }
+  }, [eligibleAccounts, connectorInstanceId, isEditing]);
+
+  useEffect(() => {
+    if (isEditing) return;
+    if (clients.length > 0 && !clients.some((client) => client.id === clientId)) {
+      setClientId(clients[0]!.id);
+    }
+  }, [clients, clientId, isEditing]);
+
   const accountLabel = useMemo(
     () => accounts.find((account) => account.id === connectorInstanceId)?.label ?? '',
     [accounts, connectorInstanceId],
