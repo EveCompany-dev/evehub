@@ -48,7 +48,7 @@ export function SchedulingTabs({ currentUserId }: SchedulingTabsProps): JSX.Elem
     <div className="eve-scheduling-tabs">
       {failedCount > 0 && (
         <p className="eve-alert eve-alert--error">
-          {failedCount} post(s) não publicado(s) — role até "Falharam" na lista abaixo.
+          {failedCount} post(s) não publicado(s) — role até &quot;Falharam&quot; na lista abaixo.
         </p>
       )}
 

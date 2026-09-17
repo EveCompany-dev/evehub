@@ -95,6 +95,7 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
   }, []);
 
   const loadMessages = useCallback(async (conversationId: string) => {
+    setLoadingMessages(true);
     try {
       const response = await fetch(`/api/direct-messages/conversations/${conversationId}/messages`, { cache: 'no-store' });
       const body = (await response.json().catch(() => ({}))) as { messages?: DirectMessageSummary[]; error?: string };
@@ -106,6 +107,8 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoadingMessages(false);
     }
   }, []);
 
@@ -131,8 +134,10 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
 
   useEffect(() => {
     if (!activeId) return;
-    setLoadingMessages(true);
-    void loadMessages(activeId).finally(() => setLoadingMessages(false));
+    // Mount/activeId-change fetch — same legitimate case as useWidgetData.ts's
+    // initial fetch (every setState in loadMessages() happens after an await).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadMessages(activeId);
     const interval = setInterval(() => void loadMessages(activeId), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [activeId, loadMessages]);

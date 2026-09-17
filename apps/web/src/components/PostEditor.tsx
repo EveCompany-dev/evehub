@@ -109,6 +109,10 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   useEffect(() => {
     if (isEditing) return;
     if (eligibleAccounts.length > 0 && !eligibleAccounts.some((account) => account.id === connectorInstanceId)) {
+      // Correcting a stale default the instant the real list arrives, not
+      // reacting to a fetch — same "adjust state from a prop change"
+      // shape as the clientId effect right below.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setConnectorInstanceId(eligibleAccounts[0]!.id);
     }
   }, [eligibleAccounts, connectorInstanceId, isEditing]);
@@ -116,6 +120,7 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   useEffect(() => {
     if (isEditing) return;
     if (clients.length > 0 && !clients.some((client) => client.id === clientId)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClientId(clients[0]!.id);
     }
   }, [clients, clientId, isEditing]);
