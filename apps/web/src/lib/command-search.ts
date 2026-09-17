@@ -2,8 +2,8 @@
  * Ranking for the Ctrl+K palette.
  *
  * The palette indexes everything — pages, every individual setting, every
- * connector, every module and tela on the board — so with a few hundred
- * entries "contains the typed string" stops being good enough: typing "cur"
+ * connector and module — so with a few hundred entries "contains the typed
+ * string" stops being good enough: typing "cur"
  * has to put "Bolinha que segue o cursor" above a note that merely mentions
  * the word, and typing "agd" has to still find "Agenda".
  *

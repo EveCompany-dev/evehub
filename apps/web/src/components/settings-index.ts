@@ -22,12 +22,6 @@ export interface SettingsOption {
 
 export const SETTINGS_OPTIONS: SettingsOption[] = [
   {
-    id: 'mode',
-    label: strings.canvas.modeTitle,
-    category: 'layout',
-    keywords: ['canvas', 'board', 'grade', 'grid', 'layout', 'dashboard', 'modo', 'livre', 'colunas'],
-  },
-  {
     id: 'backgroundImage',
     label: strings.dashboardSettings.backgroundImage,
     category: 'appearance',

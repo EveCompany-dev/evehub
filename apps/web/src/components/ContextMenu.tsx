@@ -44,10 +44,10 @@ function fit(x: number, y: number, count: number): { left: number; top: number }
 
 /**
  * Right-click menu, positioned at the cursor — the Office-style alternative
- * to a fixed toolbar for row/column actions, and the canvas's main way to add,
- * lock, edit and remove modules. `open` is meant to be wired to an element's
- * `onContextMenu`; `render()` renders the floating menu (or nothing) and
- * should be called once near the root of whatever uses it.
+ * to a fixed toolbar for row/column actions, and the dashboard grid's main
+ * way to add, lock, edit and remove modules. `open` is meant to be wired to
+ * an element's `onContextMenu`; `render()` renders the floating menu (or
+ * nothing) and should be called once near the root of whatever uses it.
  *
  * One level of submenu is supported, which is enough for "add module ▸ list
  * of connectors" without turning this into a general menu framework.
@@ -80,10 +80,7 @@ export function useContextMenu(): ContextMenuControls {
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
-    // Not `true`-phase on the canvas: panning the board fires scroll-ish
-    // events constantly, and the menu closing under the cursor mid-gesture is
-    // worse than it lingering. Capture-phase scroll is still what closes it
-    // inside a scrolling table.
+    // Capture-phase scroll is what closes it inside a scrolling table.
     document.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);

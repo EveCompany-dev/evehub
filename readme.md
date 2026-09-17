@@ -10,20 +10,16 @@ integracoes reais. Notion, Meta Ads e Google Ads entram em v0.0.4.
 
 ## A dashboard
 
-Em `/` a dashboard e um **board livre** (canvas): modulo em qualquer lugar, o
-mesmo modulo quantas vezes quiser, texto e imagem soltos no board. Botao
-direito abre o menu de adicionar / travar / duplicar / remover; ligar dois
-modulos cria uma **tela** — um grupo com nome, que o Ctrl+K encontra e para
-onde ele leva a visao do board.
+Em `/` a dashboard e uma grade de 12 colunas: cada modulo e um tile que pode
+ser arrastado, redimensionado e travado. Botao direito (ou o Ctrl+K) adiciona
+um modulo novo.
 
-Atalhos: `Ctrl+K` busca tudo (paginas, cada configuracao, modulos, telas),
-`Ctrl+Z`/`Ctrl+Shift+Z` desfaz/refaz, `Ctrl+D` duplica, `Ctrl+1` enquadra,
-`Ctrl+0` volta pra 100%, `Del` remove, `Ctrl+wheel` (ou pinca) da zoom,
-espaco+arrastar (ou botao do meio) da pan.
+Atalhos: `Ctrl+K` busca tudo (paginas, cada configuracao, modulos).
 
-A grade de 12 colunas continua existindo: **Configuracoes > Layout > Modo da
-dashboard**. Cada modo guarda o seu proprio arranjo, entao trocar nao apaga
-nada.
+(Um board livre estilo canvas — modulo em qualquer lugar, ligar dois modulos
+numa "tela" nomeada — foi tentado e removido: a camada de interacao nunca foi
+validada de verdade num browser antes de ir pro ar, e quebrou coisas em
+producao. A grade e o unico modo de dashboard agora.)
 
 ## Documentos
 

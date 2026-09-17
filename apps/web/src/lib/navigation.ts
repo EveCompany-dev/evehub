@@ -19,7 +19,7 @@ export interface NavRoute {
  * markup, and the palette has no use for them.
  */
 export const NAV_ROUTES: NavRoute[] = [
-  { href: '/', label: strings.dashboard.title, keywords: ['dashboard', 'board', 'canvas', 'inicio', 'home', 'modulos'] },
+  { href: '/', label: strings.dashboard.title, keywords: ['dashboard', 'grid', 'inicio', 'home', 'modulos'] },
   { href: '/chat', label: strings.nav.chat, tab: 'chat', keywords: ['conversa', 'mensagem', 'equipe'] },
   { href: '/jobs', label: strings.nav.jobs, tab: 'jobs', keywords: ['tarefas', 'kanban', 'quadro', 'demandas'] },
   { href: '/tables', label: strings.nav.tables, tab: 'tables', keywords: ['tabela', 'planilha', 'dados', 'base'] },

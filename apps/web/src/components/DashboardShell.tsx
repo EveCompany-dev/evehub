@@ -1,6 +1,5 @@
 'use client';
 
-import { addNode, canvasFromGrid, createTextNode, createWidgetNode, type CanvasState } from '@eve/core/canvas';
 import {
   appendWidget,
   removeWidget,
@@ -16,7 +15,6 @@ import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { visibleRoutes } from '../lib/navigation';
 import { Avatar } from '../app/perfil/ProfileForm';
-import { CanvasBoard, type CanvasFocusRequest } from './canvas/CanvasBoard';
 import { ClientProvider } from './ClientContext';
 import { ConnectorSetup } from './ConnectorSetup';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
@@ -26,21 +24,6 @@ import { SETTINGS_OPTIONS, settingsHref } from './settings-index';
 import { useEscapeToClose } from './useEscapeToClose';
 
 const SAVE_DEBOUNCE_MS = 500;
-
-/**
- * First visit to the board with a grid already in place: lay the existing
- * tiles out so the canvas isn't an empty page for someone who had eight
- * widgets a minute ago.
- *
- * Done while seeding state rather than in an effect, so the board never
- * paints empty first. It converts exactly once, because after this the
- * canvas has nodes — and an empty board then stays empty, because the user
- * emptied it.
- */
-function seedConfig(config: DashboardConfig): DashboardConfig {
-  if (config.mode !== 'canvas' || config.canvas.nodes.length > 0 || config.layout.length === 0) return config;
-  return { ...config, canvas: canvasFromGrid(config.layout, config.widgets) };
-}
 
 export interface AvailableConnector {
   id: string;
@@ -83,14 +66,10 @@ export function DashboardShell({
   visibleTabs,
 }: DashboardShellProps): JSX.Element {
   const router = useRouter();
-  const [config, setConfig] = useState<DashboardConfig>(() => seedConfig(initialConfig));
+  const [config, setConfig] = useState<DashboardConfig>(initialConfig);
   const [instances, setInstances] = useState<InstanceSummary[]>(initialInstances);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-  const [connectorSetup, setConnectorSetup] = useState<{
-    connector: AvailableConnector;
-    at: { x: number; y: number } | null;
-  } | null>(null);
-  const [focusRequest, setFocusRequest] = useState<CanvasFocusRequest | null>(null);
+  const [connectorSetup, setConnectorSetup] = useState<AvailableConnector | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEscapeToClose(() => setConnectorSetup(null));
 
@@ -132,19 +111,6 @@ export function DashboardShell({
     [scheduleSave],
   );
 
-  /**
-   * The board is saved back whenever it differs from what the server sent —
-   * which on a first visit is the grid laid out on the canvas (see
-   * `seedConfig`), so that one-time conversion is persisted without a second
-   * render pass.
-   */
-  useEffect(() => {
-    if (config !== initialConfig) scheduleSave(config);
-    // Only ever compares against the server's own copy: this must not re-run
-    // on every later edit, which `update` already persists itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const applyTheme = useCallback(
     (theme: DashboardConfig['theme']) => {
       const root = document.documentElement;
@@ -156,33 +122,7 @@ export function DashboardShell({
     [update],
   );
 
-  const setMode = useCallback((mode: DashboardConfig['mode']) => update((current) => ({ ...current, mode })), [update]);
-
-  const toggleLock = useCallback(
-    () =>
-      update((current) =>
-        current.mode === 'canvas'
-          ? {
-              ...current,
-              canvas: { ...current.canvas, locked: !current.canvas.locked },
-            }
-          : { ...current, locked: !current.locked },
-      ),
-    [update],
-  );
-
-  /**
-   * Stable across renders (it closes over nothing but `update`), which is what
-   * keeps the board's memoized widget elements alive through a drag.
-   */
-  const updateCanvas = useCallback(
-    (change: (current: CanvasState) => CanvasState) =>
-      update((current) => {
-        const canvas = change(current.canvas);
-        return canvas === current.canvas ? current : { ...current, canvas };
-      }),
-    [update],
-  );
+  const toggleLock = useCallback(() => update((current) => ({ ...current, locked: !current.locked })), [update]);
 
   const handleLayoutChange = useCallback(
     (layout: WidgetLayout[]) => {
@@ -229,42 +169,11 @@ export function DashboardShell({
     return body.instance;
   }, []);
 
-  /**
-   * Puts a module on the board at `at`.
-   *
-   * A local widget always gets a fresh instance: its content lives in the
-   * instance, so "another notepad" has to mean another notepad. An external
-   * connector reuses the instance that already holds its credentials, and two
-   * nodes over it are two views of the same data — which is the point of
-   * being able to place the same module twice.
-   */
-  const addModuleToCanvas = useCallback(
-    async (connector: AvailableConnector, at: { x: number; y: number }) => {
-      if (connector.needsCredentials) {
-        setConnectorSetup({ connector, at });
-        return;
-      }
-
-      const existing =
-        connector.category === 'local'
-          ? undefined
-          : instances.find((instance) => instance.connectorId === connector.id);
-      const instance = existing ?? (await createInstance(connector));
-      if (!instance) return;
-
-      update((current) => ({
-        ...current,
-        canvas: addNode(current.canvas, createWidgetNode(instance.id, at, connector.defaultSize)),
-      }));
-    },
-    [createInstance, instances, update],
-  );
-
-  /** Grid mode's own "add widget", unchanged: one tile per instance, appended below everything. */
-  const addWidgetToGrid = useCallback(
+  /** One tile per instance, appended below everything. */
+  const addModule = useCallback(
     async (connector: AvailableConnector) => {
       if (connector.needsCredentials) {
-        setConnectorSetup({ connector, at: null });
+        setConnectorSetup(connector);
         return;
       }
 
@@ -277,45 +186,20 @@ export function DashboardShell({
     [createInstance, instances, update],
   );
 
-  const addModule = useCallback(
-    (connector: AvailableConnector, at?: { x: number; y: number }) => {
-      if (config.mode === 'canvas') void addModuleToCanvas(connector, at ?? { x: 80, y: 80 });
-      else void addWidgetToGrid(connector);
-    },
-    [addModuleToCanvas, addWidgetToGrid, config.mode],
-  );
-
   /** The instance already exists by the time the credentials form returns; this only places it. */
   const handleConnected = useCallback(
-    (instance: InstanceSummary, connector: AvailableConnector, at: { x: number; y: number } | null) => {
+    (instance: InstanceSummary, connector: AvailableConnector) => {
       setInstances((current) => [...current, instance]);
-      update((current) =>
-        current.mode === 'canvas'
-          ? {
-              ...current,
-              canvas: addNode(
-                current.canvas,
-                createWidgetNode(instance.id, at ?? { x: 80, y: 80 }, connector.defaultSize),
-              ),
-            }
-          : appendWidget(current, instance.id, connector.defaultSize),
-      );
+      update((current) => appendWidget(current, instance.id, connector.defaultSize));
     },
     [update],
   );
-
-  const focusNodes = useCallback((nodeIds: string[]) => {
-    setFocusRequest({ nodeIds, token: Date.now() });
-  }, []);
 
   // ---------------------------------------------------------------------
   // Ctrl+K index
   // ---------------------------------------------------------------------
 
   const commands = useMemo<PaletteCommand[]>(() => {
-    const canvasMode = config.mode === 'canvas';
-    const instancesById = new Map(instances.map((instance) => [instance.id, instance]));
-
     const navigation = visibleRoutes(visibleTabs).map<PaletteCommand>((route) => ({
       id: `nav:${route.href}`,
       label: route.label,
@@ -344,51 +228,6 @@ export function DashboardShell({
         run: () => addModule(connector),
       }));
 
-    // Telas and the modules actually on the board: picking one flies the
-    // viewport to it, which is what makes a tela worth naming.
-    const screens = canvasMode
-      ? config.canvas.screens.map<PaletteCommand>((screen) => {
-          const members = config.canvas.nodes.filter((node) => node.screenId === screen.id);
-          return {
-            id: `screen:${screen.id}`,
-            label: screen.name,
-            hint: `${members.length} ${strings.canvas.sectionModules.toLowerCase()}`,
-            keywords: ['tela', 'grupo', 'ligacao'],
-            section: strings.canvas.sectionScreens,
-            run: () => focusNodes(members.map((node) => node.id)),
-          };
-        })
-      : [];
-
-    const boardNodes = canvasMode
-      ? config.canvas.nodes.flatMap<PaletteCommand>((node) => {
-          if (node.kind === 'widget') {
-            const instance = instancesById.get(node.instanceId);
-            const screen = config.canvas.screens.find((candidate) => candidate.id === node.screenId);
-            return [
-              {
-                id: `node:${node.id}`,
-                label: node.title ?? instance?.label ?? node.instanceId,
-                hint: screen?.name,
-                section: strings.canvas.sectionModules,
-                run: () => focusNodes([node.id]),
-              },
-            ];
-          }
-          if (node.kind === 'text' && node.text.trim()) {
-            return [
-              {
-                id: `node:${node.id}`,
-                label: node.text.trim().slice(0, 60),
-                section: strings.canvas.sectionModules,
-                run: () => focusNodes([node.id]),
-              },
-            ];
-          }
-          return [];
-        })
-      : [];
-
     const actions: PaletteCommand[] = [
       {
         id: 'action:theme',
@@ -398,39 +237,12 @@ export function DashboardShell({
         run: () => applyTheme(config.theme === 'light' ? 'dark' : 'light'),
       },
       {
-        id: 'action:mode',
-        label: canvasMode ? strings.canvas.modeGrid : strings.canvas.modeCanvas,
-        hint: strings.canvas.modeTitle,
-        keywords: ['modo', 'canvas', 'grade', 'grid', 'board', 'dashboard'],
-        section: strings.palette.sectionActions,
-        run: () => setMode(canvasMode ? 'grid' : 'canvas'),
-      },
-      {
         id: 'action:lock',
-        label: (canvasMode ? config.canvas.locked : config.locked) ? strings.dock.unlock : strings.dock.lock,
+        label: config.locked ? strings.dock.unlock : strings.dock.lock,
         keywords: ['travar', 'destravar', 'lock'],
         section: strings.palette.sectionActions,
         run: toggleLock,
       },
-      ...(canvasMode
-        ? [
-            {
-              id: 'action:add-text',
-              label: strings.canvas.addText,
-              keywords: ['texto', 'titulo', 'nota', 'rotulo'],
-              section: strings.palette.sectionActions,
-              run: () => updateCanvas((current) => addNode(current, createTextNode({ x: 120, y: 120 }))),
-            },
-            {
-              id: 'action:fit',
-              label: strings.canvas.fitAll,
-              hint: 'Ctrl+1',
-              keywords: ['enquadrar', 'zoom', 'ajustar', 'ver tudo'],
-              section: strings.palette.sectionActions,
-              run: () => focusNodes([]),
-            },
-          ]
-        : []),
       {
         id: 'action:signout',
         label: strings.palette.signOut,
@@ -440,25 +252,8 @@ export function DashboardShell({
       },
     ];
 
-    return [...actions, ...navigation, ...screens, ...boardNodes, ...modules, ...settings];
-  }, [
-    addModule,
-    applyTheme,
-    available,
-    config.canvas.locked,
-    config.canvas.nodes,
-    config.canvas.screens,
-    config.locked,
-    config.mode,
-    config.theme,
-    focusNodes,
-    instances,
-    router,
-    setMode,
-    toggleLock,
-    updateCanvas,
-    visibleTabs,
-  ]);
+    return [...actions, ...navigation, ...modules, ...settings];
+  }, [addModule, applyTheme, available, config.locked, config.theme, router, toggleLock, visibleTabs]);
 
   // A dedicated fixed layer behind everything, rather than styling <main>
   // itself: <main> sits inside the normal content flow, so its own background
@@ -478,10 +273,10 @@ export function DashboardShell({
       <ClientProvider initialClient={config.activeClient}>
         {hasCustomBackground && <div className="eve-page-background" style={backgroundStyle} aria-hidden="true" />}
 
-        {/* The board needs the viewport minus the header, and the header's
+        {/* The grid needs the viewport minus the header, and the header's
             height comes from its own content. A flex column here settles that
             without anyone hard-coding a number. */}
-        <div className={config.mode === 'canvas' ? 'eve-shell eve-shell--canvas' : 'eve-shell'}>
+        <div className="eve-shell">
           <header className="eve-header">
             <div className="eve-header__brand">
               <EveBrandLockup suffix=".company" />
@@ -509,28 +304,17 @@ export function DashboardShell({
             </div>
           </header>
 
-          <main className={config.mode === 'canvas' ? 'eve-main eve-main--canvas' : 'eve-main'}>
-            {config.mode === 'canvas' ? (
-              <CanvasBoard
-                canvas={config.canvas}
-                instances={instances}
-                available={available}
-                onUpdate={updateCanvas}
-                onAddModule={(connector, at) => addModule(connector, at)}
-                focusRequest={focusRequest}
-              />
-            ) : (
-              <DashboardGrid
-                config={config}
-                instances={instances}
-                available={available}
-                onLayoutChange={handleLayoutChange}
-                onRemove={handleRemove}
-                onViewConfigChange={handleViewConfigChange}
-                onAddModule={(connector) => addModule(connector)}
-                onToggleWidgetLock={handleToggleWidgetLock}
-              />
-            )}
+          <main className="eve-main">
+            <DashboardGrid
+              config={config}
+              instances={instances}
+              available={available}
+              onLayoutChange={handleLayoutChange}
+              onRemove={handleRemove}
+              onViewConfigChange={handleViewConfigChange}
+              onAddModule={(connector) => addModule(connector)}
+              onToggleWidgetLock={handleToggleWidgetLock}
+            />
           </main>
         </div>
 
@@ -540,12 +324,12 @@ export function DashboardShell({
           <div className="eve-modal-backdrop" onClick={() => setConnectorSetup(null)}>
             <div className="eve-modal" onClick={(event) => event.stopPropagation()}>
               <ConnectorSetup
-                connector={connectorSetup.connector}
+                connector={connectorSetup}
                 onCancel={() => setConnectorSetup(null)}
                 onConnected={(instance) => {
-                  const { connector, at } = connectorSetup;
+                  const connector = connectorSetup;
                   setConnectorSetup(null);
-                  handleConnected(instance, connector, at);
+                  handleConnected(instance, connector);
                 }}
               />
             </div>

@@ -10,7 +10,7 @@ export type OverviewConfig = z.infer<typeof configSchema>;
  * No upstream, no data, no write — same as the calculator connector.
  * Registering it as a real connector (rather than special-casing it in the
  * dashboard) is what lets it show up in the normal "+ add widget" catalog and
- * live on the grid/canvas like everything else. Its widget reads straight
+ * live on the grid like everything else. Its widget reads straight
  * from this app's own notifications and scheduling APIs client-side; there
  * is nothing for the worker to sync.
  */

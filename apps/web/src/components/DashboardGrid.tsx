@@ -78,8 +78,7 @@ export function DashboardGrid({
     );
   };
 
-  // Same catalog Ctrl+K's "add module" section and Canvas's own right-click
-  // menu build from — right-click parity with Canvas, not a separate list.
+  // Same catalog Ctrl+K's "add module" section builds from.
   const addModuleItems = available
     .filter((connector) => connector.canCreate)
     .map((connector) => ({ label: connector.label, onSelect: () => onAddModule(connector) }));

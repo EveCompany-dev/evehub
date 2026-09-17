@@ -113,22 +113,6 @@ export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.layoutTitle}</h4>
 
-      {/* The board is the default dashboard; the 12-column grid lives on as a
-          choice here. Each mode keeps its own arrangement, so switching is
-          never destructive — see dashboardConfigSchema's `mode`. */}
-      <label className="eve-field" data-setting-id="mode">
-        <span className="eve-field__label">{strings.canvas.modeTitle}</span>
-        <select
-          className="eve-input"
-          value={settings.mode}
-          onChange={(event) => onChange({ mode: event.target.value as GeneralSettings['mode'] })}
-        >
-          <option value="grid">{strings.canvas.modeGrid}</option>
-          <option value="canvas">{strings.canvas.modeCanvas}</option>
-        </select>
-        <span className="eve-setup__hint">{strings.canvas.modeHint}</span>
-      </label>
-
       <label className="eve-field" data-setting-id="density">
         <span className="eve-field__label">{strings.dashboardSettings.density}</span>
         <select

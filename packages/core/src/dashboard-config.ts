@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { canvasStateSchema, emptyCanvasState, type CanvasState } from './canvas';
 import { viewConfigSchema, type ViewConfig } from './widget-view';
 
 /** One tile on the 12-column grid. `i` is the ConnectorInstance id. */
@@ -28,17 +27,7 @@ export const widgetSettingsSchema = z.object({
 });
 
 export const dashboardConfigSchema = z.object({
-  /**
-   * Which dashboard the user gets at `/`. 'grid' is the default: the
-   * original 12-column layout. 'canvas' — a freeform board where modules can
-   * be placed, duplicated and connected — is still new/unproven enough to be
-   * an opt-in second option rather than what everyone lands on. The stored
-   * `layout` below is untouched either way, so switching back and forth
-   * loses nothing.
-   */
-  mode: z.enum(['canvas', 'grid']).default('grid'),
   layout: z.array(widgetLayoutSchema).default([]),
-  canvas: canvasStateSchema.default(emptyCanvasState),
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
   theme: z.enum(['dark', 'light', 'system']).default('system'),
   activeClient: z.string().nullable().default(null),
@@ -79,7 +68,6 @@ export const dashboardConfigSchema = z.object({
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
-export type DashboardMode = DashboardConfig['mode'];
 export { viewConfigSchema } from './widget-view';
 export type { ViewConfig } from './widget-view';
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
@@ -87,9 +75,7 @@ export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 export type DashboardDensity = DashboardConfig['density'];
 
 export const emptyDashboardConfig: DashboardConfig = {
-  mode: 'grid',
   layout: [],
-  canvas: emptyCanvasState,
   widgets: {},
   theme: 'system',
   activeClient: null,
@@ -173,7 +159,6 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
 
 export type GeneralSettings = Pick<
   DashboardConfig,
-  | 'mode'
   | 'backgroundImage'
   | 'backgroundColor'
   | 'density'
@@ -188,11 +173,3 @@ export function updateGeneralSettings(config: DashboardConfig, patch: Partial<Ge
   return { ...config, ...patch };
 }
 
-/** Replaces the whole board. The canvas owns its own reducers in canvas.ts; this is the only seam into the config. */
-export function setCanvas(config: DashboardConfig, canvas: CanvasState): DashboardConfig {
-  return { ...config, canvas };
-}
-
-export function setDashboardMode(config: DashboardConfig, mode: DashboardMode): DashboardConfig {
-  return { ...config, mode };
-}
