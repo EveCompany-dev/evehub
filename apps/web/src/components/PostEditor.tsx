@@ -65,6 +65,15 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Rows this editor has already created, if any. A "new post" editor that
+   * stays open after creating them — because publishing failed, or because
+   * Meta was still processing — must never create them again: it publishes
+   * these instead. Without this, a second click on "Postar agora" posted the
+   * whole thing a second time.
+   */
+  const [createdIds, setCreatedIds] = useState<string[]>([]);
+
   const selectedTargets = useMemo(
     () => ALL_TARGETS.filter((target) => selected.includes(targetKey(target))),
     [selected],
@@ -207,65 +216,89 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
     }
 
     try {
-      const response = isEditing
-        ? await fetch(`/api/scheduling/posts/${initial!.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              caption,
-              mediaUrl,
-              scheduledFor: scheduledForIso,
-              client: { id: client.id, label: client.label },
-            }),
-          })
-        : await fetch('/api/scheduling/posts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              connectorInstanceId,
-              client: { id: client.id, label: client.label },
-              targets: selectedTargets,
-              caption,
-              mediaUrl,
-              ...(carouselMode ? { mediaUrls: carouselUrls } : {}),
-              scheduledFor: scheduledForIso,
-            }),
-          });
+      let postIds: string[];
 
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        errors?: string[];
-        posts?: ScheduledPostRow[];
-      };
-      if (!response.ok) {
-        setError(body.error ?? `HTTP ${response.status}`);
-        return;
-      }
+      if (isEditing) {
+        const response = await fetch(`/api/scheduling/posts/${initial!.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            caption,
+            mediaUrl,
+            scheduledFor: scheduledForIso,
+            client: { id: client.id, label: client.label },
+          }),
+        });
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        if (!response.ok) {
+          setError(body.error ?? `HTTP ${response.status}`);
+          return;
+        }
+        postIds = [initial!.id];
+      } else if (createdIds.length > 0) {
+        // This editor already created its rows. Anything the user does from
+        // here acts on those — going back through POST would publish a second
+        // copy of the same post, which is exactly the duplicate this guard
+        // exists to stop.
+        postIds = createdIds;
+      } else {
+        const response = await fetch('/api/scheduling/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            connectorInstanceId,
+            client: { id: client.id, label: client.label },
+            targets: selectedTargets,
+            caption,
+            mediaUrl,
+            ...(carouselMode ? { mediaUrls: carouselUrls } : {}),
+            scheduledFor: scheduledForIso,
+          }),
+        });
 
-      // Partial success: some rows exist now and must not be created twice,
-      // so the ones that worked are dropped from the selection and the editor
-      // stays open showing what didn't — resubmitting retries only those.
-      if (body.errors && body.errors.length > 0) {
-        const createdKeys = (body.posts ?? []).map((post) =>
-          targetKey({ platform: post.platform, postType: post.postType }),
-        );
-        setSelected((current) => current.filter((key) => !createdKeys.includes(key)));
-        setError(body.errors.join(' '));
-        return;
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          errors?: string[];
+          posts?: ScheduledPostRow[];
+        };
+        if (!response.ok) {
+          setError(body.error ?? `HTTP ${response.status}`);
+          return;
+        }
+
+        postIds = (body.posts ?? []).map((post) => post.id);
+        // Recorded before anything else can fail: every later attempt in this
+        // editor must reuse these rows rather than make new ones.
+        setCreatedIds(postIds);
+
+        // Partial success: some rows exist now and must not be created twice,
+        // so the ones that worked are dropped from the selection and the editor
+        // stays open showing what didn't.
+        if (body.errors && body.errors.length > 0) {
+          const createdKeys = (body.posts ?? []).map((post) =>
+            targetKey({ platform: post.platform, postType: post.postType }),
+          );
+          setSelected((current) => current.filter((key) => !createdKeys.includes(key)));
+          setError(body.errors.join(' '));
+          return;
+        }
       }
 
       if (publishNow) {
-        const ids = isEditing ? [initial!.id] : (body.posts ?? []).map((post) => post.id);
-        const { failures, processing } = await publishCreated(ids);
+        const { failures, processing } = await publishCreated(postIds);
 
-        // The rows exist either way, so closing on a failure would hide the
-        // reason behind a calendar cell. Stay open and say it.
+        // A real rejection is worth staying open for: the row exists, and
+        // retrying from here publishes it again rather than duplicating it.
         if (failures.length > 0) {
           setError(failures.join(' '));
           return;
         }
+
+        // Meta is still processing. The post is saved and will go out on its
+        // own, so this closes instead of asking for another click — that
+        // second click is what used to create a second post.
         if (processing.length > 0) {
-          setError(processing.join(' '));
+          onSaved();
           return;
         }
       }

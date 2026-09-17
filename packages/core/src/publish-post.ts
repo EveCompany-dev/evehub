@@ -171,6 +171,17 @@ async function publishInstagram(
   }
   const igUserId = config.instagramBusinessAccountId;
 
+  // Already live. A row can reach here holding a media id when a previous run
+  // published it and then lost the status write (the process died between the
+  // two). Publishing again would put the same thing on the feed twice.
+  if (post.metaPostId) {
+    await prisma.scheduledPost.update({
+      where: { id: post.id },
+      data: { status: 'published', statusMessage: null },
+    });
+    return { ok: true, status: 'published', metaPostId: post.metaPostId, alreadyPublished: true };
+  }
+
   const creationId = await ensureInstagramContainer(post, credentials, igUserId);
 
   const state = await pollInstagramContainerReady(
@@ -190,7 +201,26 @@ async function publishInstagram(
     return { ok: true, status: 'published', metaPostId: post.metaPostId, alreadyPublished: true };
   }
 
-  const { mediaId } = await publishInstagramContainer(credentials.pageAccessToken, igUserId, creationId);
+  let mediaId: string;
+  try {
+    ({ mediaId } = await publishInstagramContainer(credentials.pageAccessToken, igUserId, creationId));
+  } catch (error) {
+    // media_publish can go through on Meta's side and still fail for us — the
+    // Graph call aborts at 20s, and the post is live either way. Believing the
+    // error would mark a published post `failed`, and the retry would create a
+    // second container and post the whole thing twice. So ask Meta what
+    // actually happened before trusting the failure.
+    const state = await pollInstagramContainerReady(credentials.pageAccessToken, creationId, 'image', {
+      attempts: 1,
+    }).catch(() => null);
+    if (state !== 'PUBLISHED') throw error;
+
+    await prisma.scheduledPost.update({
+      where: { id: post.id },
+      data: { status: 'published', statusMessage: null },
+    });
+    return { ok: true, status: 'published', metaPostId: post.metaPostId, alreadyPublished: true };
+  }
 
   await prisma.scheduledPost.update({
     where: { id: post.id },
@@ -316,7 +346,8 @@ export async function publishScheduledPost(postId: string, options: PublishOptio
       return {
         ok: true,
         status: 'processing',
-        message: 'O Instagram ainda está processando a mídia. Ela sai assim que terminar — publique de novo em instantes para acompanhar.',
+        message:
+          'O Instagram ainda está processando a mídia. O post já está salvo e sai sozinho assim que terminar — não publique de novo.',
       };
     }
 

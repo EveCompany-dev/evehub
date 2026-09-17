@@ -19,6 +19,15 @@ import { HttpError, requireInstance, requireUser } from '../../../../lib/session
 
 export const runtime = 'nodejs';
 
+/**
+ * Two identical posts to the same account inside this window are never
+ * intentional — they are a double click, a retried request, or an editor that
+ * submitted twice. Publishing the same thing twice on a client's feed is the
+ * kind of mistake an agency pays for in credibility, so the second submit
+ * returns the row the first one made instead of creating another.
+ */
+const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
+
 const MIN_LEAD_MS = 10 * 60 * 1000; // Meta rejects a Facebook schedule under ~10 minutes out.
 const MAX_LEAD_MS = 75 * 24 * 60 * 60 * 1000; // ...and past 75 days.
 const POST_STATUSES: PostStatus[] = ['draft', 'scheduled', 'publishing', 'published', 'failed'];
@@ -176,6 +185,25 @@ export async function POST(request: Request): Promise<Response> {
 
       if (target.platform === 'instagram' && !config.instagramBusinessAccountId) {
         errors.push(`${label}: configure o ID da conta do Instagram nesta instância do Meta.`);
+        continue;
+      }
+
+      // Idempotency, before anything reaches Meta: for Facebook this would
+      // otherwise submit a second natively-scheduled post, and for Instagram
+      // it would create a second row that publishes separately.
+      const recent = await prisma.scheduledPost.findFirst({
+        where: {
+          workspaceId: user.workspaceId,
+          connectorInstanceId: instance.id,
+          platform: target.platform,
+          postType: target.postType as PostType,
+          mediaUrl: body.data.mediaUrl,
+          caption: body.data.caption,
+          createdAt: { gt: new Date(Date.now() - DUPLICATE_WINDOW_MS) },
+        },
+      });
+      if (recent) {
+        created.push(recent);
         continue;
       }
 

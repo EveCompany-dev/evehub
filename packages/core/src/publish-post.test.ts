@@ -116,6 +116,51 @@ describe('publishScheduledPost', () => {
     expect(meta.publishInstagramContainer).toHaveBeenCalledWith('token', 'ig-1', 'container-1');
   });
 
+  /**
+   * A row can hold a media id while still marked unpublished if a previous run
+   * published it and died before the status write. Publishing again is a
+   * second post on the feed.
+   */
+  it('never publishes a row that already carries a media id', async () => {
+    prisma.scheduledPost.findUnique.mockResolvedValue(postRow({ status: 'publishing', metaPostId: 'media-1' }));
+
+    await expect(publishScheduledPost('post-1')).resolves.toMatchObject({
+      status: 'published',
+      alreadyPublished: true,
+    });
+    expect(meta.createInstagramContainer).not.toHaveBeenCalled();
+    expect(meta.publishInstagramContainer).not.toHaveBeenCalled();
+  });
+
+  /**
+   * media_publish going through on Meta's side while our HTTP call times out
+   * used to mark a live post `failed` — and the retry then posted it twice.
+   */
+  it('treats a failed publish call as published when Meta says the container went live', async () => {
+    prisma.scheduledPost.findUnique.mockResolvedValue(postRow({ metaCreationId: 'container-1' }));
+    meta.pollInstagramContainerReady.mockResolvedValueOnce('FINISHED').mockResolvedValueOnce('PUBLISHED');
+    meta.publishInstagramContainer.mockRejectedValue(new Error('A Graph API não respondeu a tempo.'));
+
+    await expect(publishScheduledPost('post-1')).resolves.toMatchObject({
+      ok: true,
+      status: 'published',
+      alreadyPublished: true,
+    });
+    expect(prisma.notification.create).not.toHaveBeenCalled();
+  });
+
+  it('still fails when the publish call failed and the container is not live', async () => {
+    prisma.scheduledPost.findUnique.mockResolvedValue(postRow({ metaCreationId: 'container-1' }));
+    meta.pollInstagramContainerReady.mockResolvedValueOnce('FINISHED').mockResolvedValueOnce('FINISHED');
+    meta.publishInstagramContainer.mockRejectedValue(new Error('O Instagram recusou a publicacao.'));
+
+    await expect(publishScheduledPost('post-1')).resolves.toMatchObject({
+      ok: false,
+      status: 'failed',
+      message: 'O Instagram recusou a publicacao.',
+    });
+  });
+
   it('returns an already-published post untouched', async () => {
     prisma.scheduledPost.findUnique.mockResolvedValue(postRow({ status: 'published', metaPostId: 'media-1' }));
 
