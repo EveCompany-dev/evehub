@@ -12,6 +12,12 @@ function sameDay(a: Date, b: Date): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+interface Cell {
+  date: Date;
+  /** Leading/trailing day from the previous/next month, shown muted and clickable to navigate there. */
+  adjacent: boolean;
+}
+
 export interface MonthGridProps {
   /** Controlled month cursor — the caller owns the state so it can react to navigation (e.g. refetch). */
   year: number;
@@ -31,11 +37,22 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
   const firstWeekday = new Date(year, month, 1).getDay();
   const total = daysInMonth(year, month);
 
-  const cells: (Date | null)[] = [
-    ...Array.from({ length: firstWeekday }, () => null),
-    ...Array.from({ length: total }, (_, index) => new Date(year, month, index + 1)),
+  const prevMonthTotal = daysInMonth(year, month === 0 ? 11 : month - 1);
+  const trailingCount = (7 - ((firstWeekday + total) % 7)) % 7;
+
+  const cells: Cell[] = [
+    ...Array.from({ length: firstWeekday }, (_, index) => {
+      const prevYear = month === 0 ? year - 1 : year;
+      const prevMonth = month === 0 ? 11 : month - 1;
+      return { date: new Date(prevYear, prevMonth, prevMonthTotal - firstWeekday + index + 1), adjacent: true };
+    }),
+    ...Array.from({ length: total }, (_, index) => ({ date: new Date(year, month, index + 1), adjacent: false })),
+    ...Array.from({ length: trailingCount }, (_, index) => {
+      const nextYear = month === 11 ? year + 1 : year;
+      const nextMonth = month === 11 ? 0 : month + 1;
+      return { date: new Date(nextYear, nextMonth, index + 1), adjacent: true };
+    }),
   ];
-  while (cells.length % 7 !== 0) cells.push(null);
 
   const monthLabel = new Date(year, month, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
@@ -61,17 +78,19 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
       </div>
 
       <div className="eve-month__grid">
-        {cells.map((date, index) => {
-          if (!date) return <div key={index} className="eve-month__day is-empty" />;
-          const isToday = sameDay(date, today);
+        {cells.map(({ date, adjacent }, index) => {
+          const isToday = !adjacent && sameDay(date, today);
+          const classes = ['eve-month__day'];
+          if (isToday) classes.push('is-today');
+          if (adjacent) classes.push('is-adjacent');
           return (
             <div
               key={index}
-              className={isToday ? 'eve-month__day is-today' : 'eve-month__day'}
-              onClick={onDayClick ? () => onDayClick(date) : undefined}
+              className={classes.join(' ')}
+              onClick={adjacent ? () => onMonthChange(date.getFullYear(), date.getMonth()) : onDayClick ? () => onDayClick(date) : undefined}
             >
               <span className="eve-month__num">{date.getDate()}</span>
-              {renderDay?.(date)}
+              {!adjacent && renderDay?.(date)}
             </div>
           );
         })}

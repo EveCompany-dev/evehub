@@ -251,8 +251,8 @@ describe('migration off the grid', () => {
   it('turns grid tiles into board nodes, keeping titles and views', () => {
     const canvas = canvasFromGrid(
       [
-        { i: 'instance-1', x: 0, y: 0, w: 6, h: 6 },
-        { i: 'instance-2', x: 6, y: 0, w: 6, h: 4 },
+        { i: 'instance-1', x: 0, y: 0, w: 6, h: 6, locked: false },
+        { i: 'instance-2', x: 6, y: 0, w: 6, h: 4, locked: false },
       ],
       { 'instance-1': { title: 'Meu Notion', clientOverride: null, viewConfig: { kind: 'stat-cards', fields: null } } },
     );
@@ -266,12 +266,13 @@ describe('migration off the grid', () => {
     expect(canvas.screens).toHaveLength(0);
   });
 
-  it('defaults an old stored config to canvas mode with an empty board', () => {
+  it('defaults an old stored config to grid mode with an empty canvas board', () => {
     const config = parseDashboardConfig({ layout: [{ i: 'instance-1', x: 0, y: 0, w: 6, h: 6 }], theme: 'dark' });
 
-    expect(config.mode).toBe('canvas');
+    // 'grid' is the default mode — canvas is opt-in (see dashboard-config.ts).
+    expect(config.mode).toBe('grid');
     expect(config.canvas.nodes).toEqual([]);
-    // The grid layout is preserved, so switching back to grid mode loses nothing.
+    // The grid layout is preserved, so switching to canvas mode loses nothing.
     expect(config.layout).toHaveLength(1);
   });
 

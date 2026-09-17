@@ -45,6 +45,7 @@ import {
 } from 'react';
 import { getWidget } from '../../widgets/registry';
 import { WidgetErrorBoundary } from '../../widgets/WidgetErrorBoundary';
+import { currentUiZoom } from '../../lib/ui-scale';
 import { useContextMenu, type ContextMenuItem } from '../ContextMenu';
 import type { InstanceSummary } from '../DashboardGrid';
 import type { AvailableConnector } from '../DashboardShell';
@@ -177,7 +178,13 @@ export function CanvasBoard({
   const screenPointToBoard = useCallback(
     (clientX: number, clientY: number) => {
       const rect = containerRef.current?.getBoundingClientRect();
-      return toBoardPoint({ x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) }, viewport);
+      // clientX/clientY are unzoomed viewport px but the rect (like the rest
+      // of layout) is in zoomed CSS px — see lib/ui-scale.ts.
+      const zoom = currentUiZoom();
+      return toBoardPoint(
+        { x: clientX / zoom - (rect?.left ?? 0), y: clientY / zoom - (rect?.top ?? 0) },
+        viewport,
+      );
     },
     [viewport],
   );
@@ -347,25 +354,30 @@ export function CanvasBoard({
     const current = gesture.current;
     if (!current) return;
 
+    // Pointer deltas below arrive in unzoomed viewport px (see lib/ui-scale.ts)
+    // but feed values measured in zoomed CSS px, so every delta needs the ui
+    // zoom divided out in addition to the board's own viewport.zoom.
+    const uiZoom = currentUiZoom();
+
     if (current.kind === 'pan') {
       setViewport({
         ...viewport,
-        x: current.origin.x + (event.clientX - current.pointer.x),
-        y: current.origin.y + (event.clientY - current.pointer.y),
+        x: current.origin.x + (event.clientX - current.pointer.x) / uiZoom,
+        y: current.origin.y + (event.clientY - current.pointer.y) / uiZoom,
       });
       return;
     }
 
     if (current.kind === 'move') {
-      const dx = (event.clientX - current.pointer.x) / viewport.zoom;
-      const dy = (event.clientY - current.pointer.y) / viewport.zoom;
+      const dx = (event.clientX - current.pointer.x) / (viewport.zoom * uiZoom);
+      const dy = (event.clientY - current.pointer.y) / (viewport.zoom * uiZoom);
       setMovePreview({ ids: current.nodeIds, dx: snapValue(dx, canvas.snap), dy: snapValue(dy, canvas.snap) });
       return;
     }
 
     if (current.kind === 'resize') {
-      const dx = (event.clientX - current.pointer.x) / viewport.zoom;
-      const dy = (event.clientY - current.pointer.y) / viewport.zoom;
+      const dx = (event.clientX - current.pointer.x) / (viewport.zoom * uiZoom);
+      const dy = (event.clientY - current.pointer.y) / (viewport.zoom * uiZoom);
       setResizePreview({
         id: current.nodeId,
         w: Math.max(NODE_MIN_W, snapValue(current.origin.w + dx, canvas.snap)),
@@ -430,7 +442,8 @@ export function CanvasBoard({
     if (event.ctrlKey || event.metaKey) {
       event.preventDefault();
       const rect = containerRef.current?.getBoundingClientRect();
-      const cursor = { x: event.clientX - (rect?.left ?? 0), y: event.clientY - (rect?.top ?? 0) };
+      const uiZoom = currentUiZoom();
+      const cursor = { x: event.clientX / uiZoom - (rect?.left ?? 0), y: event.clientY / uiZoom - (rect?.top ?? 0) };
       const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, viewport.zoom * (1 - event.deltaY * 0.0015)));
 
       setViewport({
@@ -609,6 +622,29 @@ export function CanvasBoard({
     viewport,
   ]);
 
+  // The menu item's click is itself the user gesture the Clipboard API
+  // requires — unlike the window `paste` listener below, this path has no
+  // ClipboardEvent to read from, so it goes through navigator.clipboard.read().
+  const pasteImageFromClipboard = useCallback(
+    async (at: { x: number; y: number }) => {
+      if (boardLocked || typeof navigator.clipboard?.read !== 'function') return;
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const type = item.types.find((candidate) => candidate.startsWith('image/'));
+          if (!type) continue;
+          const blob = await item.getType(type);
+          const file = new File([blob], 'clipboard-image', { type });
+          void uploadImage(file, at);
+          return;
+        }
+      } catch {
+        // Permission denied or empty clipboard — nothing to paste.
+      }
+    },
+    [boardLocked, uploadImage],
+  );
+
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       if (isTypingTarget(event.target) || boardLocked) return;
@@ -640,7 +676,12 @@ export function CanvasBoard({
       })),
     },
     { label: strings.canvas.addText, onSelect: () => addText(at) },
-    { label: strings.canvas.pasteImage, hint: 'Ctrl+V', disabled: true },
+    {
+      label: strings.canvas.pasteImage,
+      hint: 'Ctrl+V',
+      disabled: boardLocked || typeof navigator.clipboard?.read !== 'function',
+      onSelect: () => void pasteImageFromClipboard(at),
+    },
     { separator: true, label: 'sep-1' },
     { label: strings.canvas.fitAll, hint: 'Ctrl+1', onSelect: () => fitTo([]) },
     { label: strings.canvas.zoomReset, hint: 'Ctrl+0', onSelect: () => setViewport({ ...viewport, zoom: 1 }) },

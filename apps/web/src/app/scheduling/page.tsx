@@ -25,7 +25,7 @@ export default async function SchedulingPage(): Promise<JSX.Element> {
       </header>
 
       <div className="eve-wide-page__body">
-        <SchedulingTabs />
+        <SchedulingTabs currentUserId={user.id} />
       </div>
     </div>
   );

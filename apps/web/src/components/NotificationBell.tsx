@@ -92,7 +92,11 @@ function BellIcon(): JSX.Element {
  * existing SSE connector-event stream, since notifications are a distinct,
  * low-frequency concern not worth coupling to that channel.
  */
-export function NotificationBell(): JSX.Element {
+export interface NotificationBellProps {
+  expanded: boolean;
+}
+
+export function NotificationBell({ expanded }: NotificationBellProps): JSX.Element {
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
@@ -202,6 +206,7 @@ export function NotificationBell(): JSX.Element {
           <BellIcon />
           {unreadCount > 0 && <span className="eve-notif__badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </span>
+        {expanded && <span className="eve-rail__label">{strings.notifications.title}</span>}
       </button>
 
       {open &&

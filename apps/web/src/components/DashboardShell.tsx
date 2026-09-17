@@ -5,6 +5,7 @@ import {
   appendWidget,
   removeWidget,
   setViewConfig,
+  toggleWidgetLock,
   type DashboardConfig,
   type ViewConfig,
   type WidgetLayout,
@@ -199,6 +200,11 @@ export function DashboardShell({
     // Removes the widget from this user's grid only. The connector instance
     // and its history stay — deleting those is an owner action.
     (instanceId: string) => update((current) => removeWidget(current, instanceId)),
+    [update],
+  );
+
+  const handleToggleWidgetLock = useCallback(
+    (instanceId: string) => update((current) => toggleWidgetLock(current, instanceId)),
     [update],
   );
 
@@ -517,9 +523,12 @@ export function DashboardShell({
               <DashboardGrid
                 config={config}
                 instances={instances}
+                available={available}
                 onLayoutChange={handleLayoutChange}
                 onRemove={handleRemove}
                 onViewConfigChange={handleViewConfigChange}
+                onAddModule={(connector) => addModule(connector)}
+                onToggleWidgetLock={handleToggleWidgetLock}
               />
             )}
           </main>

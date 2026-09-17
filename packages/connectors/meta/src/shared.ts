@@ -13,6 +13,10 @@ export type Platform = (typeof PLATFORMS)[number];
  */
 export const GRAPH_VERSION = 'v23.0';
 
+/** Instagram's own carousel limits — 2 slides minimum (1 is just a normal post), 10 maximum. */
+export const MIN_CAROUSEL_ITEMS = 2;
+export const MAX_CAROUSEL_ITEMS = 10;
+
 export const POST_TYPES = ['feed', 'story', 'reel'] as const;
 export type PostTypeName = (typeof POST_TYPES)[number];
 

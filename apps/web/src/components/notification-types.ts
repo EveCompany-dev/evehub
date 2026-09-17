@@ -3,7 +3,8 @@ export type NotificationType =
   | 'jobTaskDone'
   | 'teamMessageMention'
   | 'markedImportant'
-  | 'scheduledPostFailed';
+  | 'scheduledPostFailed'
+  | 'directMessage';
 
 export interface NotificationSummary {
   id: string;

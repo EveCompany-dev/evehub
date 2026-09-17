@@ -39,6 +39,10 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
     ssr: false,
     loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
   }),
+  overview: dynamic(() => import('./TodayWidget').then((mod) => mod.TodayWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
 };
 
 const genericWidget: ComponentType<WidgetProps> = dynamic(

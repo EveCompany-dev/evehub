@@ -1,28 +1,31 @@
 'use client';
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
-import { MonthGrid } from './MonthGrid';
+import { useSearchParams } from 'next/navigation';
 import { SchedulingCalendar } from './SchedulingCalendar';
 import type { ScheduledPostRow } from './scheduling-types';
 
-type View = 'agenda' | 'posts';
+export interface SchedulingTabsProps {
+  currentUserId: string;
+}
 
 /**
- * "Agenda" is a plain calendar — no events yet, that's explicit future work.
- * The Meta post-scheduling calendar (already fully built) lives as a second,
- * separate view on the same page rather than being the thing this tab opens
- * on by default.
+ * The old "Agenda" (a bare, event-less calendar) vs. "Posts agendados" pill
+ * toggle is gone — the Agenda nav item in the side rail is now the entry
+ * point for all of this (see SideRail.tsx's dropdown: Minha Agenda, Agendar
+ * Post, Time), each landing here with a different search param instead of a
+ * separate view to build and maintain. SchedulingCalendar already is a full
+ * calendar (with post chips) plus a filterable list, so there's nothing the
+ * old blank MonthGrid view did that this doesn't already cover better.
  */
-export function SchedulingTabs(): JSX.Element {
-  const [view, setView] = useState<View>('agenda');
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth());
+export function SchedulingTabs({ currentUserId }: SchedulingTabsProps): JSX.Element {
+  const searchParams = useSearchParams();
+  const mine = searchParams.get('mine') === '1';
+  const isNew = searchParams.get('new') === '1';
 
   // Posts fail at a moment nobody is watching, and the failure is invisible
-  // from the default view. This count drives the "!" that pulls someone into
-  // the posts view to look — deliberately not date-bounded, since a post that
-  // failed last month is still unresolved today.
+  // from the default view. This count drives the notifications bell/nav
+  // badge elsewhere — kept here too so refreshing after an edit stays cheap.
   const [failedCount, setFailedCount] = useState(0);
 
   const loadFailedCount = useCallback(async () => {
@@ -42,45 +45,18 @@ export function SchedulingTabs(): JSX.Element {
   }, [loadFailedCount]);
 
   return (
-    <div className="eve-scheduling">
-      <div className="eve-scheduling__tabs">
-        <button
-          type="button"
-          className={view === 'agenda' ? 'eve-btn eve-btn--primary' : 'eve-btn'}
-          onClick={() => setView('agenda')}
-        >
-          Agenda
-        </button>
-        <button
-          type="button"
-          className={view === 'posts' ? 'eve-btn eve-btn--primary' : 'eve-btn'}
-          onClick={() => setView('posts')}
-        >
-          Posts agendados
-          {failedCount > 0 && (
-            <span
-              className="eve-tab-alert"
-              title={`${failedCount} post(s) não publicado(s)`}
-              aria-label={`${failedCount} post não publicado`}
-            >
-              !
-            </span>
-          )}
-        </button>
-      </div>
-
-      {view === 'agenda' ? (
-        <MonthGrid
-          year={year}
-          month={month}
-          onMonthChange={(nextYear, nextMonth) => {
-            setYear(nextYear);
-            setMonth(nextMonth);
-          }}
-        />
-      ) : (
-        <SchedulingCalendar onPostsChanged={loadFailedCount} />
+    <div className="eve-scheduling-tabs">
+      {failedCount > 0 && (
+        <p className="eve-alert eve-alert--error">
+          {failedCount} post(s) não publicado(s) — role até "Falharam" na lista abaixo.
+        </p>
       )}
+
+      <SchedulingCalendar
+        onPostsChanged={loadFailedCount}
+        initialMemberFilter={mine ? currentUserId : undefined}
+        autoOpenNew={isNew}
+      />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import { loadConnectorContext, prisma } from '@eve/core';
 import {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
+  createInstagramCarouselContainer,
+  createInstagramCarouselItemContainer,
   createInstagramContainer,
   createInstagramReelContainer,
   createInstagramStoryContainer,
@@ -15,8 +17,29 @@ import {
 
 const FACEBOOK_GRACE_MS = 15 * 60 * 1000;
 
+/**
+ * Gap enforced between consecutive publish calls TO THE SAME Instagram
+ * account within one tick. "Postar agora" (apps/web PostEditor) sets
+ * scheduledFor to "now" and lets this same loop pick it up on the next
+ * tick — same as any other scheduled post — precisely so a burst of manual
+ * posts and a burst of coincidentally-due scheduled ones both land here and
+ * get spaced out the same way, rather than an immediate-publish button
+ * firing straight at the Graph API in parallel with whatever else is
+ * in flight. Firing several posts back-to-back on the *same* account reads
+ * to Meta like automation abuse and risks a temporary posting block — a
+ * risk that scales with how many accounts a single agency workspace like
+ * this one runs, not with any one user's intent. Different accounts publish
+ * in the same tick with no extra delay; only re-hitting one account is
+ * throttled.
+ */
+const SAME_ACCOUNT_GAP_MS = 20_000;
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 const TYPE_LABEL: Record<string, string> = { feed: 'post', story: 'story', reel: 'reel' };
@@ -74,7 +97,18 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
     include: { connectorInstance: true },
   });
 
+  const lastInstagramPublishAt = new Map<string, number>();
+
   for (const post of dueInstagram) {
+    // Same account as whatever we just finished publishing above? Wait out
+    // the rest of the gap before touching it again — see SAME_ACCOUNT_GAP_MS.
+    const last = lastInstagramPublishAt.get(post.connectorInstanceId);
+    if (last !== undefined) {
+      const remaining = SAME_ACCOUNT_GAP_MS - (Date.now() - last);
+      if (remaining > 0) await sleep(remaining);
+    }
+    lastInstagramPublishAt.set(post.connectorInstanceId, Date.now());
+
     await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'publishing' } });
 
     try {
@@ -86,25 +120,54 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         throw new Error('Instancia do Meta sem ID da conta do Instagram configurado.');
       }
 
-      // Cheaper and far clearer than letting Meta fail the fetch itself.
-      assertMediaUrlIsPublic(post.mediaUrl);
+      // Carrossel: 2-10 imagens em mediaUrls (ver PostEditor's carousel mode).
+      // Sempre feed — Stories e Reels nunca tem mediaUrls preenchido.
+      const carouselUrls = Array.isArray(post.mediaUrls) ? (post.mediaUrls as unknown[]).filter((url): url is string => typeof url === 'string') : null;
 
-      const { creationId } =
-        post.postType === 'story'
-          ? await createInstagramStoryContainer(credentials.pageAccessToken, config.instagramBusinessAccountId, post.mediaUrl)
-          : post.postType === 'reel'
-            ? await createInstagramReelContainer(
-                credentials.pageAccessToken,
-                config.instagramBusinessAccountId,
-                post.mediaUrl,
-                post.caption,
-              )
-            : await createInstagramContainer(
-                credentials.pageAccessToken,
-                config.instagramBusinessAccountId,
-                post.mediaUrl,
-                post.caption,
-              );
+      let creationId: string;
+      if (carouselUrls && carouselUrls.length >= 2) {
+        carouselUrls.forEach(assertMediaUrlIsPublic);
+
+        // Each slide is its own container that has to finish processing
+        // before it can be referenced as a carousel child — same asynchronous
+        // contract as a standalone post's container (see
+        // pollInstagramContainerReady's doc), just one per slide instead of one.
+        const childIds: string[] = [];
+        for (const url of carouselUrls) {
+          const { creationId: childId } = await createInstagramCarouselItemContainer(
+            credentials.pageAccessToken,
+            config.instagramBusinessAccountId,
+            url,
+          );
+          await pollInstagramContainerReady(credentials.pageAccessToken, childId, 'image');
+          childIds.push(childId);
+        }
+
+        creationId = (
+          await createInstagramCarouselContainer(credentials.pageAccessToken, config.instagramBusinessAccountId, childIds, post.caption)
+        ).creationId;
+      } else {
+        // Cheaper and far clearer than letting Meta fail the fetch itself.
+        assertMediaUrlIsPublic(post.mediaUrl);
+
+        creationId = (
+          post.postType === 'story'
+            ? await createInstagramStoryContainer(credentials.pageAccessToken, config.instagramBusinessAccountId, post.mediaUrl)
+            : post.postType === 'reel'
+              ? await createInstagramReelContainer(
+                  credentials.pageAccessToken,
+                  config.instagramBusinessAccountId,
+                  post.mediaUrl,
+                  post.caption,
+                )
+              : await createInstagramContainer(
+                  credentials.pageAccessToken,
+                  config.instagramBusinessAccountId,
+                  post.mediaUrl,
+                  post.caption,
+                )
+        ).creationId;
+      }
       await prisma.scheduledPost.update({ where: { id: post.id }, data: { metaCreationId: creationId } });
 
       // Video containers are transcoded before they can be published, which

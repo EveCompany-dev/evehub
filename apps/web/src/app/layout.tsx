@@ -3,7 +3,9 @@ import { strings } from '@eve/ui';
 import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import type { JSX, ReactNode } from 'react';
+import { BugReportPill } from '../components/BugReportPill';
 import { CustomCursor } from '../components/CustomCursor';
+import { DragZoomGuard } from '../components/DragZoomGuard';
 import { SideRail } from '../components/SideRail';
 import { TimerProvider } from '../components/TimerProvider';
 import { getVisibleTabs, toTabSubject, type TabKey } from '../lib/permissions';
@@ -29,44 +31,39 @@ interface LayoutSession {
   theme: 'dark' | 'light' | null;
   isOwner: boolean | null;
   visibleTabs: Set<TabKey>;
-  uiScale: number;
   railFullHide: boolean;
   cursorFollower: boolean;
 }
 
-const DEFAULT_UI_SCALE = 1.5;
-
 /**
- * Resolves the theme, owner/tab-visibility, and UI-scale/rail prefs on the
- * server from the session, so the page paints correctly on first frame (no
- * localStorage, no flash of the wrong theme/scale) and the nav can gate tabs
+ * Resolves the theme, owner/tab-visibility, and rail prefs on the server
+ * from the session, so the page paints correctly on first frame (no
+ * localStorage, no flash of the wrong theme) and the nav can gate tabs
  * without a second round trip. `isOwner: null` means no session — the nav
- * renders nothing then, and the default 150% scale still applies (a
- * logged-out visitor gets the same readable-by-default sizing).
+ * renders nothing then.
  */
 async function resolveSession(): Promise<LayoutSession> {
   const user = await getSessionUser();
-  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false, cursorFollower: true };
+  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), railFullHide: false, cursorFollower: true };
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
     select: { dashboardConfig: true, isOwner: true, isSocialMedia: true, role: { select: { tabs: true } } },
   });
-  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), uiScale: DEFAULT_UI_SCALE, railFullHide: false, cursorFollower: true };
+  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), railFullHide: false, cursorFollower: true };
 
   const config = parseDashboardConfig(row.dashboardConfig);
   return {
     theme: config.theme === 'system' ? null : config.theme,
     isOwner: row.isOwner,
     visibleTabs: getVisibleTabs(toTabSubject(row)),
-    uiScale: config.uiScale,
     railFullHide: config.railFullHide,
     cursorFollower: config.cursorFollower,
   };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<JSX.Element> {
-  const { theme, isOwner, visibleTabs, uiScale, railFullHide, cursorFollower } = await resolveSession();
+  const { theme, isOwner, visibleTabs, railFullHide, cursorFollower } = await resolveSession();
 
   return (
     // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
@@ -81,16 +78,23 @@ export default async function RootLayout({ children }: { children: ReactNode }):
       suppressHydrationWarning
     >
       <head>
-        {/* Server-rendered so the scale applies on the very first paint —
-            setting it after hydration would flash the 100% layout first. */}
-        <style>{`html { zoom: ${uiScale}; }`}</style>
+        {/* The Interface-scale slider (uiScale) is removed for now — it was the
+            root cause of nearly every drag/positioning/sizing bug this app hit
+            (dnd-kit drift, context-menu drift, react-grid-layout drift, dvh
+            overflow, native drag-and-drop hit-testing). Zoom is pinned to 100%,
+            full stop, rather than patched further. This tag is kept only as the
+            one place `applyUiScale` (SettingsSections.tsx) still writes through
+            — currently just SettingsWorkspace's reset button, always with 1. */}
+        <style id="eve-ui-scale">{`html { zoom: 1; }`}</style>
       </head>
       <body>
+        <DragZoomGuard />
         {cursorFollower ? <CustomCursor /> : null}
         {isOwner !== null ? (
           <TimerProvider>
             {children}
             <SideRail visibleTabs={[...visibleTabs]} railFullHide={railFullHide} />
+            <BugReportPill />
           </TimerProvider>
         ) : (
           children

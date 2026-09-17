@@ -65,6 +65,9 @@ export interface JobColumnSummary {
   id: string;
   name: string;
   position: number;
+  color: string | null;
+  colorOpacity: number | null;
+  borderColor: string | null;
 }
 
 export interface JobCommentSummary {
@@ -87,6 +90,17 @@ export interface TimeEntrySummary {
   endedAt: string | null;
   /** Only populated by the workspace-wide "running entry" lookup — per-job endpoints omit it since the job is already known from context. */
   job?: { id: string; title: string };
+}
+
+/** `#rrggbb` + 0..1 opacity -> `rgba(...)`, for the job-status badge background. Falls back to the opaque hex if the string doesn't parse. */
+export function hexToRgba(hex: string, opacity: number): string {
+  const match = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+  if (!match) return hex;
+  const value = match[1]!;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
 export function memberLabel(member: JobMember): string {

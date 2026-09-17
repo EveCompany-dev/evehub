@@ -9,6 +9,8 @@ export const widgetLayoutSchema = z.object({
   y: z.number().int().min(0),
   w: z.number().int().min(1).max(12),
   h: z.number().int().min(1).max(40),
+  /** This one tile only — independent of the board-wide lock toggle. */
+  locked: z.boolean().default(false),
 });
 
 export const widgetSettingsSchema = z.object({
@@ -27,13 +29,14 @@ export const widgetSettingsSchema = z.object({
 
 export const dashboardConfigSchema = z.object({
   /**
-   * Which dashboard the user gets at `/`. 'canvas' is the default: a
-   * freeform board where modules can be placed, duplicated and connected.
-   * 'grid' is the original 12-column layout, kept as a choice in Settings
-   * rather than deleted — the stored `layout` below is untouched either way,
-   * so switching back and forth loses nothing.
+   * Which dashboard the user gets at `/`. 'grid' is the default: the
+   * original 12-column layout. 'canvas' — a freeform board where modules can
+   * be placed, duplicated and connected — is still new/unproven enough to be
+   * an opt-in second option rather than what everyone lands on. The stored
+   * `layout` below is untouched either way, so switching back and forth
+   * loses nothing.
    */
-  mode: z.enum(['canvas', 'grid']).default('canvas'),
+  mode: z.enum(['canvas', 'grid']).default('grid'),
   layout: z.array(widgetLayoutSchema).default([]),
   canvas: canvasStateSchema.default(emptyCanvasState),
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
@@ -54,10 +57,14 @@ export const dashboardConfigSchema = z.object({
    */
   liveUpdates: z.boolean().default(true),
   /**
-   * Escala geral da interface (zoom). Padrao 1.5 (150%) — a interface na
-   * densidade original ficou pequena demais em monitores comuns de notebook.
+   * Escala geral da interface (zoom) — removida do Settings por enquanto
+   * (causava a maioria dos bugs de drag/posicionamento/tamanho do app: drift
+   * no dnd-kit, no menu de contexto, no react-grid-layout, overflow de
+   * `dvh`, hit-testing quebrado no drag-and-drop nativo). O campo continua
+   * aqui so para nao invalidar configs ja salvas; layout.tsx ignora o valor e
+   * fixa `zoom: 1` sempre.
    */
-  uiScale: z.number().min(0.5).max(2).default(1.5),
+  uiScale: z.number().min(0.5).max(2).default(1),
   /**
    * Quando true, a seta da barra lateral esconde a barra inteira em vez de
    * so alternar entre icone e icone+texto.
@@ -80,7 +87,7 @@ export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 export type DashboardDensity = DashboardConfig['density'];
 
 export const emptyDashboardConfig: DashboardConfig = {
-  mode: 'canvas',
+  mode: 'grid',
   layout: [],
   canvas: emptyCanvasState,
   widgets: {},
@@ -91,7 +98,7 @@ export const emptyDashboardConfig: DashboardConfig = {
   backgroundColor: null,
   density: 'comfortable',
   liveUpdates: true,
-  uiScale: 1.5,
+  uiScale: 1,
   railFullHide: false,
   cursorFollower: true,
 };
@@ -105,7 +112,30 @@ export function parseDashboardConfig(value: unknown): DashboardConfig {
   return parsed.success ? parsed.data : { ...emptyDashboardConfig };
 }
 
-/** Places a new widget below everything currently on the grid. */
+const GRID_COLS = 12;
+
+/**
+ * First gap the new tile fits in, scanning row-major (top row first, then
+ * left to right within it) — so a new widget lands beside whatever's already
+ * on the last row it has room next to, rather than always starting a new row
+ * underneath everything. Only when no existing row has `w` free columns does
+ * it fall through to the row past everything (the old always-stack-below
+ * behavior), which the loop reaches naturally since that row is empty.
+ */
+function findFreeSpot(layout: WidgetLayout[], w: number, h: number): { x: number; y: number } {
+  const overlaps = (x: number, y: number) =>
+    layout.some((item) => x < item.x + item.w && x + w > item.x && y < item.y + item.h && y + h > item.y);
+
+  const maxY = layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  for (let y = 0; y <= maxY; y += 1) {
+    for (let x = 0; x <= GRID_COLS - w; x += 1) {
+      if (!overlaps(x, y)) return { x, y };
+    }
+  }
+  return { x: 0, y: maxY };
+}
+
+/** Places a new widget in the first free gap — beside existing widgets when there's room, below them otherwise. */
 export function appendWidget(
   config: DashboardConfig,
   instanceId: string,
@@ -113,10 +143,10 @@ export function appendWidget(
 ): DashboardConfig {
   if (config.layout.some((item) => item.i === instanceId)) return config;
 
-  const nextY = config.layout.reduce((max, item) => Math.max(max, item.y + item.h), 0);
+  const { x, y } = findFreeSpot(config.layout, size.w, size.h);
   return {
     ...config,
-    layout: [...config.layout, { i: instanceId, x: 0, y: nextY, w: size.w, h: size.h }],
+    layout: [...config.layout, { i: instanceId, x, y, w: size.w, h: size.h, locked: false }],
     widgets: { ...config.widgets, [instanceId]: { clientOverride: null, viewConfig: null } },
   };
 }
@@ -125,6 +155,14 @@ export function removeWidget(config: DashboardConfig, instanceId: string): Dashb
   const widgets = { ...config.widgets };
   delete widgets[instanceId];
   return { ...config, layout: config.layout.filter((item) => item.i !== instanceId), widgets };
+}
+
+/** Toggles one tile's own lock — independent of the board-wide lock toggle. */
+export function toggleWidgetLock(config: DashboardConfig, instanceId: string): DashboardConfig {
+  return {
+    ...config,
+    layout: config.layout.map((item) => (item.i === instanceId ? { ...item, locked: !item.locked } : item)),
+  };
 }
 
 /** Updates one widget's view (which fields show, table vs. stat-cards), leaving everything else untouched. */

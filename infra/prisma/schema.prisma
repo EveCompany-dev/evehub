@@ -55,6 +55,9 @@ enum NotificationType {
   /// acao de usuario — e o unico aviso de que algo falhou, ja que ninguem
   /// fica olhando o calendario na hora marcada.
   scheduledPostFailed
+  /// Nova mensagem numa conversa privada (DirectMessage) — ver o chat's
+  /// tab "Privado".
+  directMessage
 }
 
 enum FinancialEntryType {
@@ -89,6 +92,9 @@ model Workspace {
   notifications      Notification[]
   financialEntries   FinancialEntry[]
   teamMessages       TeamMessage[]
+  directConversations DirectConversation[]
+  bugReports         BugReport[]
+  agendaEvents       AgendaEvent[]
   roles              Role[]
 }
 
@@ -148,6 +154,12 @@ model User {
   financialEntries  FinancialEntry[]
   teamMessages      TeamMessage[]
   teamMentions      TeamMessageMention[]
+  directMessages       DirectMessage[]
+  directConversationsA DirectConversation[] @relation("DirectConversationUserA")
+  directConversationsB DirectConversation[] @relation("DirectConversationUserB")
+  bugReports           BugReport[]
+  createdAgendaEvents  AgendaEvent[]          @relation("AgendaEventCreator")
+  agendaEventAttendee  AgendaEventAttendee[]
 
   @@index([workspaceId])
 }
@@ -345,6 +357,7 @@ model Client {
   jobs             Job[]
   financialEntries FinancialEntry[]
   projects         Project[]
+  agendaEvents     AgendaEvent[]
 
   @@index([workspaceId])
 }
@@ -379,6 +392,55 @@ model Project {
   @@index([workspaceId, clientId])
 }
 
+/// A agenda de verdade — reunioes, compromissos, prazos — como um calendario
+/// do Notion. ScheduledPost (post do Instagram/Facebook) e uma ferramenta
+/// associada a ela, nao a mesma coisa: um post agendado nao vira um
+/// AgendaEvent, e vice-versa. Tags ainda nao existem aqui — ver o comentario
+/// original de "tags e eventos" — so eventos por enquanto.
+model AgendaEvent {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+
+  startAt DateTime
+  /// Nulo = evento pontual (so tem hora de inicio), como um lembrete.
+  endAt   DateTime?
+  allDay  Boolean   @default(false)
+
+  /// Cor do card no calendario — mesmo padrao hex do JobColumn.color, opcional.
+  color String?
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
+  createdBy     String
+  createdByUser User   @relation("AgendaEventCreator", fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendees AgendaEventAttendee[]
+
+  @@index([workspaceId, startAt])
+}
+
+/// Quem foi convocado/atribuido a um evento — a base do filtro "Time" (por
+/// membro) na Agenda. Sem papel/status de confirmacao por enquanto, so
+/// presenca no evento.
+model AgendaEventAttendee {
+  id      String      @id @default(cuid())
+  eventId String
+  event   AgendaEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId])
+}
+
 model ScheduledPost {
   id          String    @id @default(cuid())
   workspaceId String
@@ -404,7 +466,14 @@ model ScheduledPost {
   /// hora marcada igual ja faz para o Instagram.
   postType PostType     @default(feed)
   caption  String
+  /// Sempre a primeira midia (unica, ou a primeira do carrossel) — todo
+  /// codigo que so entende um post de midia unica pode seguir usando so este
+  /// campo sem saber que carrosseis existem.
   mediaUrl String
+  /// Presente (2 a 10 itens) so em carrosseis do Instagram feed; nulo em todo
+  /// resto — story/reel/facebook continuam usando so `mediaUrl` acima.
+  /// mediaUrl[0] == mediaUrls[0] sempre, nunca diverge.
+  mediaUrls Json?
 
   scheduledFor  DateTime
   status        PostStatus @default(scheduled)
@@ -485,6 +554,15 @@ model JobColumn {
 
   name     String
   position Int
+
+  /// Cor do status, definida uma vez pelo admin em Configuracoes e visivel
+  /// para todo o workspace — nao e preferencia por usuario. `color` e
+  /// `borderColor` sao hex (#rrggbb); `colorOpacity` (0..1) se aplica so ao
+  /// fundo do badge, a borda fica solida. Os tres sao nulos ate o admin
+  /// definir uma cor pela primeira vez.
+  color        String?
+  colorOpacity Float?
+  borderColor  String?
 
   jobs Job[]
 
@@ -753,6 +831,98 @@ model TeamMessageMention {
 
   @@unique([messageId, userId])
   @@index([userId])
+}
+
+/// Uma conversa privada 1:1 — nunca em grupo, ver DirectMessage. `userAId` e
+/// sempre o menor id dos dois (ordenacao lexicografica), decidido na API ao
+/// criar/buscar a conversa — e o que deixa o par unico sem duas linhas
+/// equivalentes (A,B) e (B,A) coexistindo.
+model DirectConversation {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userAId String
+  userA   User   @relation("DirectConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userBId String
+  userB   User   @relation("DirectConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  messages DirectMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([workspaceId])
+}
+
+/// Mesma forma que TeamMessage, sem mentions — uma conversa de duas pessoas
+/// nao precisa de @mention, o destinatario ja e o unico outro participante.
+model DirectMessage {
+  id             String             @id @default(cuid())
+  conversationId String
+  conversation   DirectConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  attachments DirectMessageAttachment[]
+
+  @@index([conversationId, createdAt])
+}
+
+model DirectMessageAttachment {
+  id        String        @id @default(cuid())
+  messageId String
+  message   DirectMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  filename String
+  url      String
+  size     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([messageId])
+}
+
+/// A pilula "Reportar bug/feedback" fixa no canto da tela — qualquer usuario
+/// autenticado pode abrir. `emailedAt` fica nulo ate o envio de e-mail ser
+/// ligado (ver lib/bug-report-email.ts); a linha existe e fica visivel para
+/// quem tem acesso ao banco mesmo antes disso, o e-mail e so uma notificacao
+/// a mais por cima do registro.
+model BugReport {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  reporterId String
+  reporter   User   @relation(fields: [reporterId], references: [id])
+
+  message String
+
+  createdAt DateTime  @default(now())
+  emailedAt DateTime?
+
+  attachments BugReportAttachment[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model BugReportAttachment {
+  id          String    @id @default(cuid())
+  bugReportId String
+  bugReport   BugReport @relation(fields: [bugReportId], references: [id], onDelete: Cascade)
+
+  filename String
+  url      String
+  size     Int
+
+  createdAt DateTime @default(now())
+
+  @@index([bugReportId])
 }
 
 // ---------------------------------------------------------------------------

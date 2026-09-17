@@ -113,6 +113,11 @@ export function canManageAutomations(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
+/** A cor do status vale para o workspace inteiro, entao so o owner define — o resto so enxerga o resultado. */
+export function canManageJobColumnColors(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
 /** Read-only roster access via the 'team' tab — see canManageTeam for the (always owner-only) mutation gate. */
 export function canViewTeamTab(user: TabSubject): boolean {
   return user.isOwner || canViewTab(user, 'team');

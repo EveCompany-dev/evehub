@@ -2,12 +2,12 @@ import { EveArch, strings } from '@eve/ui';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
-import { TeamChatWorkspace } from '../../components/TeamChatWorkspace';
+import { ChatTabs } from '../../components/ChatTabs';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
-/** Workspace-wide chat — every authenticated user is in the same one room, no channels/DMs yet. */
+/** Team chat (one shared room) and Private (1:1 DMs) live behind a tab switcher here — see ChatTabs. */
 export default async function ChatPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
@@ -21,7 +21,7 @@ export default async function ChatPage(): Promise<JSX.Element> {
         <h1 className="eve-profile__title">{strings.nav.chat}</h1>
       </header>
       <div className="eve-wide-page__body">
-        <TeamChatWorkspace currentUserId={user.id} />
+        <ChatTabs currentUserId={user.id} />
       </div>
     </div>
   );

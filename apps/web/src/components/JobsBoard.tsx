@@ -14,6 +14,7 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
+  type Modifier,
   type Over,
 } from '@dnd-kit/core';
 import {
@@ -37,7 +38,7 @@ import {
 } from 'react';
 import { useContextMenu } from './ContextMenu';
 import { JobDetailModal } from './JobDetailModal';
-import { memberInitials, memberLabel, type JobColumnSummary, type JobMember, type JobSummary } from './job-types';
+import { hexToRgba, memberInitials, memberLabel, type JobColumnSummary, type JobMember, type JobSummary } from './job-types';
 import { useTimer } from './TimerProvider';
 
 export interface JobsBoardProps {
@@ -129,6 +130,20 @@ function GearIcon(): JSX.Element {
   );
 }
 
+/**
+ * The Interface settings' uiScale applies via `document.documentElement.style.zoom`
+ * (see SettingsSections.tsx's InterfaceSection), not a CSS transform. dnd-kit's pointer
+ * math is computed in unzoomed CSS pixels but the translate3d it emits gets re-scaled by
+ * that ancestor zoom when painted, so the dragged card/overlay drifts from the cursor by
+ * a factor proportional to the zoom level. Dividing the delta by the current zoom here
+ * cancels that out.
+ */
+const zoomAwareModifier: Modifier = ({ transform }) => {
+  const zoom = typeof document !== 'undefined' ? Number(document.documentElement.style.zoom) || 1 : 1;
+  if (zoom === 1) return transform;
+  return { ...transform, x: transform.x / zoom, y: transform.y / zoom };
+};
+
 function DropPlaceholder(): JSX.Element {
   return <div className="eve-job-card eve-job-card--placeholder" aria-hidden="true" />;
 }
@@ -198,6 +213,9 @@ function JobCard({ job, onOpen }: JobCardProps): JSX.Element {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.4 : 1,
+    // dnd-kit keeps pointer capture on this element (not the DragOverlay clone) for the
+    // whole drag, so the OS cursor tracks this element's `cursor`, not `.eve-job-card--overlay`'s.
+    cursor: isDragging ? 'grabbing' : 'grab',
   };
 
   return (
@@ -258,6 +276,12 @@ function BoardColumn({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    ...(column.color
+      ? {
+          backgroundColor: hexToRgba(column.color, column.colorOpacity ?? 1),
+          borderColor: column.borderColor ?? column.color,
+        }
+      : undefined),
   };
 
   const submit = () => {
@@ -271,13 +295,14 @@ function BoardColumn({
     <div ref={setNodeRef} style={style} className="eve-jobs__column">
       <div
         className={manageMode ? 'eve-jobs__column-head is-draggable' : 'eve-jobs__column-head'}
+        style={manageMode ? { cursor: isDragging ? 'grabbing' : 'grab' } : undefined}
         {...(manageMode ? attributes : {})}
         {...(manageMode ? listeners : {})}
         onContextMenu={(event) => {
           if (manageMode) onContextMenu(event, column);
         }}
       >
-        <span>{column.name}</span>
+        <span className="eve-jobs__column-title">{column.name}</span>
         <button
           type="button"
           className="eve-btn eve-btn--icon"
@@ -681,6 +706,7 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetectionStrategy}
+        modifiers={[zoomAwareModifier]}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}

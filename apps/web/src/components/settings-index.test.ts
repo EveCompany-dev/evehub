@@ -36,8 +36,8 @@ describe('settings index', () => {
   });
 
   it('builds a deep link carrying both the category and the control', () => {
-    const option = SETTINGS_OPTIONS.find((candidate) => candidate.id === 'uiScale')!;
-    expect(settingsHref(option)).toBe('/settings?category=interface&option=uiScale');
+    const option = SETTINGS_OPTIONS.find((candidate) => candidate.id === 'railFullHide')!;
+    expect(settingsHref(option)).toBe('/settings?category=interface&option=railFullHide');
   });
 
   it('has no duplicate ids', () => {

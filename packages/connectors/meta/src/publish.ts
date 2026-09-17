@@ -241,6 +241,46 @@ export async function pollInstagramContainerReady(
   throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);
 }
 
+/**
+ * One image's container inside a carousel — `is_carousel_item: true` is what
+ * tells Meta this container is a slide, not a standalone post; it never gets
+ * published on its own, only referenced by createInstagramCarouselContainer's
+ * `children`. Carousels are image-only in this app (see PostEditor's
+ * carousel mode), so unlike the single-post containers above there is no
+ * video_url branch here.
+ */
+export async function createInstagramCarouselItemContainer(
+  token: string,
+  igUserId: string,
+  imageUrl: string,
+): Promise<InstagramContainerResult> {
+  const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
+    method: 'POST',
+    params: { image_url: imageUrl, is_carousel_item: true },
+  });
+  return { creationId: response.id };
+}
+
+/**
+ * The wrapping container for a carousel post — `children` is the ordered,
+ * comma-separated list of already-created (and already-FINISHED, see
+ * pollInstagramContainerReady) item container ids from
+ * createInstagramCarouselItemContainer. Order here is the order Instagram
+ * displays the slides in.
+ */
+export async function createInstagramCarouselContainer(
+  token: string,
+  igUserId: string,
+  childCreationIds: string[],
+  caption: string,
+): Promise<InstagramContainerResult> {
+  const response = await graphRequest<{ id: string }>(token, `/${igUserId}/media`, {
+    method: 'POST',
+    params: { media_type: 'CAROUSEL', children: childCreationIds.join(','), caption },
+  });
+  return { creationId: response.id };
+}
+
 export async function publishInstagramContainer(
   token: string,
   igUserId: string,

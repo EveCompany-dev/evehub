@@ -5,7 +5,7 @@ import { updateGeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
-import { SETTINGS_CATEGORIES } from './SettingsSections';
+import { applyUiScale, SETTINGS_CATEGORIES } from './SettingsSections';
 
 const SAVE_DEBOUNCE_MS = 500;
 
@@ -16,17 +16,23 @@ const SAVE_DEBOUNCE_MS = 500;
  * tradeoff as RailSettings.tsx) — a change made here needs a reload to show
  * up live on the dashboard page.
  */
-export function SettingsWorkspace(): JSX.Element {
+export interface SettingsWorkspaceProps {
+  isOwner: boolean;
+}
+
+export function SettingsWorkspace({ isOwner }: SettingsWorkspaceProps): JSX.Element {
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category');
   const requestedOption = searchParams.get('option');
+
+  const categories = SETTINGS_CATEGORIES.filter((category) => !category.ownerOnly || isOwner);
 
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeId, setActiveId] = useState(
     // Ctrl+K deep-links straight to one control: `?category=` picks the pane
     // before first paint so the user never sees the wrong one flash past.
-    () => SETTINGS_CATEGORIES.find((category) => category.id === requestedCategory)?.id ?? SETTINGS_CATEGORIES[0]!.id,
+    () => categories.find((category) => category.id === requestedCategory)?.id ?? categories[0]!.id,
   );
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -92,13 +98,13 @@ export function SettingsWorkspace(): JSX.Element {
     });
   };
 
-  const active = SETTINGS_CATEGORIES.find((category) => category.id === activeId) ?? SETTINGS_CATEGORIES[0]!;
+  const active = categories.find((category) => category.id === activeId) ?? categories[0]!;
   const ActiveSection = active.Section;
 
   return (
     <div className="eve-settings-page">
       <nav className="eve-settings-page__nav" aria-label="Categorias de configuração">
-        {SETTINGS_CATEGORIES.map((category) => (
+        {categories.map((category) => (
           <button
             key={category.id}
             type="button"
@@ -126,12 +132,13 @@ export function SettingsWorkspace(): JSX.Element {
                 // Same live-apply the Interface toggle does, so a reset puts
                 // the dot back on the spot instead of on next load.
                 document.documentElement.dataset.cursorFollower = 'on';
+                applyUiScale(1);
                 handleChange({
                   backgroundImage: null,
                   backgroundColor: null,
                   density: 'comfortable',
                   liveUpdates: true,
-                  uiScale: 1.5,
+                  uiScale: 1,
                   railFullHide: false,
                   cursorFollower: true,
                 });

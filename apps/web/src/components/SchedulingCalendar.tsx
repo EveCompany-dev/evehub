@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { MonthGrid } from './MonthGrid';
 import { PlatformIcon } from './PlatformIcon';
 import { PostEditor } from './PostEditor';
+import type { JobMember } from './job-types';
+import { memberLabel } from './job-types';
 import type { ClientOption, MetaAccount, ScheduledPostRow } from './scheduling-types';
 
 type EditorState = { mode: 'new'; date?: Date } | { mode: 'edit'; post: ScheduledPostRow } | null;
@@ -53,20 +55,26 @@ function MediaThumb({ url, className }: { url: string; className: string }): JSX
 export interface SchedulingCalendarProps {
   /** Lets the parent refresh things derived from posts, e.g. the failed-post "!" badge. */
   onPostsChanged?: () => void;
+  /** "Minha Agenda" from the Agenda nav dropdown — preset to only this user's own posts. */
+  initialMemberFilter?: string;
+  /** "Agendar Post" from the Agenda nav dropdown — opens straight into the new-post editor. */
+  autoOpenNew?: boolean;
 }
 
-export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps): JSX.Element {
+export function SchedulingCalendar({ onPostsChanged, initialMemberFilter, autoOpenNew }: SchedulingCalendarProps): JSX.Element {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
 
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
+  const [members, setMembers] = useState<JobMember[]>([]);
   const [posts, setPosts] = useState<ScheduledPostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
   const [filterClient, setFilterClient] = useState('');
+  const [filterMember, setFilterMember] = useState(initialMemberFilter ?? '');
   const [filterPlatforms, setFilterPlatforms] = useState<Set<ScheduledPostRow['platform']>>(
     new Set(['instagram', 'facebook']),
   );
@@ -101,6 +109,15 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
     }
   }, []);
 
+  const loadMembers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/workspace/members', { cache: 'no-store' });
+      if (response.ok) setMembers(((await response.json()) as { members: JobMember[] }).members);
+    } catch {
+      // Non-critical: the member filter just won't have anyone to pick.
+    }
+  }, []);
+
   const loadPosts = useCallback(async () => {
     setLoadingPosts(true);
     try {
@@ -108,6 +125,7 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
       const to = new Date(year, month + 1, 0, 23, 59, 59);
       const params = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() });
       if (filterClient) params.set('client', filterClient);
+      if (filterMember) params.set('createdBy', filterMember);
       if (filterStatus !== 'all') params.set('status', filterStatus);
 
       const response = await fetch(`/api/scheduling/posts?${params.toString()}`, { cache: 'no-store' });
@@ -124,14 +142,25 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
     } finally {
       setLoadingPosts(false);
     }
-  }, [year, month, filterClient, filterPlatforms, filterStatus]);
+  }, [year, month, filterClient, filterMember, filterPlatforms, filterStatus]);
 
   useEffect(() => {
     // Mount fetch — same legitimate case as useWidgetData.ts's initial fetch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadClients();
     void loadAccounts();
-  }, [loadClients, loadAccounts]);
+    void loadMembers();
+  }, [loadClients, loadAccounts, loadMembers]);
+
+  useEffect(() => {
+    // "Agendar Post" from the Agenda nav dropdown — open straight into the
+    // editor instead of making the user click "+ Novo post" themselves.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (autoOpenNew) setEditor({ mode: 'new' });
+    // Only ever on mount — a later prop change (there isn't one) shouldn't
+    // reopen an editor the user already closed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     // Mount/filter-change fetch — every setState inside loadPosts() happens
@@ -229,6 +258,18 @@ export function SchedulingCalendar({ onPostsChanged }: SchedulingCalendarProps):
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="eve-field eve-scheduling__filter">
+          <span className="eve-field__label">Membro</span>
+          <select className="eve-input" value={filterMember} onChange={(event) => setFilterMember(event.target.value)}>
+            <option value="">Todos</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {memberLabel(member)}
               </option>
             ))}
           </select>

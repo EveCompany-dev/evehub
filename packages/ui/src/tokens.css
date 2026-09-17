@@ -99,7 +99,22 @@
   box-sizing: border-box;
 }
 
+/*
+ * `100dvh` (used by full-viewport page shells like .eve-wide-page) doesn't
+ * compose correctly with the site-wide `zoom` scale (see layout.tsx / the
+ * Interface setting): confirmed by direct testing that at zoom 1.5 a `100dvh` box
+ * renders ~1.5x taller than the actual viewport, pushing anything anchored to
+ * its bottom (a chat composer, say) below the fold. Percentage heights don't
+ * have that problem — they resolve against the parent box through the normal
+ * box model rather than a viewport snapshot — so html/body need an explicit
+ * height for `height: 100%` to work all the way down the tree.
+ */
+html {
+  height: 100%;
+}
+
 body {
+  height: 100%;
   margin: 0;
   background: var(--bg);
   color: var(--text);
@@ -273,6 +288,10 @@ textarea {
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  /* .eve-btn is put on <Link>s as well as <button>s (e.g. AgendaWorkspace's
+     "Agendar post" link) — a <button> never shows one, so this only ever
+     needed for the anchor case, but belongs on the shared class either way. */
+  text-decoration: none;
   transition: background 120ms ease, border-color 120ms ease;
 }
 

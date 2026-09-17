@@ -16,6 +16,7 @@
     "@eve/connector-meta": "workspace:*",
     "@eve/connector-notes": "workspace:*",
     "@eve/connector-notion": "workspace:*",
+    "@eve/connector-overview": "workspace:*",
     "@eve/connector-sdk": "workspace:*",
     "@eve/core": "workspace:*",
     "bullmq": "^6.3.4",

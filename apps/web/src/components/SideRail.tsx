@@ -2,10 +2,11 @@
 
 import { strings } from '@eve/ui';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { visibleRoutes } from '../lib/navigation';
 import { NotificationBell } from './NotificationBell';
+import { RailHome } from './RailHome';
 import { RailSettings } from './RailSettings';
 
 export interface SideRailProps {
@@ -17,6 +18,14 @@ export interface SideRailProps {
 
 const STORAGE_KEY_EXPANDED = 'eve.rail.expanded';
 const STORAGE_KEY_HIDDEN = 'eve.rail.hidden';
+
+function ChevronDownIcon(): JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function AutomationsIcon(): JSX.Element {
   return (
@@ -120,6 +129,8 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const [hidden, setHidden] = useState(false);
+  const [agendaOpen, setAgendaOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     // Mount-time read of an external system (localStorage) — the same
@@ -175,14 +186,16 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     '/tables': <TablesIcon />,
     '/connectors': <ConnectorsIcon />,
     '/automations': <AutomationsIcon />,
-    '/scheduling': <SchedulingIcon />,
+    // Not '/scheduling' — that's the post-scheduler *tool*, reachable only
+    // from inside the Agenda dropdown below, not its own top-level rail icon.
+    '/agenda': <SchedulingIcon />,
     '/financial': <FinancialIcon />,
     '/team': <TeamIcon />,
   };
 
   // The rail shows only the tab-gated workspaces, not every indexed route:
-  // the dashboard is the page behind it, and perfil/settings/notifications
-  // already have their own affordances (avatar, gear, bell).
+  // dashboard/perfil/settings/notifications already have their own fixed
+  // affordances (home, avatar, gear, bell).
   const items = visibleRoutes(visibleTabs).filter((route) => route.tab && icons[route.href]);
 
   if (fullyHidden) {
@@ -222,10 +235,61 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
         </svg>
       </button>
 
-      <NotificationBell />
+      <RailHome expanded={expanded} />
+
+      <NotificationBell expanded={expanded} />
 
       {items.map((item) => {
         const active = pathname.startsWith(item.href);
+
+        if (item.href === '/agenda') {
+          // Active on both /agenda (the real agenda) and /scheduling (the
+          // post-scheduler tool reached only from inside this dropdown) —
+          // they're the same feature area as far as the rail highlight goes.
+          const agendaActive = active || pathname.startsWith('/scheduling');
+          return (
+            <div key={item.href} className="eve-rail__group">
+              <button
+                type="button"
+                className={agendaActive ? 'eve-rail__item eve-rail__group-trigger is-active' : 'eve-rail__item eve-rail__group-trigger'}
+                aria-expanded={agendaOpen}
+                title={item.label}
+                onClick={() => {
+                  // Collapsed rail has no room to show sub-item labels, so a
+                  // click there just goes straight to the page instead of
+                  // toggling an invisible dropdown.
+                  if (!expanded) router.push('/agenda');
+                  else setAgendaOpen((value) => !value);
+                }}
+              >
+                <span className="eve-rail__icon">{icons[item.href]}</span>
+                {expanded && (
+                  <>
+                    <span className="eve-rail__label">{item.label}</span>
+                    <span className={agendaOpen ? 'eve-rail__chevron is-open' : 'eve-rail__chevron'} aria-hidden="true">
+                      <ChevronDownIcon />
+                    </span>
+                  </>
+                )}
+              </button>
+
+              {expanded && agendaOpen && (
+                <div className="eve-rail__submenu">
+                  <Link href="/agenda?mine=1" className="eve-rail__subitem">
+                    Minha Agenda
+                  </Link>
+                  <Link href="/scheduling?new=1" className="eve-rail__subitem">
+                    Agendar Post
+                  </Link>
+                  <Link href="/agenda" className="eve-rail__subitem">
+                    Time
+                  </Link>
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <Link
             key={item.href}
@@ -240,7 +304,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
         );
       })}
 
-      <RailSettings />
+      <RailSettings expanded={expanded} />
     </nav>
   );
 }

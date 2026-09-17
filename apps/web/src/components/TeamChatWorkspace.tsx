@@ -108,6 +108,7 @@ export function TeamChatWorkspace({ currentUserId }: TeamChatWorkspaceProps): JS
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -212,9 +213,7 @@ export function TeamChatWorkspace({ currentUserId }: TeamChatWorkspaceProps): JS
       ? []
       : members.filter((member) => memberLabel(member).toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6);
 
-  const uploadFiles = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
+  const uploadFiles = async (files: File[]) => {
     if (!files.length) return;
     setUploading(true);
     setError(null);
@@ -358,7 +357,21 @@ export function TeamChatWorkspace({ currentUserId }: TeamChatWorkspaceProps): JS
         </ul>
       )}
 
-      <div className="eve-chat-workspace__composer">
+      <div
+        className={dragOver ? 'eve-chat-workspace__composer is-drag-over' : 'eve-chat-workspace__composer'}
+        onDragOver={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(event) => {
+          if (!event.dataTransfer.types.includes('Files')) return;
+          event.preventDefault();
+          setDragOver(false);
+          void uploadFiles([...event.dataTransfer.files]);
+        }}
+      >
         {mentionCandidates.length > 0 && (
           <ul className="eve-chat-workspace__mentions">
             {mentionCandidates.map((member) => (
@@ -405,7 +418,16 @@ export function TeamChatWorkspace({ currentUserId }: TeamChatWorkspaceProps): JS
             )}
           </div>
 
-          <input ref={fileInputRef} type="file" multiple hidden onChange={(event) => void uploadFiles(event)} />
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            hidden
+            onChange={(event) => {
+              void uploadFiles([...(event.target.files ?? [])]);
+              event.target.value = '';
+            }}
+          />
           <button
             type="button"
             className="eve-btn eve-btn--icon"

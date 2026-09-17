@@ -2,7 +2,8 @@
 
 import type { GeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
-import { useEffect, useRef, useState, type DragEvent, type JSX } from 'react';
+import { useRef, useState, type DragEvent, type JSX } from 'react';
+import { JobColumnsSection } from './JobColumnsSection';
 
 export interface SettingsSectionProps {
   settings: GeneralSettings;
@@ -122,8 +123,8 @@ export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX
           value={settings.mode}
           onChange={(event) => onChange({ mode: event.target.value as GeneralSettings['mode'] })}
         >
-          <option value="canvas">{strings.canvas.modeCanvas}</option>
           <option value="grid">{strings.canvas.modeGrid}</option>
+          <option value="canvas">{strings.canvas.modeCanvas}</option>
         </select>
         <span className="eve-setup__hint">{strings.canvas.modeHint}</span>
       </label>
@@ -143,60 +144,29 @@ export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX
   );
 }
 
+/**
+ * Applies the UI scale live. Writes into the same `<style id="eve-ui-scale">`
+ * tag that layout.tsx server-renders on first paint, instead of setting
+ * `document.documentElement.style.zoom` directly. Both approaches render
+ * identically at the instant they run, but a bare inline style on <html>
+ * competed with that server-rendered tag on the next navigation (App Router
+ * re-renders the root layout — and this same style tag with the DB's value —
+ * on most route changes since it reads the session), which intermittently
+ * snapped the page back to the last-saved scale right after an edit. Writing
+ * through the tag itself means there is only ever one place controlling the
+ * zoom, so a later re-render just replaces its content with the same
+ * (already-persisted) value instead of overriding a competing inline style.
+ */
+export function applyUiScale(scale: number): void {
+  const styleTag = document.getElementById('eve-ui-scale');
+  if (styleTag) styleTag.textContent = `html { zoom: ${scale}; }`;
+  else document.documentElement.style.zoom = String(scale);
+}
+
 export function InterfaceSection({ settings, onChange }: SettingsSectionProps): JSX.Element {
-  // The slider's in-flight value, so the % label tracks the thumb while the
-  // user drags. The page `zoom` itself is only touched on release — see
-  // `commitScale`.
-  const [draftScale, setDraftScale] = useState(settings.uiScale);
-
-  // Adopt the value when it changes from outside this component (settings
-  // reloaded, another device, a reset), but not while a drag is in flight.
-  const draggingRef = useRef(false);
-  useEffect(() => {
-    if (!draggingRef.current) setDraftScale(settings.uiScale);
-  }, [settings.uiScale]);
-
-  /**
-   * Writing `zoom` on every input event re-lays out the page *underneath the
-   * pointer* mid-drag: the slider itself grows or shrinks, the thumb slides
-   * out from under the cursor, and the next pointer sample therefore reads a
-   * different value — the drag ends up fighting its own side effect and the
-   * handle judders instead of following the mouse. Committing once, on
-   * release, keeps the geometry still for the whole drag; the label below
-   * still updates live so the interaction stays legible.
-   */
-  const commitScale = () => {
-    draggingRef.current = false;
-    if (draftScale === settings.uiScale) return;
-    document.documentElement.style.zoom = String(draftScale);
-    onChange({ uiScale: draftScale });
-  };
-
   return (
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.interfaceTitle}</h4>
-
-      <label className="eve-field" data-setting-id="uiScale">
-        <span className="eve-field__label">
-          {strings.dashboardSettings.uiScale} — {Math.round(draftScale * 100)}%
-        </span>
-        <input
-          type="range"
-          min={0.5}
-          max={2}
-          step={0.05}
-          value={draftScale}
-          onPointerDown={() => {
-            draggingRef.current = true;
-          }}
-          onChange={(event) => setDraftScale(Number(event.target.value))}
-          onPointerUp={commitScale}
-          onPointerCancel={commitScale}
-          onKeyUp={commitScale}
-          onBlur={commitScale}
-        />
-        <span className="eve-setup__hint">{strings.dashboardSettings.uiScaleHint}</span>
-      </label>
 
       <label className="eve-check" data-setting-id="railFullHide">
         <input
@@ -251,6 +221,8 @@ export interface SettingsCategory {
   id: string;
   label: string;
   Section: (props: SettingsSectionProps) => JSX.Element;
+  /** Hidden from the side nav unless the viewer is a workspace owner — see SettingsWorkspace's filter. */
+  ownerOnly?: boolean;
 }
 
 /** Drives the /settings page's category side nav. */
@@ -259,4 +231,5 @@ export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: 'interface', label: strings.dashboardSettings.interfaceTitle, Section: InterfaceSection },
   { id: 'layout', label: strings.dashboardSettings.layoutTitle, Section: LayoutSection },
   { id: 'behavior', label: strings.dashboardSettings.behaviorTitle, Section: BehaviorSection },
+  { id: 'jobColumnColors', label: strings.jobs.columnColorsTitle, Section: JobColumnsSection, ownerOnly: true },
 ];

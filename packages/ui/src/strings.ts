@@ -57,9 +57,9 @@ export const strings = {
     railFullHide: 'Esconder barra lateral por completo',
     railFullHideHint:
       'Quando ligado, a seta da barra lateral esconde ela inteira em vez de só alternar entre ícone e ícone com texto.',
-    cursorFollower: 'Bolinha que segue o mouse',
+    cursorFollower: 'Eve Pointer',
     cursorFollowerHint:
-      'Quando ligado, uma bolinha laranja acompanha o ponteiro com um leve atraso. O cursor normal do sistema continua igual nos dois casos.',
+      'Quando ligado, um ícone da Eve acompanha o ponteiro com um leve atraso — editável com qualquer arquivo de ícone compatível (personalização completa por empresa em breve). O cursor normal do sistema continua igual nos dois casos.',
     behaviorTitle: 'Comportamento',
     liveUpdates: 'Atualizar automaticamente',
     liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, só atualiza no "sincronizar agora".',
@@ -286,6 +286,7 @@ export const strings = {
     notOwnerTeam: 'Apenas um owner do workspace pode gerenciar a equipe.',
     notOwnerAutomations: 'Apenas um owner do workspace pode gerenciar o webhook de automações.',
     notOwnerFinancial: 'Apenas um owner do workspace pode gerenciar o financeiro.',
+    notOwnerJobColumns: 'Apenas um owner do workspace pode definir a cor dos status.',
     notAllowedScheduling: 'Você não tem acesso à agenda.',
     unauthorized: 'Sessão expirada. Entre novamente.',
     notFound: 'Não encontrado.',
@@ -307,8 +308,8 @@ export const strings = {
     noJobs: 'Clique no + ou Ctrl+clique para adicionar.',
     noColumns: 'Nenhuma coluna ainda.',
     dueDate: 'Prazo',
-    description: 'Descrição',
-    descriptionPlaceholder: 'Descrição...',
+    description: 'Briefing',
+    descriptionPlaceholder: 'Briefing...',
     collaborators: 'Colaboradores',
     addCollaborator: 'Adicionar colaborador',
     removeCollaborator: 'Remover',
@@ -358,6 +359,17 @@ export const strings = {
     timerRestart: 'Reiniciar cronômetro',
     timerCollapse: 'Recolher (arraste para mover)',
     timerExpand: 'Expandir (arraste para mover)',
+
+    columnColorsTitle: 'Cor dos status',
+    columnColorsHint:
+      'Vale para o workspace inteiro — todo mundo ve a cor definida aqui, mas so um owner pode muda-la.',
+    columnColorsLoadError: 'Não foi possível carregar as colunas.',
+    columnColor: 'Cor',
+    columnColorOpacity: 'Opacidade',
+    columnBorderColor: 'Cor da borda',
+    columnColorClear: 'Remover cor',
+    columnColorSaving: 'Salvando...',
+    columnColorSaveError: 'Não foi possível salvar a cor.',
   },
 
   notifications: {

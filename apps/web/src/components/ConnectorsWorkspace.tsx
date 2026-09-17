@@ -4,6 +4,7 @@ import { strings } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import type { AvailableConnector } from './DashboardShell';
 import { ConnectorSetup } from './ConnectorSetup';
+import { useEscapeToClose } from './useEscapeToClose';
 
 interface InstanceRow {
   id: string;
@@ -48,7 +49,10 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setupConnector, setSetupConnector] = useState<ConnectorCatalogEntry | null>(null);
+  const [expandedConnector, setExpandedConnector] = useState<ConnectorCatalogEntry | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEscapeToClose(() => setExpandedConnector(null));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -152,7 +156,12 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
             const connectorInstances = instances.filter((instance) => instance.connectorId === connector.id);
             return (
               <div key={connector.id} className="eve-connectors__card">
-                <div className="eve-connectors__card-head">
+                <button
+                  type="button"
+                  className="eve-connectors__card-head"
+                  onClick={() => setExpandedConnector(connector)}
+                  aria-label={`Ver detalhes de ${connector.label}`}
+                >
                   <span className="eve-connectors__socket" aria-hidden="true">
                     <SocketIcon />
                   </span>
@@ -160,7 +169,7 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
                     <strong>{connector.label}</strong>
                     {connector.description && <p className="eve-dim eve-connectors__description">{connector.description}</p>}
                   </div>
-                </div>
+                </button>
 
                 {connectorInstances.length > 0 && (
                   <ul className="eve-connectors__instances">
@@ -210,6 +219,23 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
               </div>
             );
           })}
+        </div>
+      )}
+
+      {expandedConnector && (
+        <div className="eve-modal-backdrop" onClick={() => setExpandedConnector(null)}>
+          <div className="eve-modal eve-connectors__detail" onClick={(event) => event.stopPropagation()}>
+            <div className="eve-connectors__card-head">
+              <span className="eve-connectors__socket" aria-hidden="true">
+                <SocketIcon />
+              </span>
+              <strong>{expandedConnector.label}</strong>
+            </div>
+            {expandedConnector.description && <p className="eve-dim">{expandedConnector.description}</p>}
+            <button type="button" className="eve-btn" onClick={() => setExpandedConnector(null)}>
+              Fechar
+            </button>
+          </div>
         </div>
       )}
 

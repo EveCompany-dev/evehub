@@ -8,12 +8,15 @@
 /* No modo canvas o board é a página inteira: o "scroll" dele é o pan, não a
    barra de rolagem do documento. Uma coluna flex de altura fixa dá o resto da
    tela para o <main> sem ninguém precisar saber a altura do header — que é
-   definida pelo conteúdo dele, não por um token. `100dvh` porque no mobile a
-   barra de endereço come parte de `100vh`. */
+   definida pelo conteúdo dele, não por um token. Nada de `100dvh` — igual
+   .eve-wide-page em globals.css, essa unidade fica maior que a viewport real
+   sob o `zoom` do site (confirmado por teste; ver o comentário no html/body
+   de tokens.css) e o board acabava mais alto que a tela, cortado por baixo.
+   `height:100%` resolve contra body (que agora tem height:100% no reset). */
 .eve-shell--canvas {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -365,4 +368,9 @@
   min-width: 200px;
   max-height: 60vh;
   overflow-y: auto;
+  /* Above .eve-contextmenu's z-index: 70 (globals.css) — it's the flyout's
+     parent, but without its own stacking order the submenu inherited the
+     base .eve-menu class's z-index: 20 instead and could render under
+     unrelated page elements between those two values. */
+  z-index: 71;
 }

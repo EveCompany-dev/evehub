@@ -163,6 +163,75 @@
   }
 }
 
+/* --- bug report pill (bottom-left, every page) --------------------------- */
+
+.eve-bugpill {
+  position: fixed;
+  left: 0;
+  /* Chat's composer (textarea + emoji/attach/send row) runs about 120px tall
+     off the bottom of the page — this needs to clear the top of that, not
+     just its icon row, or the pill sits on top of the textarea itself. */
+  bottom: 130px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px 0 12px;
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 999px 999px 0;
+  background: var(--surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  box-shadow: var(--shadow-float);
+  /* At rest, only the trailing edge of the pill shows past the viewport
+     edge: the 40px icon box (last in the DOM, see BugReportPill.tsx) PLUS
+     the 16px right padding after it — leaving out that padding revealed
+     just the icon box's rightmost 24px, slicing the centered icon in half.
+     Hovering (or focusing, for keyboard users) slides the whole pill —
+     label and icon — into view. */
+  transform: translateX(calc(-100% + 56px));
+  transition: transform 200ms var(--ease-brand, ease);
+}
+
+.eve-bugpill:hover,
+.eve-bugpill:focus-visible {
+  transform: translateX(0);
+}
+
+.eve-bugpill__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  flex: none;
+  /* Brand orange, not the pill's muted --text-dim: the icon is the only
+     thing visible at rest, and a subdued grey glyph on a dark surface read
+     as an unrecognizable blob rather than a bug icon. */
+  color: var(--accent);
+}
+
+.eve-bugpill__label {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eve-bugpill {
+    transition: none;
+  }
+}
+
+/* Compound selector, same reason as .eve-modal.eve-post-editor elsewhere in
+   this file: .eve-modal's own gap:4px (fine for a one-field rename dialog)
+   is declared later in this stylesheet, and at equal specificity the later
+   rule wins regardless of where each is written — a bare .eve-bugreport-modal
+   here lost to it. */
+.eve-modal.eve-bugreport-modal {
+  gap: 16px;
+}
+
 /* --- side rail (secondary nav) ------------------------------------------ */
 
 body[data-rail='collapsed'] {
@@ -292,6 +361,65 @@ body[data-rail='hidden'] {
   color: var(--accent);
   background: var(--accent-soft);
   font-weight: 600;
+}
+
+/* --- Agenda dropdown (Minha Agenda / Agendar Post / Time) ----------------- */
+
+.eve-rail__group {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Collapsed rail centers each item by its own (small, icon-only) width via
+   .eve-rail's align-items: center — forcing width:100% here even when
+   collapsed made this one item span the full rail instead of being centered
+   the same way, throwing its icon out of line with every other one. */
+.eve-rail.is-expanded .eve-rail__group {
+  width: 100%;
+}
+
+.eve-rail__group-trigger {
+  width: 100%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  margin: 0;
+  appearance: none;
+}
+
+.eve-rail__chevron {
+  display: flex;
+  margin-left: auto;
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.eve-rail__chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.eve-rail__submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 4px 34px;
+}
+
+.eve-rail__subitem {
+  display: block;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+  font-size: 13px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.eve-rail__subitem:hover {
+  color: var(--text);
+  background: var(--surface-2);
 }
 
 /* --- notification bell --------------------------------------------------- */
@@ -572,6 +700,63 @@ body[data-rail='hidden'] {
   border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
 }
 
+/* --- "Resumo do dia" widget: notifications + today's Agenda -------------- */
+
+.eve-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.eve-overview__title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin: 0 0 6px;
+}
+
+.eve-overview__list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-overview__item-link {
+  display: block;
+  padding: 6px 4px;
+  border-radius: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.eve-overview__item-link:hover {
+  background: var(--surface-2);
+}
+
+.eve-overview__item-text {
+  margin: 0;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.eve-overview__agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-overview__agenda-row .eve-overview__item-text {
+  flex: 1;
+  -webkit-line-clamp: 1;
+}
+
 .eve-empty {
   display: flex;
   flex-direction: column;
@@ -730,6 +915,18 @@ body[data-rail='hidden'] {
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.eve-connectors__card-head:hover strong {
+  text-decoration: underline;
 }
 
 .eve-connectors__socket {
@@ -747,6 +944,27 @@ body[data-rail='hidden'] {
 .eve-connectors__description {
   margin: 2px 0 0;
   font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.eve-connectors__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 420px;
+}
+
+.eve-connectors__detail .eve-connectors__card-head {
+  cursor: default;
+}
+
+.eve-connectors__detail p {
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .eve-connectors__instances {
@@ -1029,7 +1247,7 @@ body[data-rail='hidden'] {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 18px;
   overflow-y: auto;
   max-height: calc(85vh - 40px);
   padding-right: 4px;
@@ -1040,8 +1258,32 @@ body[data-rail='hidden'] {
   width: 300px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
   align-items: center;
+  /* Fixed total height so "Onde publicar" below never moves — see
+     __preview-frame's comment for why the frame itself is the fixed part. */
+  max-height: calc(85vh - 40px);
+  overflow-y: auto;
+}
+
+/**
+ * Holds whichever PostPreview variant is showing. Feed/Story/Reel/Facebook
+ * are all very different heights (a Story is a tall 9:16 card, a Feed post's
+ * height also swings with caption length), and letting the frame size to
+ * whichever is active is exactly what made "Onde publicar" below it drift up
+ * and down as you switched tabs or typed a caption. Fixed at the Instagram
+ * feed post's own natural height (the tallest of the fixed-content variants)
+ * — everything else, and a feed post with an unusually long caption, sits
+ * inside it instead of resizing it; `overflow-y: auto` is the safety net for
+ * that second case rather than a visible scrollbar in the common one.
+ */
+.eve-post-editor__preview-frame {
+  width: 100%;
+  height: 470px;
+  display: flex;
+  justify-content: center;
+  overflow-y: auto;
+  flex: none;
 }
 
 .eve-post-editor__preview-label {
@@ -1411,14 +1653,18 @@ body[data-rail='hidden'] {
   overflow: hidden;
 }
 
-.eve-month__day.is-empty {
-  background: transparent;
-  cursor: default;
-}
-
 .eve-month__day.is-today {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
+}
+
+.eve-month__day.is-adjacent {
+  background: transparent;
+  opacity: 0.45;
+}
+
+.eve-month__day.is-adjacent:hover {
+  opacity: 0.75;
 }
 
 .eve-month__num {
@@ -1476,6 +1722,49 @@ body[data-rail='hidden'] {
 
 .eve-month__chip svg {
   flex: none;
+}
+
+/* --- agenda: event chips + attendee picker --------------------------------
+   Same footprint as .eve-month__chip (calendar cells are the same size
+   either way) but no thumbnail — an event has no media, just a time and a
+   title. */
+
+.eve-agenda-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 11px;
+  text-align: left;
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  width: 100%;
+}
+
+.eve-agenda-chip__time {
+  flex: none;
+  color: var(--text-dim);
+}
+
+.eve-agenda-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-agenda-editor__attendees {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
 }
 
 .eve-month__chip-thumb {
@@ -2713,6 +3002,66 @@ video.eve-month__chip-thumb {
   border-radius: 50%;
 }
 
+/* --- carrossel do Instagram (PostEditor) --------------------------------- */
+
+.eve-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-carousel__slides {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-carousel__slide {
+  position: relative;
+  width: 84px;
+  height: 84px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  cursor: grab;
+  flex: none;
+}
+
+.eve-carousel__thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+
+.eve-carousel__index {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  background: color-mix(in srgb, black 55%, transparent);
+  color: white;
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: var(--radius-pill);
+}
+
+.eve-carousel__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: color-mix(in srgb, black 55%, transparent);
+  color: white;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+}
+
 /* --- aviso de desfazer -------------------------------------------------- */
 
 .eve-undo {
@@ -2858,16 +3207,60 @@ video.eve-month__chip-thumb {
 .eve-team__role-tabs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 4px 12px;
+  gap: 10px 12px;
+  padding: 10px 0 2px;
+}
+
+.eve-team__role-tabs-grid .eve-check {
+  margin-bottom: 0;
 }
 
 .eve-check {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 14px;
   font-size: 13px;
   cursor: pointer;
+}
+
+.eve-check input[type='checkbox'] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.eve-check input[type='checkbox']:hover {
+  border-color: var(--accent);
+}
+
+.eve-check input[type='checkbox']:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.eve-check input[type='checkbox']:checked::after {
+  content: '';
+  width: 4px;
+  height: 8px;
+  border: solid var(--accent-contrast, #fff);
+  border-width: 0 1.6px 1.6px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+
+.eve-check input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* --- jobs (kanban) ------------------------------------------------------ */
@@ -2880,7 +3273,9 @@ video.eve-month__chip-thumb {
    640px-capped .eve-profile meant for narrow single-column forms/lists. */
 .eve-wide-page,
 .eve-jobs-page {
-  height: 100dvh;
+  /* Not 100dvh — see tokens.css's html/body height:100% comment for why
+     viewport units overflow the real viewport under the site-wide zoom scale. */
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -2976,6 +3371,12 @@ video.eve-month__chip-thumb {
   gap: 8px;
   padding: 10px;
   min-height: 120px;
+  /* Stretched by .eve-jobs__board's align-items to the board's height; without
+     capping it here too, a long list of jobs would grow the column (and the
+     board with it) past the viewport instead of scrolling inside
+     .eve-jobs__cards below. */
+  max-height: 100%;
+  overflow: hidden;
   animation: eve-pop-in 220ms var(--ease-brand);
 }
 
@@ -3014,15 +3415,65 @@ video.eve-month__chip-thumb {
   cursor: grab;
 }
 
+.eve-jobs__column-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cor definida pelo admin em Configuracoes > Jobs; aplicada ao fundo/borda da
+   coluna inteira via inline style em JobsBoard.tsx — sem cor, fica no
+   background/border padrao do tema (ver .eve-jobs__column acima). */
+
+/* --- job status colors (Settings, owner-only) ---------------------------- */
+
+.eve-jobs__color-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.eve-jobs__color-row:last-child {
+  border-bottom: none;
+}
+
+.eve-jobs__color-row .eve-field {
+  margin-bottom: 0;
+  min-width: 120px;
+}
+
+.eve-jobs__color-row input[type='range'] {
+  width: 120px;
+}
+
+/* Swatch preview only, next to each row's controls — the actual board colors
+   the whole column (see .eve-jobs__column's inline style), not a badge. */
+.eve-jobs__color-preview {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+}
+
 .eve-jobs__cards {
   flex: 1;
   min-height: 24px;
   overflow-y: auto;
+  /* Rolagem habilitada mas sem barra visivel (scroll-wheel/trackpad continuam
+     funcionando normalmente). */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   display: flex;
   flex-direction: column;
   gap: 8px;
   border-radius: calc(var(--radius-card) - 6px);
   transition: background-color 120ms ease;
+}
+
+.eve-jobs__cards::-webkit-scrollbar {
+  display: none;
 }
 
 .eve-jobs__cards.is-drop-target {
@@ -3458,6 +3909,100 @@ video.eve-month__chip-thumb {
 
 /* --- team chat ------------------------------------------------------------ */
 
+.eve-chat-tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- private (1:1) chat: conversation list + thread ---------------------- */
+
+.eve-dm-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.eve-dm-workspace__sidebar {
+  width: 240px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 12px;
+}
+
+.eve-dm-workspace__conversation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.eve-dm-workspace__conversation:hover,
+.eve-dm-workspace__conversation.is-active {
+  background: var(--surface-2);
+}
+
+.eve-dm-workspace__conversation-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.eve-dm-workspace__conversation-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-dm-workspace__conversation-preview {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-dm-workspace__sidebar-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  padding: 14px 8px 4px;
+}
+
+.eve-dm-workspace__thread {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eve-dm-workspace__thread-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
 .eve-chat-workspace {
   flex: 1;
   min-height: 0;
@@ -3563,6 +4108,12 @@ video.eve-month__chip-thumb {
   gap: 6px;
   border-top: 1px solid var(--border);
   padding-top: 10px;
+  border-radius: var(--radius-card);
+  transition: background-color 120ms ease;
+}
+
+.eve-chat-workspace__composer.is-drag-over {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .eve-chat-workspace__input {

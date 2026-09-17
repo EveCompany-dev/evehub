@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type JSX, type MouseEvent as ReactMouseEvent } from 'react';
+import { currentUiZoom } from '../lib/ui-scale';
 
 export interface ContextMenuItem {
   label: string;
@@ -59,7 +60,8 @@ export function useContextMenu(): ContextMenuControls {
   const open = (event: ReactMouseEvent, items: ContextMenuItem[]) => {
     event.preventDefault();
     event.stopPropagation();
-    setMenu({ x: event.clientX, y: event.clientY, items });
+    const zoom = currentUiZoom();
+    setMenu({ x: event.clientX / zoom, y: event.clientY / zoom, items });
     setOpenSub(null);
   };
 
@@ -130,7 +132,21 @@ export function useContextMenu(): ContextMenuControls {
             role="menu"
             style={{
               position: 'fixed',
-              left: Math.min(parentLeft + MENU_WIDTH - 4, window.innerWidth - MENU_WIDTH - 8),
+              // The base .eve-menu class (tokens.css) sets `right: 0` for its
+              // usual anchored-dropdown case; left unset here, that fights
+              // the `left` below over the box's width and pushed the flyout
+              // away from the parent item instead of hugging it.
+              right: 'auto',
+              // MENU_WIDTH is only ever a floor (the menu's CSS is `min-width`, not a
+              // fixed width) — the actual row text ("Adicionar módulo" etc.) usually
+              // renders narrower, so anchoring off the constant left a gap between the
+              // two menus instead of the intended 4px overlap. Measuring the real
+              // rendered box (available once the parent menu has painted at least once,
+              // which it has by the time a submenu can open) closes that gap.
+              left: Math.min(
+                parentLeft + (ref.current?.offsetWidth ?? MENU_WIDTH) - 4,
+                window.innerWidth - MENU_WIDTH - 8,
+              ),
               top: Math.min(parentTop + index * ITEM_HEIGHT, window.innerHeight - item.items!.length * ITEM_HEIGHT - 16),
             }}
           >

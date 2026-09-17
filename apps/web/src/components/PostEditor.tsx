@@ -1,8 +1,16 @@
 'use client';
 
-import { ALL_TARGETS, mediaKindFromUrl, targetAcceptsMedia, targetLabel, type PostTarget } from '@eve/connector-meta/shared';
+import {
+  ALL_TARGETS,
+  MAX_CAROUSEL_ITEMS,
+  MIN_CAROUSEL_ITEMS,
+  mediaKindFromUrl,
+  targetAcceptsMedia,
+  targetLabel,
+  type PostTarget,
+} from '@eve/connector-meta/shared';
 import { useMemo, useState, type FormEvent, type JSX } from 'react';
-import { ImageDropZone } from './ImageDropZone';
+import { CarouselDropZone } from './CarouselDropZone';
 import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
 import type { ClientOption, MetaAccount, ScheduledPostRow } from './scheduling-types';
@@ -48,6 +56,8 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   const [connectorInstanceId, setConnectorInstanceId] = useState(initial?.connectorInstanceId ?? (accounts[0]?.id ?? ''));
   const [caption, setCaption] = useState(initial?.caption ?? '');
   const [mediaUrl, setMediaUrl] = useState(initial?.mediaUrl ?? '');
+  const [carouselMode, setCarouselMode] = useState(Boolean(initial?.mediaUrls && initial.mediaUrls.length >= MIN_CAROUSEL_ITEMS));
+  const [carouselUrls, setCarouselUrls] = useState<string[]>(initial?.mediaUrls ?? []);
   const [scheduledFor, setScheduledFor] = useState(() =>
     toLocalInputValue(initial ? new Date(initial.scheduledFor) : (defaultDate ?? new Date(Date.now() + 30 * 60 * 1000))),
   );
@@ -70,6 +80,17 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
     [selectedTargets, mediaKind],
   );
 
+  // Carousels only exist on the Instagram feed (see the API route's same
+  // check) — as soon as the selection stops being exactly that one target,
+  // drop out of carousel mode instead of leaving a stale, now-unsendable
+  // combination sitting in the form.
+  const isInstagramFeedOnly =
+    !isEditing &&
+    selectedTargets.length === 1 &&
+    selectedTargets[0]!.platform === 'instagram' &&
+    selectedTargets[0]!.postType === 'feed';
+  if (carouselMode && !isInstagramFeedOnly) setCarouselMode(false);
+
   const needsInstagram = selectedTargets.some((target) => target.platform === 'instagram');
   const eligibleAccounts = needsInstagram ? accounts.filter((account) => account.hasInstagram) : accounts;
   const accountLabel = useMemo(
@@ -88,8 +109,14 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
     setSelected((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]));
   };
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  /**
+   * Shared by the normal submit (picked date) and "Postar agora" (now) — the
+   * only difference between them is which ISO string goes in `scheduledFor`.
+   * "Postar agora" still lands as a `scheduled` row due immediately, picked
+   * up by the worker's next tick exactly like anything else that's due — see
+   * postNowRef's comment above for why that matters.
+   */
+  const run = async (scheduledForIso: string) => {
     setBusy(true);
     setError(null);
 
@@ -99,7 +126,13 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
       setBusy(false);
       return;
     }
-    if (!mediaUrl) {
+    if (carouselMode) {
+      if (carouselUrls.length < MIN_CAROUSEL_ITEMS) {
+        setError(`Escolha pelo menos ${MIN_CAROUSEL_ITEMS} fotos para o carrossel.`);
+        setBusy(false);
+        return;
+      }
+    } else if (!mediaUrl) {
       setError('Escolha uma imagem ou vídeo.');
       setBusy(false);
       return;
@@ -125,7 +158,7 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             body: JSON.stringify({
               caption,
               mediaUrl,
-              scheduledFor: new Date(scheduledFor).toISOString(),
+              scheduledFor: scheduledForIso,
               client: { id: client.id, label: client.label },
             }),
           })
@@ -138,7 +171,8 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
               targets: selectedTargets,
               caption,
               mediaUrl,
-              scheduledFor: new Date(scheduledFor).toISOString(),
+              ...(carouselMode ? { mediaUrls: carouselUrls } : {}),
+              scheduledFor: scheduledForIso,
             }),
           });
 
@@ -172,6 +206,20 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
     }
   };
 
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void run(new Date(scheduledFor).toISOString());
+  };
+
+  // Reuses the exact same submit path with scheduledFor forced to now,
+  // rather than a separate immediate-publish call straight to Meta — it
+  // lands as a `scheduled` row due immediately, picked up by the worker's
+  // next tick exactly like anything else that's due, including the same
+  // per-account throttling (see apps/worker's SAME_ACCOUNT_GAP_MS) that
+  // keeps a burst of "post now" clicks across many client accounts from
+  // reading as automation abuse to Meta.
+  const postNow = () => void run(new Date().toISOString());
+
   const remove = async () => {
     if (!initial) return;
     setBusy(true);
@@ -194,39 +242,6 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
           <h2 className="eve-card__title">{isEditing ? 'Editar post' : 'Novo post'}</h2>
 
           {error && <p className="eve-alert eve-alert--error">{error}</p>}
-
-          {!isEditing && (
-            <div className="eve-field">
-              <span className="eve-field__label">Onde publicar</span>
-              <div className="eve-targets">
-                {ALL_TARGETS.map((target) => {
-                  const key = targetKey(target);
-                  const active = selected.includes(key);
-                  const blocked = active && incompatible.includes(target);
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={`eve-target${active ? ' is-active' : ''}${blocked ? ' is-blocked' : ''}`}
-                      onClick={() => toggleTarget(target)}
-                      aria-pressed={active}
-                      title={
-                        blocked
-                          ? `${targetLabel(target)} ${mediaKind === 'video' ? 'não aceita vídeo' : 'precisa de um vídeo'}`
-                          : targetLabel(target)
-                      }
-                    >
-                      <PlatformIcon platform={target.platform} size={18} />
-                      <span>{targetLabel(target).replace(/^(Instagram|Facebook) /, '')}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="eve-setup__hint">
-                Marque quantos quiser — cada destino vira um post próprio, publicado e acompanhado separadamente.
-              </span>
-            </div>
-          )}
 
           <label className="eve-field">
             <span className="eve-field__label">Cliente</span>
@@ -259,6 +274,36 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             </label>
           )}
 
+          {isInstagramFeedOnly && (
+            <label className="eve-check">
+              <input type="checkbox" checked={carouselMode} onChange={(event) => setCarouselMode(event.target.checked)} />
+              <span>Carrossel</span>
+            </label>
+          )}
+
+          <label className="eve-field">
+            <span className="eve-field__label">Mídia</span>
+            <CarouselDropZone
+              value={carouselMode ? carouselUrls : mediaUrl ? [mediaUrl] : []}
+              onChange={(urls) => {
+                if (carouselMode) {
+                  setCarouselUrls(urls);
+                  setMediaUrl(urls[0] ?? '');
+                } else {
+                  setMediaUrl(urls[0] ?? '');
+                }
+              }}
+              endpoint="/api/uploads/post-media"
+              accept={carouselMode ? 'image/png,image/jpeg,image/webp,image/gif' : 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm'}
+              max={carouselMode ? MAX_CAROUSEL_ITEMS : 1}
+              dropHint={carouselMode ? 'Arraste fotos aqui ou clique para escolher' : 'Arraste uma imagem ou vídeo aqui ou clique para escolher'}
+              uploadingHint="Enviando..."
+              limitHint={(max) =>
+                carouselMode ? `Só cabem ${max} fotos por carrossel — o restante foi ignorado.` : 'Escolha um arquivo por vez.'
+              }
+            />
+          </label>
+
           {showCaption && (
             <label className="eve-field">
               <span className="eve-field__label">Legenda</span>
@@ -276,19 +321,6 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
           )}
 
           <label className="eve-field">
-            <span className="eve-field__label">Mídia</span>
-            <ImageDropZone
-              value={mediaUrl || null}
-              onChange={(url) => setMediaUrl(url ?? '')}
-              endpoint="/api/uploads/post-media"
-              accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm"
-              dropHint="Arraste uma imagem ou vídeo aqui ou clique para escolher"
-              uploadingHint="Enviando..."
-              removeLabel="Remover mídia"
-            />
-          </label>
-
-          <label className="eve-field">
             <span className="eve-field__label">Quando publicar</span>
             <input
               className="eve-input"
@@ -302,6 +334,9 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
           <div className="eve-profile__actions">
             <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
               {isEditing ? 'Salvar' : `Agendar${selectedTargets.length > 1 ? ` (${selectedTargets.length})` : ''}`}
+            </button>
+            <button type="button" className="eve-btn" disabled={busy} onClick={postNow} title="Publica assim que o worker rodar, sem esperar o horário escolhido">
+              Postar agora
             </button>
             {isEditing && (
               <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
@@ -337,16 +372,55 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
             </div>
           )}
 
-          {previewTarget ? (
-            <PostPreview
-              platform={previewTarget.platform}
-              postType={previewTarget.postType}
-              accountLabel={accountLabel}
-              caption={caption}
-              mediaUrl={mediaUrl || null}
-            />
-          ) : (
-            <p className="eve-dim">Escolha um destino para ver a prévia.</p>
+          <div className="eve-post-editor__preview-frame">
+            {previewTarget ? (
+              <PostPreview
+                platform={previewTarget.platform}
+                postType={previewTarget.postType}
+                accountLabel={accountLabel}
+                caption={caption}
+                mediaUrl={mediaUrl || null}
+              />
+            ) : (
+              <p className="eve-dim">Escolha um destino para ver a prévia.</p>
+            )}
+          </div>
+
+          {!isEditing && (
+            <div className="eve-field">
+              <span className="eve-field__label">Onde publicar</span>
+              <div className="eve-targets">
+                {ALL_TARGETS.map((target) => {
+                  const key = targetKey(target);
+                  const active = selected.includes(key);
+                  const blocked = active && incompatible.includes(target);
+                  // Can't check an incompatible target in the first place (a video
+                  // attached, say, disables Instagram Feed outright) — the only way
+                  // to hit `blocked` below is a target that WAS compatible when
+                  // selected and stopped being so after the media changed, and
+                  // unchecking it has to stay possible.
+                  const disabled = !active && mediaKind !== null && !targetAcceptsMedia(target, mediaKind);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={`eve-target${active ? ' is-active' : ''}${blocked ? ' is-blocked' : ''}`}
+                      onClick={() => toggleTarget(target)}
+                      aria-pressed={active}
+                      disabled={disabled}
+                      title={
+                        blocked || disabled
+                          ? `${targetLabel(target)} ${mediaKind === 'video' ? 'não aceita vídeo' : 'precisa de um vídeo'}`
+                          : targetLabel(target)
+                      }
+                    >
+                      <PlatformIcon platform={target.platform} size={18} />
+                      <span>{targetLabel(target).replace(/^(Instagram|Facebook) /, '')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </form>

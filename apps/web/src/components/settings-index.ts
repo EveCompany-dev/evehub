@@ -46,12 +46,6 @@ export const SETTINGS_OPTIONS: SettingsOption[] = [
     keywords: ['densidade', 'compacto', 'espacamento', 'grade', 'linhas'],
   },
   {
-    id: 'uiScale',
-    label: strings.dashboardSettings.uiScale,
-    category: 'interface',
-    keywords: ['zoom', 'escala', 'tamanho', 'interface', 'fonte', 'aumentar', 'diminuir'],
-  },
-  {
     id: 'railFullHide',
     label: strings.dashboardSettings.railFullHide,
     category: 'interface',

@@ -26,7 +26,11 @@ function GearIcon(): JSX.Element {
  * an inline popover — a gear icon in a 40px-wide rail is easy to miss was
  * ever clicked when the only feedback is a small flyout.
  */
-export function RailSettings(): JSX.Element {
+export interface RailSettingsProps {
+  expanded: boolean;
+}
+
+export function RailSettings({ expanded }: RailSettingsProps): JSX.Element {
   return (
     <Link
       href="/settings"
@@ -37,6 +41,7 @@ export function RailSettings(): JSX.Element {
       <span className="eve-rail__icon">
         <GearIcon />
       </span>
+      {expanded && <span className="eve-rail__label">{strings.dock.settingsTitle}</span>}
     </Link>
   );
 }

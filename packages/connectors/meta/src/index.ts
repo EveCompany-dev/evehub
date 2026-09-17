@@ -4,6 +4,8 @@ export { MetaGraphError } from './graph-client';
 export {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
+  createInstagramCarouselContainer,
+  createInstagramCarouselItemContainer,
   createInstagramContainer,
   createInstagramReelContainer,
   createInstagramStoryContainer,
@@ -18,6 +20,8 @@ export {
 } from './publish';
 export {
   ALL_TARGETS,
+  MAX_CAROUSEL_ITEMS,
+  MIN_CAROUSEL_ITEMS,
   mediaKindFromUrl,
   targetAcceptsMedia,
   targetLabel,

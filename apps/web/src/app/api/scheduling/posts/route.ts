@@ -2,7 +2,9 @@ import { loadConnectorContext, prisma, type PostStatus, type PostType } from '@e
 import {
   ALL_TARGETS,
   assertMediaUrlIsPublic,
+  MAX_CAROUSEL_ITEMS,
   mediaKindFromUrl,
+  MIN_CAROUSEL_ITEMS,
   scheduleFacebookPost,
   targetAcceptsMedia,
   targetLabel,
@@ -45,6 +47,8 @@ const createSchema = z.object({
     .max(ALL_TARGETS.length),
   caption: z.string().max(2200),
   mediaUrl: z.string().url(),
+  /** Instagram feed carousel — see the validation below for why this is Instagram-feed-only. */
+  mediaUrls: z.array(z.string().url()).min(MIN_CAROUSEL_ITEMS).max(MAX_CAROUSEL_ITEMS).optional(),
   scheduledFor: z.string().datetime(),
 });
 
@@ -60,6 +64,7 @@ export async function GET(request: Request): Promise<Response> {
     const clientId = url.searchParams.get('client');
     const platform = url.searchParams.get('platform');
     const status = url.searchParams.get('status');
+    const createdBy = url.searchParams.get('createdBy');
 
     const statusFilter = status && POST_STATUSES.includes(status as PostStatus) ? (status as PostStatus) : null;
 
@@ -72,6 +77,7 @@ export async function GET(request: Request): Promise<Response> {
         ...(platform === 'instagram' || platform === 'facebook' ? { platform } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(clientId ? { clientId } : {}),
+        ...(createdBy ? { createdBy } : {}),
       },
       orderBy: { scheduledFor: 'asc' },
     });
@@ -135,6 +141,25 @@ export async function POST(request: Request): Promise<Response> {
       (target, index, all) =>
         all.findIndex((other) => other.platform === target.platform && other.postType === target.postType) === index,
     );
+
+    // Carousels only exist on the Instagram feed — Stories/Reels are single-media
+    // by definition, and Facebook's multi-photo posting is a different API this
+    // app doesn't implement. Rejecting anything else up front (rather than
+    // silently posting just the first image, or the worker failing hours later)
+    // keeps the guarantee that a stored `mediaUrls` array is always exactly what
+    // gets published.
+    if (body.data.mediaUrls) {
+      if (targets.length !== 1 || targets[0]!.platform !== 'instagram' || targets[0]!.postType !== 'feed') {
+        return fail(400, 'Carrossel só pode ser publicado como um único destino: Instagram Feed.');
+      }
+      const videoUrl = body.data.mediaUrls.find((url) => mediaKindFromUrl(url) === 'video');
+      if (videoUrl) return fail(400, 'Carrossel aceita apenas imagens — remova o vídeo.');
+      try {
+        body.data.mediaUrls.forEach(assertMediaUrlIsPublic);
+      } catch (error) {
+        return fail(400, error instanceof Error ? error.message : String(error));
+      }
+    }
 
     const created = [];
     const errors: string[] = [];
@@ -207,6 +232,7 @@ export async function POST(request: Request): Promise<Response> {
             postType: target.postType as PostType,
             caption: body.data.caption,
             mediaUrl: body.data.mediaUrl,
+            ...(body.data.mediaUrls ? { mediaUrls: body.data.mediaUrls } : {}),
             scheduledFor,
             status: 'scheduled',
             createdBy: user.id,
