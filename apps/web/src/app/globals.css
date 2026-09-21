@@ -2628,8 +2628,8 @@ video.eve-month__chip-thumb {
 
 .eve-palette__item {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  align-items: baseline;
+  gap: 16px;
   width: 100%;
   padding: 9px 10px;
   border: 0;
@@ -2642,6 +2642,26 @@ video.eve-month__chip-thumb {
 
 .eve-palette__item.is-active {
   background: var(--surface-2);
+}
+
+/* One line per row, like VS Code: the label keeps its width and the detail
+   gives way with an ellipsis (the full text is in the title tooltip). */
+.eve-palette__label {
+  flex: 0 0 auto;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-palette__hint {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: 12px;
 }
 
 .eve-palette__empty {

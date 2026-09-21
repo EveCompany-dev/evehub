@@ -149,8 +149,12 @@ export function CommandPalette({ commands }: { commands: PaletteCommand[] }): JS
                       onMouseEnter={() => setHighlight(index)}
                       onClick={() => run(command)}
                     >
-                      <span>{command.label}</span>
-                      {command.hint && <span className="eve-dim">{command.hint}</span>}
+                      <span className="eve-palette__label">{command.label}</span>
+                      {command.hint && (
+                        <span className="eve-palette__hint eve-dim" title={command.hint}>
+                          {command.hint}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
