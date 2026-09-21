@@ -30,8 +30,11 @@ export {
   coerceColumnValue,
   dataColumnSchema,
   dataColumnsSchema,
+  dataColumnTypeSchema,
   slugifyColumnKey,
+  splitTagList,
   type DataColumn,
+  type DataColumnType,
 } from './data-tables';
 
 export {

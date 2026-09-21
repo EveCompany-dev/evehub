@@ -1,0 +1,1071 @@
+/*
+ * Tabelas: tags/status/clientes como pills coloridas, filtros, galeria,
+ * calendario, pagina da linha, importacao e identidade de cliente.
+ * Depende dos tokens (--surface, --border, --accent, ...) de @eve/ui/tokens.css.
+ */
+
+/* --- pills ------------------------------------------------------------------ */
+
+/* A cor vem de --pill: data-color na tag, inline (cor da marca) no cliente. */
+.eve-pill {
+  --pill: #8a8f98;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--pill) 38%, transparent);
+  background: color-mix(in srgb, var(--pill) 20%, transparent);
+  color: color-mix(in srgb, var(--pill) 72%, var(--text));
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.eve-pill[data-color='brown'] {
+  --pill: #a0714f;
+}
+.eve-pill[data-color='orange'] {
+  --pill: #e8853d;
+}
+.eve-pill[data-color='yellow'] {
+  --pill: #d4a72c;
+}
+.eve-pill[data-color='green'] {
+  --pill: #3f9d6e;
+}
+.eve-pill[data-color='blue'] {
+  --pill: #3b82c4;
+}
+.eve-pill[data-color='purple'] {
+  --pill: #8b5cc7;
+}
+.eve-pill[data-color='pink'] {
+  --pill: #d0538e;
+}
+.eve-pill[data-color='red'] {
+  --pill: #d9503f;
+}
+
+.eve-pill__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-pill__x {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.eve-pill--client {
+  padding-left: 3px;
+}
+
+.eve-pill--link:hover {
+  background: color-mix(in srgb, var(--pill) 34%, transparent);
+}
+
+.eve-pills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.eve-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.eve-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* --- popover (busca + lista): acima dos modais (z 60) e do menu de contexto (z 70) --- */
+
+.eve-popover {
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.eve-popover__search {
+  min-height: 32px;
+}
+
+.eve-popover__title {
+  margin: 0;
+  padding: 2px 4px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.eve-popover__list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.eve-popover__item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-popover__item:hover,
+.eve-popover__item:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+
+.eve-popover__tick {
+  width: 14px;
+  flex: none;
+  color: var(--accent);
+  text-align: center;
+}
+
+.eve-popover__count {
+  margin-left: auto;
+  font-size: 11px;
+}
+
+.eve-popover__empty {
+  margin: 4px;
+  font-size: 12px;
+}
+
+.eve-popover__create {
+  color: var(--accent);
+}
+
+.eve-popover__clear {
+  appearance: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  background: none;
+  padding: 6px 4px 2px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-popover__clear:hover {
+  color: var(--danger);
+}
+
+/* --- barra: visualizacao, busca, filtros ---------------------------------------- */
+
+.eve-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-toolbar__row,
+.eve-toolbar__chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-toolbar__search {
+  width: 240px;
+  max-width: 100%;
+  min-height: 32px;
+}
+
+.eve-toolbar__datekey {
+  width: auto;
+  min-height: 32px;
+}
+
+.eve-toolbar__count {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.eve-viewtabs {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.eve-viewtabs__tab {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 4px 12px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eve-viewtabs__tab.is-active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-card);
+}
+
+.eve-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-soft);
+  font-size: 12px;
+}
+
+.eve-chip__label,
+.eve-chip__x {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.eve-chip__label {
+  padding: 3px 4px 3px 10px;
+}
+
+.eve-chip__x {
+  padding: 3px 9px 3px 4px;
+  opacity: 0.7;
+}
+
+/* --- celulas --------------------------------------------------------------------- */
+
+.eve-checkbox {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.eve-th__icon {
+  opacity: 0.6;
+  font-size: 11px;
+}
+
+.eve-datatable__cellwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.eve-datatable__cellwrap > .eve-cell,
+.eve-datatable__cellwrap > .eve-cell__editor {
+  flex: 1;
+  min-width: 0;
+}
+
+.eve-datatable__open {
+  appearance: none;
+  border: none;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  padding: 0 5px;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0;
+  flex: none;
+}
+
+.eve-datatable tr:hover .eve-datatable__open,
+.eve-datatable__open:focus-visible {
+  opacity: 1;
+}
+
+.eve-datatable td .eve-cell--choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.eve-cell--form {
+  display: flex;
+  min-height: 30px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.eve-cell--form:hover {
+  background: var(--surface-2);
+}
+
+.eve-cell__text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.eve-cell__link {
+  display: inline-block;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.eve-cell__editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+.eve-cell__input {
+  min-height: 30px;
+  resize: vertical;
+  font: inherit;
+  font-size: 13px;
+}
+
+.eve-cell__input--title {
+  min-height: 42px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  border-color: transparent;
+  background: transparent;
+  padding-left: 4px;
+}
+
+.eve-cell__input--title:focus {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+
+.eve-cell__datebtn {
+  flex: none;
+}
+
+.eve-cell__nativedate {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- editor de opcoes (modal da coluna) ------------------------------------------- */
+
+.eve-optioneditor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.eve-optioneditor__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-optioneditor__color {
+  width: 86px;
+  min-height: 30px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.eve-field__hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+/* --- galeria ------------------------------------------------------------------------- */
+
+.eve-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px;
+  padding-bottom: 12px;
+}
+
+.eve-gallery__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition:
+    transform 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.eve-gallery__card:hover,
+.eve-gallery__card:focus-visible {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.eve-gallery__cardlink {
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+  flex: 1;
+}
+
+.eve-gallery__cover {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  background: var(--surface-2) center / cover no-repeat;
+}
+
+.eve-gallery__initial {
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+
+.eve-gallery__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  min-width: 0;
+}
+
+.eve-gallery__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.eve-gallery__notes {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+.eve-gallery__prop {
+  font-size: 12px;
+  min-width: 0;
+}
+
+.eve-gallery__add {
+  appearance: none;
+  min-height: 160px;
+  border-radius: var(--radius-card);
+  border: 1px dashed var(--border);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.eve-gallery__add:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.eve-gallery__empty {
+  grid-column: 1 / -1;
+}
+
+.eve-gallery__edit {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: color-mix(in srgb, var(--surface) 85%, transparent);
+  opacity: 0;
+}
+
+.eve-gallery__card--client:hover .eve-gallery__edit,
+.eve-gallery__edit:focus-visible {
+  opacity: 1;
+}
+
+/* --- calendario ------------------------------------------------------------------------ */
+
+.eve-calview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-calview__bar {
+  display: flex;
+  gap: 8px;
+}
+
+.eve-calview__day {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* minmax(0, 1fr): a chip's nowrap title must not stretch its column and skew the week. */
+.eve-calview .eve-month__grid,
+.eve-calview .eve-month__weekdays {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.eve-calview .eve-month__day {
+  min-height: 110px;
+  min-width: 0;
+  overflow: visible;
+  cursor: default;
+}
+
+.eve-calview__chip .eve-pills,
+.eve-calview__chip .eve-pill {
+  max-width: 100%;
+}
+
+.eve-calview__chip {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-calview__chip:hover {
+  border-color: var(--accent);
+}
+
+.eve-calview__title {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.eve-calview__add {
+  appearance: none;
+  align-self: flex-start;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 5px;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.eve-month__day:hover .eve-calview__add,
+.eve-calview__add:focus-visible {
+  opacity: 1;
+}
+
+.eve-calview__add:hover {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+/* --- pagina da linha --------------------------------------------------------------------- */
+
+.eve-modal.eve-rowpage {
+  width: min(760px, 100%);
+  gap: 12px;
+}
+
+.eve-rowpage__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.eve-rowpage__bar-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.eve-rowpage__props {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.eve-rowpage__prop {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.eve-rowpage__label {
+  padding-top: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.eve-rowpage__long {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.eve-rowpage__long-label {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 560px) {
+  .eve-rowpage__prop {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- importacao ------------------------------------------------------------------------------- */
+
+.eve-modal.eve-import {
+  width: min(820px, 100%);
+  gap: 12px;
+}
+
+.eve-import__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eve-import__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border-radius: var(--radius-card);
+  border: 2px dashed var(--border);
+  text-align: center;
+}
+
+.eve-import__drop p {
+  margin: 0;
+}
+
+.eve-import__drop.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.eve-import__datasets,
+.eve-import__columns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-import__dataset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.eve-import__dataset.is-off {
+  opacity: 0.55;
+}
+
+.eve-import__datasethead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-import__variants {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 24px;
+  font-size: 13px;
+}
+
+.eve-import__variant {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.eve-import__variantnote {
+  margin: 0;
+  font-size: 12px;
+}
+
+.eve-import__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-import__sectionhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-import__tablename {
+  flex: 1;
+  min-width: 200px;
+  font-weight: 600;
+}
+
+.eve-import__sectionhead select {
+  width: auto;
+}
+
+.eve-import__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  font-size: 13px;
+}
+
+.eve-import__flagcount {
+  color: var(--warn);
+}
+
+.eve-import__warning {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 50%, transparent);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  font-size: 12px;
+}
+
+.eve-import__warning p {
+  margin: 0;
+}
+
+.eve-import__warning ul,
+.eve-import__issue ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.eve-import__col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+}
+
+.eve-import__col.is-flagged {
+  border-left-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 6%, transparent);
+}
+
+.eve-import__col.is-off {
+  opacity: 0.55;
+}
+
+.eve-import__colhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-import__label {
+  flex: 1;
+  min-width: 120px;
+  min-height: 30px;
+}
+
+.eve-import__type {
+  width: 130px;
+  min-height: 30px;
+}
+
+.eve-import__badge {
+  padding: 1px 8px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.eve-import__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 24px;
+}
+
+.eve-import__details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 24px;
+  font-size: 12px;
+}
+
+.eve-import__note,
+.eve-import__sample {
+  margin: 0;
+}
+
+.eve-import__link {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.eve-import__issue {
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.eve-import__issue p {
+  margin: 0;
+}
+
+.eve-import__clients {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.eve-import__clientsummary {
+  margin: 0;
+}
+
+.eve-import__clientlist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.eve-import__clientrow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(200px, 1.4fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-import__clientname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-import__results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eve-import__result {
+  margin: 0;
+}
+
+.eve-import__result.is-error {
+  color: var(--danger);
+}
+
+/* --- cliente: identidade -------------------------------------------------------------------------- */
+
+.eve-modal.eve-brand {
+  width: min(520px, 100%);
+  gap: 8px;
+}
+
+.eve-brand__preview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 96px;
+  padding: 0 18px;
+  border-radius: var(--radius-card);
+}
+
+.eve-brand__preview img {
+  height: 64px;
+  max-width: 110px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #fff;
+  padding: 4px;
+}
+
+.eve-brand__initial {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.eve-brand__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.eve-brand__colors {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-brand__swatch {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+}
+
+.eve-brand__swatch.is-selected {
+  border-color: var(--text);
+}
+
+.eve-brand__emoji {
+  display: flex;
+  gap: 8px;
+}
+
+.eve-brand__emoji .eve-input {
+  width: 120px;
+}
+
+.eve-clientpage__hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-radius: var(--radius-card);
+}
+
+.eve-clientpage__hero .eve-btn {
+  margin-left: auto;
+}
+
+.eve-clientpage__name {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+
+.eve-clientpage__meta,
+.eve-clientpage__notes {
+  margin: 0;
+}
+
+.eve-clientpage__linked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

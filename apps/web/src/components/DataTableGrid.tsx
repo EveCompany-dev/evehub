@@ -1,8 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { toIsoDate } from '../lib/table-dates';
+import { EMPTY_FILTERS, filterRows, type TableFilterState } from '../lib/table-filters';
+import { TAG_COLORS, TAG_COLOR_LABEL, guessTagColor, hashTagColor, tagColorFor } from '../lib/table-tags';
+import { dateColumns as pickDateColumns, type TableViewMode, type ViewPrefs } from '../lib/table-views';
+import { CalendarView } from './CalendarView';
 import { useContextMenu } from './ContextMenu';
-import type { DataColumn, DataColumnType, DataTableRowValue, DataTableSummary } from './data-table-types';
+import type { DataColumn, DataColumnType, DataTableRowValue, DataTableSummary, TableClient, TableEnv } from './data-table-types';
+import { GalleryView } from './GalleryView';
+import { RowDetailModal } from './RowDetailModal';
+import { COLUMN_TYPE_ICON, COLUMN_TYPE_LABEL } from './table-column-meta';
+import { TableCell } from './TableCell';
+import { TableToolbar } from './TableToolbar';
 import { useEscapeToClose } from './useEscapeToClose';
 
 export interface DataTableGridProps {
@@ -10,50 +20,69 @@ export interface DataTableGridProps {
   onTableChange: (table: DataTableSummary) => void;
 }
 
-const TYPE_LABEL: Record<DataColumnType, string> = {
-  text: 'Texto',
-  number: 'Número',
-  boolean: 'Sim/Não',
-  date: 'Data',
-  select: 'Seleção',
-  client: 'Cliente',
-};
-
-const NEW_CLIENT_VALUE = '__new_client__';
-
 type ColumnModalState = { mode: 'add' } | { mode: 'edit'; column: DataColumn } | null;
 
-interface ClientOption {
-  id: string;
-  label: string;
+interface OptionDraft {
+  name: string;
+  color: string;
+  /** Existing options keep their name: rows store it as text, so renaming would orphan every row using it. */
+  locked: boolean;
 }
 
-function renderValue(value: unknown, type: DataColumnType): string {
-  if (value === undefined || value === null || value === '') return '';
-  if (type === 'boolean') return value ? '✓' : '—';
-  return String(value);
+const VIEW_MODES: TableViewMode[] = ['table', 'gallery', 'calendar'];
+
+function prefsKey(tableId: string): string {
+  return `eve.tableview.${tableId}`;
+}
+
+function readPrefs(tableId: string): ViewPrefs {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(prefsKey(tableId)) ?? 'null') as Partial<ViewPrefs> | null;
+    if (parsed && VIEW_MODES.includes(parsed.mode as TableViewMode)) {
+      return { mode: parsed.mode as TableViewMode, ...(typeof parsed.dateKey === 'string' ? { dateKey: parsed.dateKey } : {}) };
+    }
+  } catch {
+    // Blocked or corrupt storage: fall back to the plain table.
+  }
+  return { mode: 'table' };
+}
+
+function writePrefs(tableId: string, prefs: ViewPrefs): void {
+  try {
+    window.localStorage.setItem(prefsKey(tableId), JSON.stringify(prefs));
+  } catch {
+    // Not worth surfacing — the view choice just won't be remembered.
+  }
+}
+
+function isTagType(type: DataColumnType): boolean {
+  return type === 'select' || type === 'multiselect';
 }
 
 /**
- * Real inline editing (click a cell, type, blur/Enter saves) — there's no
+ * A table with three ways to look at it — grid, gallery and calendar — one
+ * shared search/tag filter, and every row openable as its own page. Editing
+ * is real inline editing (click, type, blur/Enter saves): there's no
  * external source to conflict with local table data, so the connector
  * widgets' toggle-edit-mode/batch-save pattern doesn't apply here.
  *
- * Row/column management lives entirely in right-click menus (Office-style)
- * instead of a fixed toolbar — the one thing the user specifically flagged
- * as unfriendly about the first version of this screen.
+ * Row/column management lives in right-click menus (Office-style) rather
+ * than a fixed toolbar.
  */
 export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX.Element {
   const [rows, setRows] = useState<DataTableRowValue[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<{ rowId: string; key: string } | null>(null);
-  const [draft, setDraft] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [clients, setClients] = useState<TableClient[]>([]);
+  const [filter, setFilter] = useState<TableFilterState>(EMPTY_FILTERS);
+  const [prefs, setPrefs] = useState<ViewPrefs>(() => readPrefs(table.id));
+  const [openRowId, setOpenRowId] = useState<string | null>(null);
+
   const [columnModal, setColumnModal] = useState<ColumnModalState>(null);
   const [modalLabel, setModalLabel] = useState('');
   const [modalType, setModalType] = useState<DataColumnType>('text');
-  const [modalOptions, setModalOptions] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [clients, setClients] = useState<ClientOption[]>([]);
+  const [modalOptions, setModalOptions] = useState<OptionDraft[]>([]);
+  const [newOption, setNewOption] = useState('');
 
   const rowMenu = useContextMenu();
   const columnMenu = useContextMenu();
@@ -96,24 +125,49 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
       try {
         const response = await fetch('/api/scheduling/clients', { cache: 'no-store' });
         const body = (await response.json().catch(() => ({}))) as {
-          clients?: { source: string; id: string; label: string }[];
+          clients?: { source: string; id: string; label: string; color?: string | null; icon?: string | null; logoUrl?: string | null }[];
         };
         if (response.ok && body.clients) {
-          setClients(body.clients.filter((client) => client.source === 'local'));
+          setClients(
+            body.clients
+              .filter((client) => client.source === 'local')
+              .map((client) => ({
+                id: client.id,
+                label: client.label,
+                color: client.color ?? null,
+                icon: client.icon ?? null,
+                logoUrl: client.logoUrl ?? null,
+              })),
+          );
         }
       } catch {
-        // Non-critical: the client cell just falls back to showing raw ids.
+        // Non-critical: relation cells just show "cliente removido" until the list loads.
       }
     })();
   }, [hasClientColumn]);
 
-  const addRow = async () => {
+  const clientById = useMemo(() => Object.fromEntries(clients.map((client) => [client.id, client])), [clients]);
+  const clientLabels = useMemo(() => Object.fromEntries(clients.map((client) => [client.id, client.label])), [clients]);
+
+  const dateColumns = useMemo(() => pickDateColumns(table.columns), [table.columns]);
+  const dateColumn = dateColumns.find((column) => column.key === prefs.dateKey) ?? dateColumns[0] ?? null;
+
+  const updatePrefs = (next: ViewPrefs) => {
+    setPrefs(next);
+    writePrefs(table.id, next);
+  };
+
+  const visibleRows = useMemo(() => filterRows(rows, table.columns, filter, clientLabels), [rows, table.columns, filter, clientLabels]);
+
+  // --- row + cell operations ------------------------------------------------------
+
+  const addRow = async (data: Record<string, unknown> = {}, open = false) => {
     setError(null);
     try {
       const response = await fetch(`/api/tables/${table.id}/rows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: {} }),
+        body: JSON.stringify({ data }),
       });
       const body = (await response.json().catch(() => ({}))) as { row?: DataTableRowValue; error?: string };
       if (!response.ok || !body.row) {
@@ -121,6 +175,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
         return;
       }
       setRows((current) => [...current, body.row!]);
+      if (open) setOpenRowId(body.row.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -141,101 +196,144 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
     }
   };
 
-  const saveCell = async (rowId: string, key: string, value: unknown) => {
-    setError(null);
-    try {
-      const response = await fetch(`/api/tables/${table.id}/rows/${rowId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: { [key]: value } }),
-      });
-      const body = (await response.json().catch(() => ({}))) as { row?: DataTableRowValue; error?: string };
-      if (!response.ok || !body.row) {
-        setError(body.error ?? `HTTP ${response.status}`);
-        return;
+  const saveCell = useCallback(
+    async (rowId: string, key: string, value: unknown) => {
+      setError(null);
+      try {
+        const response = await fetch(`/api/tables/${table.id}/rows/${rowId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: { [key]: value } }),
+        });
+        const body = (await response.json().catch(() => ({}))) as { row?: DataTableRowValue; error?: string };
+        if (!response.ok || !body.row) {
+          setError(body.error ?? `HTTP ${response.status}`);
+          return;
+        }
+        setRows((current) => current.map((row) => (row.id === rowId ? body.row! : row)));
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
       }
-      setRows((current) => current.map((row) => (row.id === rowId ? body.row! : row)));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
+    },
+    [table.id],
+  );
 
-  const createClientInline = async (rowId: string, key: string) => {
-    const name = window.prompt('Nome do novo cliente:');
-    if (!name || !name.trim()) return;
+  const saveColumns = useCallback(
+    async (columns: (DataColumn | Omit<DataColumn, 'key'>)[]) => {
+      setError(null);
+      try {
+        const response = await fetch(`/api/tables/${table.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columns }),
+        });
+        const body = (await response.json().catch(() => ({}))) as { table?: DataTableSummary; error?: string };
+        if (!response.ok || !body.table) {
+          setError(body.error ?? `HTTP ${response.status}`);
+          return;
+        }
+        onTableChange(body.table);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
+    },
+    [table.id, onTableChange],
+  );
+
+  const addOption = useCallback(
+    async (columnKey: string, name: string) => {
+      const column = table.columns.find((item) => item.key === columnKey);
+      if (!column || (column.options ?? []).includes(name)) return;
+      const color = guessTagColor(name) ?? hashTagColor(name);
+      await saveColumns(
+        table.columns.map((item) =>
+          item.key === columnKey ? { ...item, options: [...(item.options ?? []), name], optionColors: { ...item.optionColors, [name]: color } } : item,
+        ),
+      );
+    },
+    [table.columns, saveColumns],
+  );
+
+  const createClient = useCallback(async (name: string): Promise<TableClient | null> => {
     setError(null);
     try {
       const response = await fetch('/api/scheduling/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name }),
       });
       const body = (await response.json().catch(() => ({}))) as {
-        client?: { id: string; name: string };
+        client?: { id: string; name: string; color?: string | null; icon?: string | null; logoUrl?: string | null };
         error?: string;
       };
       if (!response.ok || !body.client) {
         setError(body.error ?? `HTTP ${response.status}`);
-        return;
+        return null;
       }
-      const client = body.client;
-      setClients((current) => [...current, { id: client.id, label: client.name }].sort((a, b) => a.label.localeCompare(b.label)));
-      await saveCell(rowId, key, client.id);
+      const created: TableClient = {
+        id: body.client.id,
+        label: body.client.name,
+        color: body.client.color ?? null,
+        icon: body.client.icon ?? null,
+        logoUrl: body.client.logoUrl ?? null,
+      };
+      setClients((current) => [...current, created].sort((a, b) => a.label.localeCompare(b.label)));
+      return created;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
+      return null;
     }
-  };
+  }, []);
 
-  const commitEdit = async () => {
-    if (!editing) return;
-    const column = table.columns.find((item) => item.key === editing.key);
-    const value = column?.type === 'number' ? (draft === '' ? null : Number(draft)) : draft;
-    await saveCell(editing.rowId, editing.key, value);
-    setEditing(null);
-  };
+  const env: TableEnv = useMemo(
+    () => ({ table, clients, clientById, saveCell, addOption, createClient }),
+    [table, clients, clientById, saveCell, addOption, createClient],
+  );
 
-  const saveColumns = async (columns: (DataColumn | Omit<DataColumn, 'key'>)[]) => {
-    setError(null);
-    try {
-      const response = await fetch(`/api/tables/${table.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ columns }),
-      });
-      const body = (await response.json().catch(() => ({}))) as { table?: DataTableSummary; error?: string };
-      if (!response.ok || !body.table) {
-        setError(body.error ?? `HTTP ${response.status}`);
-        return;
-      }
-      onTableChange(body.table);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    }
-  };
+  // --- column management -----------------------------------------------------------
 
   const removeColumn = async (key: string) => {
     if (table.columns.length <= 1) return;
     await saveColumns(table.columns.filter((column) => column.key !== key));
   };
 
-  const openAddColumn = () => {
+  const openAddColumn = (type: DataColumnType = 'text') => {
     setModalLabel('');
-    setModalType('text');
-    setModalOptions('');
+    setModalType(type);
+    setModalOptions([]);
+    setNewOption('');
     setColumnModal({ mode: 'add' });
   };
 
   const openEditColumn = (column: DataColumn) => {
     setModalLabel(column.label);
     setModalType(column.type);
-    setModalOptions((column.options ?? []).join(', '));
+    setModalOptions((column.options ?? []).map((name) => ({ name, color: tagColorFor(name, column.optionColors?.[name]), locked: true })));
+    setNewOption('');
     setColumnModal({ mode: 'edit', column });
+  };
+
+  const addOptionDraft = () => {
+    const name = newOption.trim();
+    if (!name || modalOptions.some((option) => option.name === name)) return;
+    setModalOptions((current) => [...current, { name, color: guessTagColor(name) ?? hashTagColor(name), locked: false }]);
+    setNewOption('');
   };
 
   const submitColumnModal = async () => {
     if (!columnModal || !modalLabel.trim()) return;
-    const options = modalType === 'select' ? modalOptions.split(',').map((option) => option.trim()).filter(Boolean) : undefined;
-    const entry = { label: modalLabel.trim(), type: modalType, ...(options ? { options } : {}) };
+
+    // A half-typed option ("Ideia" in the box, Save clicked) still counts.
+    const pending = newOption.trim();
+    const drafts =
+      pending && !modalOptions.some((option) => option.name === pending)
+        ? [...modalOptions, { name: pending, color: guessTagColor(pending) ?? hashTagColor(pending), locked: false }]
+        : modalOptions;
+
+    const tags = isTagType(modalType)
+      ? { options: drafts.map((option) => option.name), optionColors: Object.fromEntries(drafts.map((option) => [option.name, option.color])) }
+      : {};
+    const entry = { label: modalLabel.trim(), type: modalType, ...tags };
 
     const nextColumns =
       columnModal.mode === 'add'
@@ -245,6 +343,8 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
     await saveColumns(nextColumns);
     setColumnModal(null);
   };
+
+  const openRow = openRowId ? (rows.find((row) => row.id === openRowId) ?? null) : null;
 
   return (
     <div className="eve-datatable">
@@ -257,8 +357,44 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
         </p>
       )}
 
+      <TableToolbar
+        columns={table.columns}
+        rows={rows}
+        clientById={clientById}
+        filter={filter}
+        onFilterChange={setFilter}
+        mode={prefs.mode}
+        onModeChange={(mode) => updatePrefs({ ...prefs, mode })}
+        shown={visibleRows.length}
+        total={rows.length}
+        dateColumns={dateColumns}
+        dateKey={dateColumn?.key ?? null}
+        onDateKeyChange={(dateKey) => updatePrefs({ ...prefs, dateKey })}
+      />
+
       {loading ? (
         <p className="eve-dim">carregando...</p>
+      ) : prefs.mode === 'gallery' ? (
+        <GalleryView env={env} rows={visibleRows} clientLabels={clientLabels} onOpen={setOpenRowId} onAdd={() => void addRow({}, true)} />
+      ) : prefs.mode === 'calendar' ? (
+        dateColumn ? (
+          <CalendarView
+            key={dateColumn.key}
+            env={env}
+            rows={visibleRows}
+            dateColumn={dateColumn}
+            clientLabels={clientLabels}
+            onOpen={setOpenRowId}
+            onAddOnDay={(date) => void addRow({ [dateColumn.key]: toIsoDate(date) }, true)}
+          />
+        ) : (
+          <div className="eve-empty">
+            <p className="eve-dim">O calendário precisa de uma coluna do tipo Data para saber onde colocar cada linha.</p>
+            <button type="button" className="eve-btn eve-btn--primary" onClick={() => openAddColumn('date')}>
+              Adicionar coluna de data
+            </button>
+          </div>
+        )
       ) : (
         <div className="eve-table-wrap">
           <table className="eve-table">
@@ -270,7 +406,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
                     onContextMenu={(event) =>
                       columnMenu.open(event, [
                         { label: 'Editar coluna', onSelect: () => openEditColumn(column) },
-                        { label: 'Adicionar coluna', onSelect: openAddColumn },
+                        { label: 'Adicionar coluna', onSelect: () => openAddColumn() },
                         {
                           label: 'Remover coluna',
                           danger: true,
@@ -279,115 +415,47 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
                       ])
                     }
                   >
+                    <span className="eve-th__icon" aria-hidden="true">
+                      {COLUMN_TYPE_ICON[column.type]}
+                    </span>{' '}
                     {column.label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
+              {visibleRows.map((row) => (
                 <tr
                   key={row.id}
                   onContextMenu={(event) =>
                     rowMenu.open(event, [
+                      { label: 'Abrir linha', onSelect: () => setOpenRowId(row.id) },
                       { label: 'Adicionar linha', onSelect: () => void addRow() },
                       { label: 'Remover linha', danger: true, onSelect: () => void deleteRow(row.id) },
                     ])
                   }
                 >
-                  {table.columns.map((column) => {
-                    const isEditing = editing?.rowId === row.id && editing.key === column.key;
-                    const value = row.data[column.key];
-
-                    if (column.type === 'boolean') {
-                      return (
-                        <td key={column.key}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(value)}
-                            onChange={(event) => void saveCell(row.id, column.key, event.target.checked)}
-                          />
-                        </td>
-                      );
-                    }
-
-                    if (column.type === 'select') {
-                      return (
-                        <td key={column.key}>
-                          <select
-                            className="eve-input"
-                            value={String(value ?? '')}
-                            onChange={(event) => void saveCell(row.id, column.key, event.target.value)}
-                          >
-                            <option value="">—</option>
-                            {(column.options ?? []).map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                      );
-                    }
-
-                    if (column.type === 'client') {
-                      return (
-                        <td key={column.key}>
-                          <select
-                            className="eve-input"
-                            value={String(value ?? '')}
-                            onChange={(event) => {
-                              const next = event.target.value;
-                              if (next === NEW_CLIENT_VALUE) {
-                                void createClientInline(row.id, column.key);
-                                return;
-                              }
-                              void saveCell(row.id, column.key, next || null);
-                            }}
-                          >
-                            <option value="">—</option>
-                            {clients.map((client) => (
-                              <option key={client.id} value={client.id}>
-                                {client.label}
-                              </option>
-                            ))}
-                            <option value={NEW_CLIENT_VALUE}>+ Novo cliente...</option>
-                          </select>
-                        </td>
-                      );
-                    }
-
-                    return (
-                      <td key={column.key}>
-                        {isEditing ? (
-                          <input
-                            className="eve-input"
-                            type={column.type === 'number' ? 'number' : column.type === 'date' ? 'date' : 'text'}
-                            autoFocus
-                            value={draft}
-                            onChange={(event) => setDraft(event.target.value)}
-                            onBlur={() => void commitEdit()}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') void commitEdit();
-                              if (event.key === 'Escape') setEditing(null);
-                            }}
-                          />
-                        ) : (
-                          <span
-                            className="eve-cell"
-                            onClick={() => {
-                              setEditing({ rowId: row.id, key: column.key });
-                              setDraft(String(value ?? ''));
-                            }}
-                          >
-                            {renderValue(value, column.type) || <span className="eve-dim">&mdash;</span>}
-                          </span>
+                  {table.columns.map((column, index) => (
+                    <td key={column.key}>
+                      <div className="eve-datatable__cellwrap">
+                        <TableCell column={column} value={row.data[column.key]} rowId={row.id} env={env} variant="grid" />
+                        {index === 0 && (
+                          <button type="button" className="eve-datatable__open" aria-label="Abrir linha" title="Abrir linha" onClick={() => setOpenRowId(row.id)}>
+                            ⤢
+                          </button>
                         )}
-                      </td>
-                    );
-                  })}
+                      </div>
+                    </td>
+                  ))}
                 </tr>
               ))}
+              {visibleRows.length === 0 && rows.length > 0 && (
+                <tr>
+                  <td colSpan={table.columns.length} className="eve-dim">
+                    Nenhuma linha bate com os filtros.
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={table.columns.length} className="eve-datatable__addrow" onClick={() => void addRow()}>
                   + linha
@@ -400,6 +468,10 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
 
       {rowMenu.render()}
       {columnMenu.render()}
+
+      {openRow && (
+        <RowDetailModal env={env} row={openRow} clientLabels={clientLabels} onClose={() => setOpenRowId(null)} onDelete={(rowId) => void deleteRow(rowId)} />
+      )}
 
       {columnModal && (
         <div className="eve-modal-backdrop" onClick={() => setColumnModal(null)}>
@@ -414,19 +486,70 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
             <label className="eve-field">
               <span className="eve-field__label">Tipo</span>
               <select className="eve-input" value={modalType} onChange={(event) => setModalType(event.target.value as DataColumnType)}>
-                {(Object.keys(TYPE_LABEL) as DataColumnType[]).map((type) => (
+                {(Object.keys(COLUMN_TYPE_LABEL) as DataColumnType[]).map((type) => (
                   <option key={type} value={type}>
-                    {TYPE_LABEL[type]}
+                    {COLUMN_TYPE_LABEL[type]}
                   </option>
                 ))}
               </select>
             </label>
 
-            {modalType === 'select' && (
-              <label className="eve-field">
-                <span className="eve-field__label">Opcoes (separadas por virgula)</span>
-                <input className="eve-input" value={modalOptions} onChange={(event) => setModalOptions(event.target.value)} />
-              </label>
+            {isTagType(modalType) && (
+              <div className="eve-field">
+                <span className="eve-field__label">Opções e cores</span>
+                <div className="eve-optioneditor">
+                  {modalOptions.map((option) => (
+                    <div key={option.name} className="eve-optioneditor__row">
+                      <select
+                        className="eve-optioneditor__color"
+                        data-color={option.color}
+                        aria-label={`Cor de ${option.name}`}
+                        value={option.color}
+                        onChange={(event) =>
+                          setModalOptions((current) => current.map((item) => (item.name === option.name ? { ...item, color: event.target.value } : item)))
+                        }
+                      >
+                        {TAG_COLORS.map((color) => (
+                          <option key={color} value={color}>
+                            {TAG_COLOR_LABEL[color]}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="eve-pill" data-color={option.color}>
+                        <span className="eve-pill__text">{option.name}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="eve-btn eve-btn--icon"
+                        aria-label={`Remover ${option.name}`}
+                        onClick={() => setModalOptions((current) => current.filter((item) => item.name !== option.name))}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <div className="eve-optioneditor__row">
+                    <input
+                      className="eve-input"
+                      placeholder="Nova opção…"
+                      value={newOption}
+                      onChange={(event) => setNewOption(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          addOptionDraft();
+                        }
+                      }}
+                    />
+                    <button type="button" className="eve-btn" onClick={addOptionDraft}>
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+                <span className="eve-dim eve-field__hint">
+                  Opções que já existem mantêm o nome (as linhas usam esse texto); você pode mudar a cor ou remover da lista.
+                </span>
+              </div>
             )}
 
             <div className="eve-profile__actions">

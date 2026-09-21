@@ -15,6 +15,7 @@ import '@eve/ui/tokens.css';
 import 'react-grid-layout/css/styles.css';
 import './globals.css';
 import '../styles/canvas.css';
+import '../styles/tables.css';
 
 // Poppins: geometrica, e a mais proxima do logotipo da Eve entre as fontes
 // livres. NAO e a fonte oficial da marca — se o manual especificar outra,

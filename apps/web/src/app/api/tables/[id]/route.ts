@@ -1,4 +1,4 @@
-import { prisma, slugifyColumnKey, type DataColumn } from '@eve/core';
+import { dataColumnSchema, prisma, slugifyColumnKey, type DataColumn } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../lib/api';
@@ -10,12 +10,7 @@ export const runtime = 'nodejs';
 // slugifyColumnKey — is server-only, so the browser bundle doesn't need to
 // import anything from @eve/core). A missing key means "this is a new
 // column"; an existing column's key is echoed back unchanged.
-const columnInputSchema = z.object({
-  key: z.string().min(1).max(60).optional(),
-  label: z.string().min(1).max(120),
-  type: z.enum(['text', 'number', 'boolean', 'date', 'select', 'client']),
-  options: z.array(z.string()).optional(),
-});
+const columnInputSchema = dataColumnSchema.partial({ key: true });
 
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -54,7 +49,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       columns = body.data.columns.map((column) => {
         const key = column.key ?? slugifyColumnKey(column.label, usedKeys);
         usedKeys.push(key);
-        return { key, label: column.label, type: column.type, ...(column.options ? { options: column.options } : {}) };
+        return {
+          key,
+          label: column.label,
+          type: column.type,
+          ...(column.options ? { options: column.options } : {}),
+          ...(column.optionColors ? { optionColors: column.optionColors } : {}),
+        };
       });
 
       if (new Set(usedKeys).size !== usedKeys.length) return fail(400, 'Duas colunas não podem ter a mesma chave.');

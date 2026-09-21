@@ -8,9 +8,14 @@ import { getSessionUser } from '../../lib/session';
 export const dynamic = 'force-dynamic';
 
 /** Open to any authenticated workspace member — no permission tag, same as Automations. */
-export default async function TablesPage(): Promise<JSX.Element> {
+export default async function TablesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ table?: string; view?: string }>;
+}): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
+  const { table, view } = await searchParams;
 
   return (
     <div className="eve-wide-page">
@@ -22,7 +27,7 @@ export default async function TablesPage(): Promise<JSX.Element> {
       </header>
 
       <div className="eve-wide-page__body">
-        <TablesWorkspace />
+        <TablesWorkspace initialTableId={table} initialView={view === 'clients' ? 'clients' : 'tables'} />
       </div>
     </div>
   );

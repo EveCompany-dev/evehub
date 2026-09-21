@@ -10,6 +10,12 @@ export const runtime = 'nodejs';
 const createSchema = z.object({
   name: z.string().trim().min(1).max(120),
   notes: z.string().trim().max(2000).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  icon: z.string().trim().max(8).optional(),
+  logoUrl: z.string().max(500).startsWith('/uploads/').optional(),
 });
 
 /**
@@ -37,6 +43,9 @@ export async function GET(): Promise<Response> {
         id: client.id,
         label: client.name,
         notes: client.notes,
+        color: client.color,
+        icon: client.icon,
+        logoUrl: client.logoUrl,
         createdAt: client.createdAt,
       })),
     });
@@ -53,7 +62,14 @@ export async function POST(request: Request): Promise<Response> {
     if (!body.success) return fail(400, strings.errors.invalidPayload);
 
     const client = await prisma.client.create({
-      data: { workspaceId: user.workspaceId, name: body.data.name, notes: body.data.notes ?? null },
+      data: {
+        workspaceId: user.workspaceId,
+        name: body.data.name,
+        notes: body.data.notes ?? null,
+        color: body.data.color ?? null,
+        icon: body.data.icon || null,
+        logoUrl: body.data.logoUrl ?? null,
+      },
     });
 
     return ok({ client }, 201);

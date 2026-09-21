@@ -350,6 +350,16 @@ model Client {
   name  String
   notes String?
 
+  /// Identidade visual do cliente — usada nas celulas de relacao das Tabelas,
+  /// na galeria de Clientes e no cabecalho da pagina do cliente. Tudo opcional:
+  /// um cliente sem marca cadastrada cai numa cor derivada do nome.
+  /// Hex "#rrggbb" (cor principal da marca).
+  color   String?
+  /// Emoji curto exibido antes do nome.
+  icon    String?
+  /// URL de upload do logotipo (mesmo armazenamento das demais imagens).
+  logoUrl String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

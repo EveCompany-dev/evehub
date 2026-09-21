@@ -40,6 +40,9 @@ export interface ClientDetail {
   id: string;
   name: string;
   notes: string | null;
+  color: string | null;
+  icon: string | null;
+  logoUrl: string | null;
   createdAt: string;
   projectCount: number;
   jobCount: number;

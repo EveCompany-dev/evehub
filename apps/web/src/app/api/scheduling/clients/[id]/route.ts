@@ -10,6 +10,13 @@ export const runtime = 'nodejs';
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   notes: z.string().trim().max(2000).nullable().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  icon: z.string().trim().max(8).nullable().optional(),
+  logoUrl: z.string().max(500).startsWith('/uploads/').nullable().optional(),
 });
 
 async function requireLocalClient(id: string, workspaceId: string) {

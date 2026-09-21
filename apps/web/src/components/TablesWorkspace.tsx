@@ -1,79 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { useCallback, useEffect, useState, type JSX } from 'react';
+import { toCsv } from '../lib/table-csv';
 import { ClientsPanel } from './ClientsPanel';
 import { useContextMenu } from './ContextMenu';
 import { DataTableGrid } from './DataTableGrid';
+import { ImportWizard } from './ImportWizard';
 import { TableWebhookModal } from './TableWebhookModal';
-import type { DataColumn, DataTableRowValue, DataTableSummary } from './data-table-types';
+import type { DataTableRowValue, DataTableSummary } from './data-table-types';
 
 const NEW_TABLE_VALUE = '__new__';
-
-/** Wraps a field in quotes (doubling any internal quotes) only when it needs it — commas, quotes, or newlines. */
-function csvField(value: unknown): string {
-  const text = value === null || value === undefined ? '' : String(value);
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function toCsv(columns: DataColumn[], rows: DataTableRowValue[], clientLabels: Record<string, string> = {}): string {
-  const header = columns.map((column) => csvField(column.label)).join(',');
-  const lines = rows.map((row) =>
-    columns
-      .map((column) => {
-        const raw = row.data[column.key];
-        // A 'client' column stores a client id — export the human name
-        // instead, otherwise every row is just a column of opaque cuids.
-        const value = column.type === 'client' && typeof raw === 'string' ? (clientLabels[raw] ?? raw) : raw;
-        return csvField(value);
-      })
-      .join(','),
-  );
-  // Leading BOM: Excel otherwise mis-detects the encoding for accented pt-BR text.
-  return ['﻿' + header, ...lines].join('\n');
-}
-
-/** Parses RFC4180-ish CSV text (quoted fields, escaped quotes, CRLF/LF) into rows of raw string cells. */
-function parseCsv(text: string): string[][] {
-  const content = text.replace(/^﻿/, '');
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < content.length; i += 1) {
-    const char = content[i];
-    if (inQuotes) {
-      if (char === '"') {
-        if (content[i + 1] === '"') {
-          field += '"';
-          i += 1;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += char;
-      }
-    } else if (char === '"') {
-      inQuotes = true;
-    } else if (char === ',') {
-      row.push(field);
-      field = '';
-    } else if (char === '\n' || char === '\r') {
-      if (char === '\r' && content[i + 1] === '\n') i += 1;
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = '';
-    } else {
-      field += char;
-    }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows.filter((cells) => cells.some((cell) => cell.trim() !== ''));
-}
 
 function downloadCsv(filename: string, content: string): void {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
@@ -85,18 +21,22 @@ function downloadCsv(filename: string, content: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function TablesWorkspace(): JSX.Element {
+export interface TablesWorkspaceProps {
+  /** Table to open first (deep link from a client page: /tables?table=<id>). */
+  initialTableId?: string;
+  initialView?: 'tables' | 'clients';
+}
+
+export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspaceProps = {}): JSX.Element {
   const [tables, setTables] = useState<DataTableSummary[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialTableId ?? null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [showWebhook, setShowWebhook] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'tables' | 'clients'>('tables');
-  const [importing, setImporting] = useState(false);
-  const [importedAt, setImportedAt] = useState(0);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  const [view, setView] = useState<'tables' | 'clients'>(initialView ?? 'tables');
+  const [showImport, setShowImport] = useState(false);
 
   const menu = useContextMenu();
 
@@ -110,7 +50,8 @@ export function TablesWorkspace(): JSX.Element {
         return;
       }
       setTables(body.tables);
-      setSelectedId((current) => current ?? body.tables![0]?.id ?? null);
+      // Keep the current/deep-linked table when it still exists, else fall back to the first.
+      setSelectedId((current) => (current && body.tables!.some((table) => table.id === current) ? current : (body.tables![0]?.id ?? null)));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -190,61 +131,6 @@ export function TablesWorkspace(): JSX.Element {
     }
   };
 
-  const importCsv = async (table: DataTableSummary, file: File) => {
-    setError(null);
-    setImporting(true);
-    try {
-      const text = await file.text();
-      const rows = parseCsv(text);
-      if (rows.length < 2) {
-        setError('Arquivo CSV vazio ou sem linhas de dados.');
-        return;
-      }
-      const [header, ...dataRows] = rows as [string[], ...string[][]];
-
-      let clientIdsByLabel: Record<string, string> = {};
-      if (table.columns.some((column) => column.type === 'client')) {
-        const clientsResponse = await fetch('/api/scheduling/clients', { cache: 'no-store' });
-        const clientsBody = (await clientsResponse.json().catch(() => ({}))) as {
-          clients?: { id: string; label: string }[];
-        };
-        clientIdsByLabel = Object.fromEntries((clientsBody.clients ?? []).map((client) => [client.label, client.id]));
-      }
-
-      // Match CSV columns to table columns by header label (export uses column.label as the header).
-      const columnByIndex = header.map((cell) =>
-        table.columns.find((column) => column.label.trim().toLowerCase() === cell.trim().toLowerCase()),
-      );
-
-      let imported = 0;
-      let failed = 0;
-      for (const cells of dataRows) {
-        const data: Record<string, unknown> = {};
-        columnByIndex.forEach((column, index) => {
-          if (!column) return;
-          const raw = cells[index] ?? '';
-          if (raw === '') return;
-          data[column.key] = column.type === 'client' ? (clientIdsByLabel[raw] ?? raw) : raw;
-        });
-        if (Object.keys(data).length === 0) continue;
-        const response = await fetch(`/api/tables/${table.id}/rows`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data }),
-        });
-        if (response.ok) imported += 1;
-        else failed += 1;
-      }
-
-      if (failed > 0) setError(`${imported} linha(s) importada(s), ${failed} falharam.`);
-      setImportedAt(Date.now());
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setImporting(false);
-    }
-  };
-
   const selected = tables.find((table) => table.id === selectedId) ?? null;
 
   return (
@@ -310,6 +196,10 @@ export function TablesWorkspace(): JSX.Element {
                   <option value={NEW_TABLE_VALUE}>+ Nova tabela...</option>
                 </select>
 
+                <button type="button" className="eve-btn" onClick={() => setShowImport(true)}>
+                  Importar CSV / Notion
+                </button>
+
                 {selected && (
                   <button
                     type="button"
@@ -318,11 +208,6 @@ export function TablesWorkspace(): JSX.Element {
                     onClick={(event) =>
                       menu.open(event, [
                         { label: 'Exportar CSV', onSelect: () => void exportCsv(selected) },
-                        {
-                          label: importing ? 'Importando...' : 'Importar CSV',
-                          disabled: importing,
-                          onSelect: () => importInputRef.current?.click(),
-                        },
                         { label: 'Automação (webhook)', onSelect: () => setShowWebhook(true) },
                         { label: 'Apagar tabela', danger: true, onSelect: () => void deleteTable(selected.id) },
                       ])
@@ -331,17 +216,6 @@ export function TablesWorkspace(): JSX.Element {
                     &#8942;
                   </button>
                 )}
-                <input
-                  ref={importInputRef}
-                  type="file"
-                  accept=".csv,text/csv"
-                  hidden
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = '';
-                    if (file && selected) void importCsv(selected, file);
-                  }}
-                />
               </>
             )}
           </div>
@@ -356,16 +230,27 @@ export function TablesWorkspace(): JSX.Element {
             !creating &&
             tables.length === 0 && (
               <div className="eve-empty">
-                <p className="eve-dim">Nenhuma tabela ainda. Use o menu acima para criar a primeira.</p>
+                <p className="eve-dim">Nenhuma tabela ainda. Crie a primeira pelo menu acima ou importe um CSV (ou o .zip do Notion).</p>
               </div>
             )
           )}
 
           {selected && (
             <DataTableGrid
-              key={`${selected.id}-${importedAt}`}
+              key={selected.id}
               table={selected}
               onTableChange={(table) => setTables((current) => current.map((item) => (item.id === table.id ? table : item)))}
+            />
+          )}
+
+          {showImport && (
+            <ImportWizard
+              onClose={() => setShowImport(false)}
+              onImported={(created) => {
+                setTables((current) => [...current, ...created]);
+                setSelectedId(created[created.length - 1]!.id);
+                setShowImport(false);
+              }}
             />
           )}
 

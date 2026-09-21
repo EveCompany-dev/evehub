@@ -2,8 +2,17 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { clientAccent, readableOn } from '../lib/table-tags';
+import { ClientBrandEditor } from './ClientBrandEditor';
 import { LocalizedDateInput } from './LocalizedDateInput';
 import type { ClientDetail, ClientUnassignedJob, ProjectWithJobCount } from './project-types';
+import { ClientAvatar, TagPill } from './TagPill';
+
+interface LinkedRowGroup {
+  table: { id: string; name: string };
+  count: number;
+  rows: { id: string; title: string; tags: { name: string; color: string | null }[] }[];
+}
 
 export interface ClientDetailWorkspaceProps {
   clientId: string;
@@ -18,13 +27,16 @@ function formatDate(value: string | null): string | null {
  * A client's "home page" — every project folder underneath it (see
  * ProjectDetailWorkspace for what a folder actually contains), plus any job
  * linked straight to the client but not yet filed into one. Client
- * name/notes stay editable only from Tabelas' ClientsPanel — this page reads
- * them but doesn't duplicate that CRUD.
+ * identity (name, color, logo, emoji, notes) is edited here or from the Clientes
+ * tab in Tabelas, through the same editor; table rows that point at this
+ * client (the back-link of a relation column) are listed below it.
  */
 export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps): JSX.Element {
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [unassignedJobs, setUnassignedJobs] = useState<ClientUnassignedJob[]>([]);
   const [projects, setProjects] = useState<ProjectWithJobCount[]>([]);
+  const [linkedRows, setLinkedRows] = useState<LinkedRowGroup[]>([]);
+  const [editingBrand, setEditingBrand] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,9 +48,10 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [clientResponse, projectsResponse] = await Promise.all([
+      const [clientResponse, projectsResponse, linkedResponse] = await Promise.all([
         fetch(`/api/clients/${clientId}`, { cache: 'no-store' }),
         fetch(`/api/clients/${clientId}/projects`, { cache: 'no-store' }),
+        fetch(`/api/clients/${clientId}/linked-rows`, { cache: 'no-store' }),
       ]);
       const clientBody = (await clientResponse.json().catch(() => ({}))) as {
         client?: ClientDetail;
@@ -55,6 +68,10 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         setError(projectsBody.error ?? `HTTP ${projectsResponse.status}`);
         return;
       }
+
+      // Linked table rows are a nice-to-have on this page: a failure here must not hide the client.
+      const linkedBody = (await linkedResponse.json().catch(() => ({}))) as { groups?: LinkedRowGroup[] };
+      setLinkedRows(linkedResponse.ok ? (linkedBody.groups ?? []) : []);
 
       setClient(clientBody.client);
       setUnassignedJobs(clientBody.unassignedJobs ?? []);
@@ -105,17 +122,50 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
   if (loading) return <p className="eve-dim">carregando...</p>;
   if (!client) return <p className="eve-alert eve-alert--error">{error ?? 'Cliente não encontrado.'}</p>;
 
+  const accent = clientAccent(client.name, client.color);
+
   return (
     <div className="eve-clientpage">
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
-      <div className="eve-card">
-        <h2 className="eve-card__title">{client.name}</h2>
-        {client.notes && <p className="eve-dim">{client.notes}</p>}
-        <p className="eve-dim">
-          {client.projectCount} projeto(s) · {client.jobCount} job(s)
-        </p>
+      <div className="eve-clientpage__hero" style={{ background: accent, color: readableOn(accent) }}>
+        <ClientAvatar client={{ label: client.name, color: client.color, icon: client.icon, logoUrl: client.logoUrl }} size={72} />
+        <div className="eve-clientpage__heroinfo">
+          <h2 className="eve-clientpage__name">{client.name}</h2>
+          <p className="eve-clientpage__meta">
+            {client.projectCount} projeto(s) · {client.jobCount} job(s)
+            {linkedRows.length > 0 && ` · ${linkedRows.reduce((sum, group) => sum + group.count, 0)} linha(s) em Tabelas`}
+          </p>
+        </div>
+        <button type="button" className="eve-btn" onClick={() => setEditingBrand(true)}>
+          ✎ Editar identidade
+        </button>
       </div>
+      {client.notes && <p className="eve-dim eve-clientpage__notes">{client.notes}</p>}
+
+      {linkedRows.map((group) => (
+        <section key={group.table.id} className="eve-clientpage__linked">
+          <div className="eve-clientpage__section-head">
+            <h3>
+              {group.table.name} <span className="eve-dim">({group.count})</span>
+            </h3>
+            <Link href={`/tables?table=${group.table.id}`} className="eve-btn">
+              Abrir tabela
+            </Link>
+          </div>
+          <ul className="eve-clientpage__joblist">
+            {group.rows.map((row) => (
+              <li key={row.id}>
+                <span>{row.title}</span>
+                {row.tags.map((tag) => (
+                  <TagPill key={tag.name} name={tag.name} color={tag.color ?? undefined} />
+                ))}
+              </li>
+            ))}
+            {group.count > group.rows.length && <li className="eve-dim">…e mais {group.count - group.rows.length}</li>}
+          </ul>
+        </section>
+      ))}
 
       <div className="eve-clientpage__section-head">
         <h3>Projetos</h3>
@@ -182,6 +232,16 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
             ))}
           </ul>
         </>
+      )}
+      {editingBrand && (
+        <ClientBrandEditor
+          client={{ id: client.id, name: client.name, notes: client.notes, color: client.color, icon: client.icon, logoUrl: client.logoUrl }}
+          onSaved={(saved) => {
+            setClient((current) => (current ? { ...current, ...saved } : current));
+            setEditingBrand(false);
+          }}
+          onClose={() => setEditingBrand(false)}
+        />
       )}
     </div>
   );
