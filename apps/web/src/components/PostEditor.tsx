@@ -9,7 +9,7 @@ import {
   targetLabel,
   type PostTarget,
 } from '@eve/connector-meta/shared';
-import { useEffect, useMemo, useState, type FormEvent, type JSX } from 'react';
+import { useMemo, useState, type FormEvent, type JSX } from 'react';
 import { CarouselDropZone } from './CarouselDropZone';
 import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
@@ -106,19 +106,15 @@ export function PostEditor({ clients, accounts, initial, defaultDate, onClose, o
   // while the state stays '' underneath — submitting sent an empty
   // connectorInstanceId straight past client-side validation into the
   // server's raw "Too small: expected string to have >=1 characters".
-  useEffect(() => {
-    if (isEditing) return;
-    if (eligibleAccounts.length > 0 && !eligibleAccounts.some((account) => account.id === connectorInstanceId)) {
-      setConnectorInstanceId(eligibleAccounts[0]!.id);
-    }
-  }, [eligibleAccounts, connectorInstanceId, isEditing]);
+  // Corrected during render, like the carousel above: React re-runs this
+  // component before painting, so the form never shows the stale selection.
+  if (!isEditing && eligibleAccounts.length > 0 && !eligibleAccounts.some((account) => account.id === connectorInstanceId)) {
+    setConnectorInstanceId(eligibleAccounts[0]!.id);
+  }
 
-  useEffect(() => {
-    if (isEditing) return;
-    if (clients.length > 0 && !clients.some((client) => client.id === clientId)) {
-      setClientId(clients[0]!.id);
-    }
-  }, [clients, clientId, isEditing]);
+  if (!isEditing && clients.length > 0 && !clients.some((client) => client.id === clientId)) {
+    setClientId(clients[0]!.id);
+  }
 
   const accountLabel = useMemo(
     () => accounts.find((account) => account.id === connectorInstanceId)?.label ?? '',

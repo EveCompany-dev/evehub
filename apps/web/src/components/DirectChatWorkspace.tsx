@@ -45,7 +45,10 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<DirectMessageSummary[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(true);
-  const [loadingMessages, setLoadingMessages] = useState(false);
+  // Which conversation the messages on screen belong to; anything else means
+  // the thread is still loading, so there is no second "loading" state to keep
+  // in sync with it.
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [draft, setDraft] = useState('');
@@ -115,8 +118,11 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
 
   useEffect(() => {
     if (!activeId) return;
-    setLoadingMessages(true);
-    void loadMessages(activeId).finally(() => setLoadingMessages(false));
+    // Fetch on conversation change — same legitimate case as the mount fetch
+    // above. Marked as loaded even when it fails: the error banner takes over
+    // from the spinner, as it did before.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadMessages(activeId).finally(() => setLoadedId(activeId));
     const interval = setInterval(() => void loadMessages(activeId), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [activeId, loadMessages]);
@@ -252,6 +258,7 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
   const conversationMemberIds = new Set(conversations.map((conversation) => conversation.otherUser.id));
   const startableMembers = members.filter((member) => !conversationMemberIds.has(member.id));
   const active = conversations.find((conversation) => conversation.id === activeId) ?? null;
+  const loadingMessages = activeId !== null && loadedId !== activeId;
 
   return (
     <div className="eve-dm-workspace">
