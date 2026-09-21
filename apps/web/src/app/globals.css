@@ -4613,6 +4613,7 @@ video.eve-month__chip-thumb {
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
   width: 100%;
   padding: 0;
   border: 0;
@@ -4622,15 +4623,19 @@ video.eve-month__chip-thumb {
 }
 
 .eve-timer__dial {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  transform: rotate(-90deg);
 }
 
 .eve-timer__track,
 .eve-timer__arc {
   fill: none;
   stroke-width: 16;
+  /* Start at 12 o'clock. Rotated per circle, not on the svg: a non-square box would swap its sides. */
+  transform: rotate(-90deg);
+  transform-origin: 60px 60px;
 }
 
 .eve-timer__track {
