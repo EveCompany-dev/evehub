@@ -12,7 +12,7 @@
  *   Actions      Plus Minus Pencil Trash2 X Check Search Maximize2 EllipsisVertical Paperclip Smile
  *   Direction    ChevronDown ChevronRight ChevronLeft ArrowUp ArrowDown
  *   Status       CircleCheck CircleX Lock Clock
- *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause
+ *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause RotateCcw
  *   Column types Type Hash SquareCheck CircleChevronDown List Contact
  */
 export {
@@ -51,6 +51,7 @@ export {
   MessageSquareQuote,
   Paperclip,
   Pause,
+  RotateCcw,
   Pencil,
   Play,
   Plug,

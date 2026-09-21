@@ -1,6 +1,6 @@
 'use client';
 
-import { Minus, Pause, Play, Plus, strings, WidgetShell } from '@eve/ui';
+import { Minus, Pause, Play, Plus, RotateCcw, strings, WidgetShell } from '@eve/ui';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { playAlertChime } from '../lib/alert-chime';
 import type { WidgetProps } from './types';
@@ -76,7 +76,7 @@ export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
 
 
   const adjust = (delta: number) => {
-    if (pomodoro || started) return;
+    if (pomodoro) return;
     const phase = timer.phase;
     const next = Math.min(MAX_MINUTES, Math.max(MIN_MINUTES, minutes[phase] + delta));
     setFreeMinutes((current) => ({ ...current, [phase]: next }));
@@ -94,7 +94,6 @@ export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
       status="ok"
       actions={[
         { label: 'Timer Pomodoro', checked: pomodoro, onSelect: togglePomodoro },
-        ...(started ? [{ label: 'Reiniciar', onSelect: reset }] : []),
         { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
       ]}
     >
@@ -129,7 +128,7 @@ export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
               type="button"
               className="eve-timer__step"
               aria-label="Diminuir um minuto"
-              disabled={started || minutes[timer.phase] <= MIN_MINUTES}
+              disabled={minutes[timer.phase] <= MIN_MINUTES}
               onClick={() => adjust(-1)}
             >
               <Minus size={16} aria-hidden="true" />
@@ -141,13 +140,19 @@ export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
               type="button"
               className="eve-timer__step"
               aria-label="Aumentar um minuto"
-              disabled={started || minutes[timer.phase] >= MAX_MINUTES}
+              disabled={minutes[timer.phase] >= MAX_MINUTES}
               onClick={() => adjust(1)}
             >
               <Plus size={16} aria-hidden="true" />
             </button>
           )}
         </div>
+
+        {/* Hidden (not removed) while untouched so the layout doesn't jump on play. */}
+        <button type="button" className="eve-timer__reset" onClick={reset} disabled={!started} aria-hidden={!started}>
+          <RotateCcw size={14} aria-hidden="true" />
+          Reiniciar
+        </button>
       </div>
     </WidgetShell>
   );

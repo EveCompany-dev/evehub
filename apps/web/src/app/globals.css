@@ -4698,3 +4698,35 @@ video.eve-month__chip-thumb {
 .eve-timer__glyph svg {
   fill: currentColor;
 }
+
+.eve-timer__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.eve-timer__reset:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.eve-timer__reset:disabled {
+  visibility: hidden;
+}
+
+/* Sem barras de rolagem em lugar nenhum: o conteúdo continua rolando
+   (roda do mouse, toque, teclado), só o indicador visual some. */
+* {
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
