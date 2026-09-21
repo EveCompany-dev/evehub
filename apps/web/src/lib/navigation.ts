@@ -36,6 +36,26 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/settings', label: strings.dashboardSettings.title, keywords: ['configuracoes', 'ajustes', 'preferencias', 'opcoes'] },
 ];
 
+/** Pages that make no sense as somewhere to open the app. */
+const NOT_LANDING = new Set(['/notifications', '/perfil', '/settings']);
+
+/**
+ * Every page a user may pick as their default, in rail order: the routes they
+ * can see, plus "Minha Agenda" (a saved filter of /agenda, worth its own entry).
+ */
+export function landingOptions(visibleTabs: readonly string[]): NavRoute[] {
+  const extra: NavRoute = { href: '/agenda?mine=1', label: 'Minha Agenda', tab: 'scheduling', keywords: ['agenda', 'meus eventos'] };
+  const routes = visibleRoutes(visibleTabs).filter((route) => !NOT_LANDING.has(route.href));
+  const at = routes.findIndex((route) => route.href === '/agenda');
+  return at < 0 ? routes : [...routes.slice(0, at + 1), extra, ...routes.slice(at + 1)];
+}
+
+/** The chosen default if the user may still open it, else null (an old choice must never strand anyone). */
+export function resolveLandingPage(defaultPage: string | null | undefined, visibleTabs: readonly string[]): string | null {
+  if (!defaultPage || defaultPage === '/') return null;
+  return landingOptions(visibleTabs).some((route) => route.href === defaultPage) ? defaultPage : null;
+}
+
 export function visibleRoutes(visibleTabs: readonly string[]): NavRoute[] {
   return NAV_ROUTES.filter((route) => !route.tab || visibleTabs.includes(route.tab));
 }

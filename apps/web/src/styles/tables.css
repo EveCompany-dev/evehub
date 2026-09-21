@@ -487,6 +487,42 @@
   background: var(--surface-2) center / cover no-repeat;
 }
 
+.eve-gallery__coverimg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.eve-gallery__skeleton {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--surface-2), color-mix(in srgb, var(--border) 60%, var(--surface-2)), var(--surface-2));
+  background-size: 200% 100%;
+  animation: eve-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes eve-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.eve-imagecell__thumb {
+  display: block;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.eve-imagecell__empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
 .eve-gallery__initial {
   font-family: var(--font-display);
   font-size: 40px;
@@ -1395,4 +1431,123 @@
 
 .eve-menu__check {
   margin-right: 4px;
+}
+
+/* Cobre o dashboard enquanto decide se redireciona para a pagina inicial escolhida. */
+.eve-landing-cover {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--bg);
+}
+
+/* Secoes recolhiveis da pagina do cliente */
+.eve-clientpage__toggle {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 2px 6px 2px 2px;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.eve-clientpage__toggle:hover {
+  background: var(--surface-2);
+}
+
+.eve-clientpage__toggle h3 {
+  margin: 0;
+}
+
+.eve-clientpage__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-clientpage__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-clientpage__body[hidden] {
+  display: none;
+}
+
+.eve-clientpage__end {
+  margin-left: auto;
+}
+
+/* Escolha de conector */
+.eve-modal.eve-connpicker {
+  width: min(520px, 100%);
+  gap: 10px;
+}
+
+.eve-connpicker__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eve-connpicker__item {
+  appearance: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-connpicker__item:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.eve-connpicker__desc {
+  display: block;
+  font-size: 12px;
+}
+
+/* Jobs: filtro por cliente no lugar da engrenagem */
+.eve-jobs__toolbar {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.eve-jobs__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.eve-jobs__filter select {
+  width: auto;
+  min-height: 32px;
+}
+
+.eve-jobs__editing {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  font-size: 12px;
 }

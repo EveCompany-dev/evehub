@@ -76,6 +76,12 @@ export const dashboardConfigSchema = z.object({
    * usa a interface o dia inteiro) desliga aqui.
    */
   cursorFollower: z.boolean().default(true),
+  /**
+   * Pagina em que o app abre para este usuario (um href de lib/navigation.ts,
+   * ex.: "/clients/calendar"). null = o dashboard. Validado contra o que o
+   * usuario pode ver na hora de redirecionar, nao aqui.
+   */
+  defaultPage: z.string().max(200).nullable().default(null),
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
@@ -101,6 +107,7 @@ export const emptyDashboardConfig: DashboardConfig = {
   uiScale: 1,
   railFullHide: false,
   cursorFollower: true,
+  defaultPage: null,
 };
 
 /**
@@ -181,6 +188,7 @@ export type GeneralSettings = Pick<
   | 'uiScale'
   | 'railFullHide'
   | 'cursorFollower'
+  | 'defaultPage'
 >;
 
 /** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DataColumn, DataTableRowValue } from '../components/data-table-types';
-import { bucketByDay, coverImage, initialMonth, rowTitle, titleColumn } from './table-views';
+import { bucketByDay, coverImage, initialMonth, previewLink, rowTitle, titleColumn } from './table-views';
 
 const COLUMNS: DataColumn[] = [
   { key: 'cliente', label: 'Cliente', type: 'client' },
@@ -57,6 +57,27 @@ describe('calendar buckets', () => {
     expect(initialMonth(rows, 'quando', TODAY)).toEqual({ year: 2026, month: 8 });
     expect(initialMonth([row('1', { quando: '10/01/2026' }), row('2', { quando: '10/07/2026' })], 'quando', TODAY)).toEqual({ year: 2026, month: 6 });
     expect(initialMonth([], 'quando', TODAY)).toEqual({ year: 2026, month: 8 });
+  });
+});
+
+describe('gallery covers: picture column and link previews', () => {
+  const columns: DataColumn[] = [
+    { key: 'titulo', label: 'Título', type: 'text' },
+    { key: 'link', label: 'Link', type: 'url' },
+    { key: 'imagem', label: 'Imagem', type: 'image' },
+  ];
+
+  it('prefers the picture stored on the row over anything guessed from a link', () => {
+    const cover = coverImage(columns, row('1', { imagem: '/uploads/table-images/a.png', link: 'https://x.io/foto.jpg' }));
+    expect(cover).toBe('/uploads/table-images/a.png');
+    expect(coverImage(columns, row('1', { imagem: '   ', link: 'https://x.io/foto.jpg' }))).toBe('https://x.io/foto.jpg');
+  });
+
+  it('offers a page link for a fetched preview only when it is not itself a picture', () => {
+    expect(previewLink(columns, row('1', { link: 'https://www.instagram.com/p/abc/' }))).toBe('https://www.instagram.com/p/abc/');
+    expect(previewLink(columns, row('1', { link: 'https://x.io/foto.jpg' }))).toBeNull();
+    expect(previewLink(columns, row('1', { link: 'não é link' }))).toBeNull();
+    expect(previewLink(columns, row('1', {}))).toBeNull();
   });
 });
 

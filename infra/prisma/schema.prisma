@@ -225,6 +225,11 @@ model ConnectorInstance {
   connectorId String
   label       String
 
+  /// Cliente a quem esta conexao pertence (a pagina do cliente lista as suas).
+  /// Nulo = conexao geral do workspace, como as que ja existiam.
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
   /// Validado contra o configSchema (Zod) do proprio connector.
   config Json @default("{}")
 
@@ -251,6 +256,7 @@ model ConnectorInstance {
   scheduledPosts ScheduledPost[]
 
   @@index([workspaceId, connectorId])
+  @@index([clientId])
 }
 
 /// Fotografia bruta da resposta da fonte. Serve para debug e para o delta do
@@ -383,6 +389,7 @@ model Client {
   updatedAt DateTime @updatedAt
 
   scheduledPosts   ScheduledPost[]
+  connectorInstances ConnectorInstance[]
   jobs             Job[]
   financialEntries FinancialEntry[]
   projects         Project[]

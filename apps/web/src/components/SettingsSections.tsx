@@ -3,11 +3,14 @@
 import type { GeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
 import { useRef, useState, type DragEvent, type JSX } from 'react';
+import { landingOptions } from '../lib/navigation';
 import { JobColumnsSection } from './JobColumnsSection';
 
 export interface SettingsSectionProps {
   settings: GeneralSettings;
   onChange: (patch: Partial<GeneralSettings>) => void;
+  /** Tabs the user can see — limits the choice of default page to pages they can actually open. */
+  visibleTabs?: readonly string[];
 }
 
 /**
@@ -199,7 +202,8 @@ export function InterfaceSection({ settings, onChange }: SettingsSectionProps): 
   );
 }
 
-export function BehaviorSection({ settings, onChange }: SettingsSectionProps): JSX.Element {
+export function BehaviorSection({ settings, onChange, visibleTabs = [] }: SettingsSectionProps): JSX.Element {
+  const pages = landingOptions(visibleTabs);
   return (
     <section className="eve-settings__section">
       <h4 className="eve-settings__section-title">{strings.dashboardSettings.behaviorTitle}</h4>
@@ -213,6 +217,25 @@ export function BehaviorSection({ settings, onChange }: SettingsSectionProps): J
         <span>{strings.dashboardSettings.liveUpdates}</span>
       </label>
       <p className="eve-setup__hint">{strings.dashboardSettings.liveUpdatesHint}</p>
+
+      <label className="eve-field" data-setting-id="defaultPage">
+        <span className="eve-field__label">{strings.dashboardSettings.defaultPage}</span>
+        <select
+          className="eve-input"
+          value={settings.defaultPage ?? '/'}
+          onChange={(event) => onChange({ defaultPage: event.target.value === '/' ? null : event.target.value })}
+        >
+          <option value="/">{strings.dashboard.title}</option>
+          {pages
+            .filter((page) => page.href !== '/')
+            .map((page) => (
+              <option key={page.href} value={page.href}>
+                {page.label}
+              </option>
+            ))}
+        </select>
+      </label>
+      <p className="eve-setup__hint">{strings.dashboardSettings.defaultPageHint}</p>
     </section>
   );
 }

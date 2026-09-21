@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { AgendaEventEditor } from './AgendaEventEditor';
 import type { AgendaEventSummary } from './agenda-types';
@@ -133,10 +132,6 @@ export function AgendaWorkspace({ currentUserId, initialMemberFilter }: AgendaWo
             ))}
           </select>
         </label>
-
-        <Link href="/scheduling?new=1" className="eve-btn eve-scheduling__new-btn" title="Agendar um post do Instagram/Facebook">
-          Agendar post (Meta) →
-        </Link>
 
         <button type="button" className="eve-btn eve-btn--primary eve-scheduling__new-btn" onClick={() => setEditor({ mode: 'new' })}>
           + Novo evento

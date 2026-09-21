@@ -3,6 +3,8 @@
 import { useState, type JSX } from 'react';
 import { pickProfile, PROFILE_FIELDS, type ClientProfile, type ProfileKey } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
+import type { AvailableConnector } from './DashboardShell';
+import { ConnectorPicker } from './ClientConnectors';
 import { EmojiPicker } from './EmojiPicker';
 import { ImageDropZone } from './ImageDropZone';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -42,6 +44,8 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
   const [logoUrl, setLogoUrl] = useState<string | null>(client?.logoUrl ?? null);
   const [profile, setProfile] = useState<ClientProfile>(() => pickProfile(client ?? {}));
   const [showEmoji, setShowEmoji] = useState(false);
+  // Right after a client is created: offer to connect its connectors before closing.
+  const [connectStep, setConnectStep] = useState<{ client: BrandClient; available: AvailableConnector[] } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +82,18 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
         setError(body.error ?? `HTTP ${response.status}`);
         return;
       }
+      if (!client) {
+        // First addition of a client: connectors are attached to a client that already
+        // exists, so this comes after the save — skipped when there is nothing to offer.
+        const offer = (await fetch('/api/instances', { cache: 'no-store' })
+          .then((result) => (result.ok ? result.json() : null))
+          .catch(() => null)) as { available?: AvailableConnector[] } | null;
+        const options = (offer?.available ?? []).filter((connector) => connector.canCreate);
+        if (options.length > 0) {
+          setConnectStep({ client: body.client, available: options });
+          return;
+        }
+      }
       onSaved(body.client);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -102,6 +118,19 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
       setError(cause instanceof Error ? cause.message : String(cause));
     }
   };
+
+  if (connectStep) {
+    return (
+      <ConnectorPicker
+        clientId={connectStep.client.id}
+        available={connectStep.available}
+        intro={`“${connectStep.client.name}” foi criado. Quer conectar um conector agora? Você também pode fazer isso depois, na página do cliente.`}
+        closeLabel="Agora não"
+        onConnected={() => onSaved(connectStep.client)}
+        onClose={() => onSaved(connectStep.client)}
+      />
+    );
+  }
 
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>

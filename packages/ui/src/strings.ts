@@ -63,6 +63,8 @@ export const strings = {
     behaviorTitle: 'Comportamento',
     liveUpdates: 'Atualizar automaticamente',
     liveUpdatesHint: 'Quando ligado, um widget recarrega sozinho assim que o dado muda. Desligado, só atualiza no "sincronizar agora".',
+    defaultPage: 'Página inicial',
+    defaultPageHint: 'Onde o Eve Hub abre quando você entra. O Dashboard continua a um clique no botão de início da barra lateral.',
     reset: 'Restaurar padrão',
   },
 

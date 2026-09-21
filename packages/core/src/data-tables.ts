@@ -3,9 +3,11 @@ import { z } from 'zod';
 /**
  * `select` is one tag (a status, say), `multiselect` is any number of them —
  * both render as colored pills and both double as row filters in the UI.
- * `client` is a relation to a workspace client (stored as its id).
+ * `image` holds a picture (an uploaded file's path or an image link) and is
+ * what gallery cards use as their cover. `client` is a relation to a workspace
+ * client (stored as its id).
  */
-export const dataColumnTypeSchema = z.enum(['text', 'number', 'boolean', 'date', 'select', 'multiselect', 'url', 'client']);
+export const dataColumnTypeSchema = z.enum(['text', 'number', 'boolean', 'date', 'select', 'multiselect', 'url', 'image', 'client']);
 
 export type DataColumnType = z.infer<typeof dataColumnTypeSchema>;
 
@@ -65,6 +67,7 @@ export function coerceColumnValue(value: unknown, type: DataColumn['type']): unk
     case 'date':
     case 'select':
     case 'url':
+    case 'image':
     case 'client':
     default:
       return String(value);

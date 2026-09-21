@@ -21,7 +21,7 @@ export default async function SchedulingPage(): Promise<JSX.Element> {
         <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
           <EveArch size={18} />
         </Link>
-        <h1 className="eve-profile__title">{strings.nav.scheduling}</h1>
+        <h1 className="eve-profile__title">Agendar Post</h1>
       </header>
 
       <div className="eve-wide-page__body">

@@ -33,6 +33,8 @@ export interface DataTableGridProps {
   addDefaults?: Record<string, unknown>;
   /** Called after a row is added, removed or edited — lets a page keep other views of the same table fresh. */
   onRowsChange?: () => void;
+  /** Search + tag filters above the table. Off in the client page's sub-tables (and always off in the calendar). */
+  showFilters?: boolean;
 }
 
 type ColumnModalState = { mode: 'add' } | { mode: 'edit'; column: DataColumn } | null;
@@ -95,6 +97,7 @@ export function DataTableGrid({
   addSignal,
   addDefaults,
   onRowsChange,
+  showFilters = true,
 }: DataTableGridProps): JSX.Element {
   const [rows, setRows] = useState<DataTableRowValue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,8 +199,8 @@ export function DataTableGrid({
   );
   // The calendar shows everything: a filter set in the table view must not silently hide entries there.
   const visibleRows = useMemo(
-    () => (mode === 'calendar' ? lockedRows : filterRows(lockedRows, table.columns, filter, clientLabels)),
-    [mode, lockedRows, table.columns, filter, clientLabels],
+    () => (mode === 'calendar' || !showFilters ? lockedRows : filterRows(lockedRows, table.columns, filter, clientLabels)),
+    [mode, showFilters, lockedRows, table.columns, filter, clientLabels],
   );
 
   // --- row + cell operations ------------------------------------------------------
@@ -417,7 +420,7 @@ export function DataTableGrid({
         onFilterChange={setFilter}
         mode={mode}
         modes={allowedModes}
-        showFilters={mode !== 'calendar'}
+        showFilters={showFilters && mode !== 'calendar'}
         onModeChange={(next) => updatePrefs({ ...prefs, mode: next })}
         shown={visibleRows.length}
         total={lockedRows.length}

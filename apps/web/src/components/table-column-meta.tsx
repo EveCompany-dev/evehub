@@ -1,4 +1,4 @@
-import { CalendarDays, CircleChevronDown, Contact, Hash, Link2, List, SquareCheck, Type } from '@eve/ui';
+import { CalendarDays, CircleChevronDown, Contact, Hash, ImageIcon, Link2, List, SquareCheck, Type } from '@eve/ui';
 import type { JSX } from 'react';
 import type { DataColumnType } from './data-table-types';
 
@@ -10,6 +10,7 @@ export const COLUMN_TYPE_LABEL: Record<DataColumnType, string> = {
   select: 'Seleção (status)',
   multiselect: 'Tags (várias)',
   url: 'Link',
+  image: 'Imagem',
   client: 'Cliente',
 };
 
@@ -21,6 +22,7 @@ const COLUMN_TYPE_ICON = {
   select: CircleChevronDown,
   multiselect: List,
   url: Link2,
+  image: ImageIcon,
   client: Contact,
 } as const;
 

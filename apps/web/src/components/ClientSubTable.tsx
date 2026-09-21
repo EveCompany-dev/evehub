@@ -2,6 +2,7 @@
 
 import { type JSX } from 'react';
 import type { TableViewMode } from '../lib/table-views';
+import { CollapsibleSection } from './CollapsibleSection';
 import { DataTableGrid } from './DataTableGrid';
 import { useSystemTable, type SystemTableKindName } from './useSystemTable';
 
@@ -33,11 +34,7 @@ export function ClientSubTable({ id, kind, title, hint, clientId, modes, default
   const { table, setTable, error } = useSystemTable(kind);
 
   return (
-    <section id={id} className="eve-clientpage__section">
-      <div className="eve-clientpage__section-head">
-        <h3>{title}</h3>
-        {hint && <span className="eve-dim eve-clientpage__hint">{hint}</span>}
-      </div>
+    <CollapsibleSection id={id} title={title} hint={hint}>
       {error ? (
         <p className="eve-alert eve-alert--error">{error}</p>
       ) : !table ? (
@@ -53,11 +50,12 @@ export function ClientSubTable({ id, kind, title, hint, clientId, modes, default
           modes={modes}
           defaultMode={defaultMode}
           persistView={false}
+          showFilters={false}
           addSignal={addSignal}
           addDefaults={addDefaults}
           onRowsChange={onRowsChange}
         />
       )}
-    </section>
+    </CollapsibleSection>
   );
 }

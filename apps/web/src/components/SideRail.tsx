@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, ChevronLeft, ChevronRight, ChevronDown, CircleDollarSign, IdCard, MessageCircle, Plug, SquareKanban, strings, Table2, Users, Zap } from '@eve/ui';
+import { CalendarDays, ChevronLeft, Wrench, ChevronRight, ChevronDown, CircleDollarSign, IdCard, MessageCircle, SquareKanban, strings, Table2, Users } from '@eve/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
@@ -23,10 +23,6 @@ function ChevronDownIcon(): JSX.Element {
   return <ChevronDown size={12} aria-hidden="true" />;
 }
 
-function AutomationsIcon(): JSX.Element {
-  return <Zap size={18} aria-hidden="true" />;
-}
-
 function FinancialIcon(): JSX.Element {
   return <CircleDollarSign size={18} aria-hidden="true" />;
 }
@@ -36,12 +32,17 @@ function ClientsIcon(): JSX.Element {
 }
 
 /** Rail entries that open a dropdown of sub-pages instead of linking straight to one. */
-const GROUPS: Record<string, { alsoActive?: string[]; items: { href: string; label: string }[] }> = {
+interface RailGroupItem {
+  href: string;
+  label: string;
+  /** Tab that gates this entry; a group with no visible entry disappears from the rail. */
+  tab?: string;
+}
+
+const GROUPS: Record<string, { alsoActive?: string[]; items: RailGroupItem[] }> = {
   '/agenda': {
-    alsoActive: ['/scheduling'],
     items: [
       { href: '/agenda?mine=1', label: 'Minha Agenda' },
-      { href: '/scheduling?new=1', label: 'Agendar Post' },
       { href: '/agenda', label: 'Time' },
     ],
   },
@@ -51,7 +52,19 @@ const GROUPS: Record<string, { alsoActive?: string[]; items: { href: string; lab
       { href: '/clients/calendar', label: 'Calendário de Conteúdo' },
     ],
   },
+  // Not a page of its own: a drawer for the working tools that used to sit loose in the rail.
+  '/tools': {
+    items: [
+      { href: '/scheduling?new=1', label: 'Agendar Post', tab: 'scheduling' },
+      { href: '/automations', label: 'Automações', tab: 'automations' },
+    ],
+  },
 };
+
+/** The path prefix a group entry lives under, for the rail highlight ("/scheduling?new=1" -> "/scheduling"). */
+function pathOf(href: string): string {
+  return href.split('?')[0]!;
+}
 
 function TeamIcon(): JSX.Element {
   return <Users size={18} aria-hidden="true" />;
@@ -59,10 +72,6 @@ function TeamIcon(): JSX.Element {
 
 function TablesIcon(): JSX.Element {
   return <Table2 size={18} aria-hidden="true" />;
-}
-
-function ConnectorsIcon(): JSX.Element {
-  return <Plug size={18} aria-hidden="true" />;
 }
 
 function ChatIcon(): JSX.Element {
@@ -144,8 +153,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     '/jobs': <JobsIcon />,
     '/clients': <ClientsIcon />,
     '/tables': <TablesIcon />,
-    '/connectors': <ConnectorsIcon />,
-    '/automations': <AutomationsIcon />,
+    '/tools': <Wrench size={18} aria-hidden="true" />,
     // Not '/scheduling' — that's the post-scheduler *tool*, reachable only
     // from inside the Agenda dropdown below, not its own top-level rail icon.
     '/agenda': <SchedulingIcon />,
@@ -156,7 +164,14 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
   // The rail shows only the tab-gated workspaces, not every indexed route:
   // dashboard/perfil/settings/notifications already have their own fixed
   // affordances (home, avatar, gear, bell).
-  const items = visibleRoutes(visibleTabs).filter((route) => route.tab && icons[route.href]);
+  const baseItems = visibleRoutes(visibleTabs).filter((route) => route.tab && icons[route.href]);
+  // "Tools" isn't a route: it sits right after Tabelas, and only when the user can open something inside it.
+  const toolsItems = GROUPS['/tools']!.items.filter((entry) => !entry.tab || visibleTabs.includes(entry.tab));
+  const tablesAt = baseItems.findIndex((route) => route.href === '/tables');
+  const items =
+    toolsItems.length > 0
+      ? [...baseItems.slice(0, tablesAt + 1), { href: '/tools', label: 'Tools' }, ...baseItems.slice(tablesAt + 1)]
+      : baseItems;
 
   if (fullyHidden) {
     return (
@@ -190,13 +205,13 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
       <NotificationBell expanded={expanded} />
 
       {items.map((item) => {
-        const active = pathname.startsWith(item.href);
-
         const group = GROUPS[item.href];
+        const active = group
+          ? group.items.some((entry) => pathname.startsWith(pathOf(entry.href)) && (entry.href !== '/clients' || pathname === '/clients' || !pathname.startsWith('/clients/calendar')))
+          : pathname.startsWith(item.href);
         if (group) {
-          // Active on the group's own pages and on any tool page reached only from inside its
-          // dropdown (e.g. /scheduling under Agenda): same feature area as far as the highlight goes.
-          const groupActive = active || (group.alsoActive ?? []).some((prefix) => pathname.startsWith(prefix));
+          const groupActive = active || (item.href === '/clients' && pathname.startsWith('/clients'));
+          const visibleEntries = group.items.filter((entry) => !entry.tab || visibleTabs.includes(entry.tab));
           const isOpen = openGroup === item.href;
           return (
             <div key={item.href} className="eve-rail__group">
@@ -209,7 +224,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
                   // Collapsed rail has no room to show sub-item labels, so a
                   // click there just goes straight to the page instead of
                   // toggling an invisible dropdown.
-                  if (!expanded) router.push(item.href);
+                  if (!expanded) router.push(visibleEntries[0]?.href ?? item.href);
                   else setOpenGroup(isOpen ? null : item.href);
                 }}
               >
@@ -226,7 +241,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
 
               {expanded && isOpen && (
                 <div className="eve-rail__submenu">
-                  {group.items.map((sub) => (
+                  {visibleEntries.map((sub) => (
                     <Link key={sub.label} href={sub.href} className="eve-rail__subitem">
                       {sub.label}
                     </Link>

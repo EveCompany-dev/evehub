@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { ChevronLeft, strings } from '@eve/ui';
 import { useState, type FormEvent, type JSX } from 'react';
 import type { AvailableConnector } from './DashboardShell';
 
@@ -8,6 +8,8 @@ export interface ConnectorSetupProps {
   connector: AvailableConnector;
   onCancel: () => void;
   onConnected: (instance: { id: string; connectorId: string; label: string }) => void;
+  /** Attach the new connection to this client (set when opened from a client page). */
+  clientId?: string;
 }
 
 /**
@@ -18,7 +20,7 @@ export interface ConnectorSetupProps {
  * de credencial de forma generica, entao isto continua sendo um switch
  * manual em vez de um formulario derivado de schema.
  */
-export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSetupProps): JSX.Element {
+export function ConnectorSetup({ connector, onCancel, onConnected, clientId }: ConnectorSetupProps): JSX.Element {
   // Notion
   const [token, setToken] = useState('');
   const [database, setDatabase] = useState('');
@@ -42,12 +44,14 @@ export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSe
       ? {
           connectorId: connector.id,
           label,
+          ...(clientId ? { clientId } : {}),
           config: { pageId, instagramBusinessAccountId: igAccountId || undefined },
           credentials: { pageAccessToken },
         }
       : {
           connectorId: connector.id,
           label,
+          ...(clientId ? { clientId } : {}),
           config: { databaseId: database, visibleProperties: [] },
           credentials: { token },
         };
@@ -90,7 +94,7 @@ export function ConnectorSetup({ connector, onCancel, onConnected }: ConnectorSe
     <form className="eve-setup" onSubmit={(event) => void submit(event)}>
       <div className="eve-setup__head">
         <button type="button" className="eve-btn eve-btn--icon" onClick={onCancel} aria-label={strings.dock.back}>
-          &larr;
+          <ChevronLeft size={14} aria-hidden="true" />
         </button>
         <strong>{connector.label}</strong>
       </div>

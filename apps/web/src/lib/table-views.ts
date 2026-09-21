@@ -78,10 +78,26 @@ const IMAGE_EXTENSION = /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i;
 
 /** An image to use as a gallery card cover: the first link cell that points at a picture. */
 export function coverImage(columns: DataColumn[], row: DataTableRowValue): string | null {
+  // A picture that was uploaded or pasted on purpose beats anything guessed from a link.
+  for (const column of columns) {
+    if (column.type !== 'image') continue;
+    const value = row.data[column.key];
+    if (typeof value === 'string' && value.trim() !== '') return value;
+  }
   for (const column of columns) {
     if (column.type !== 'url') continue;
     const value = row.data[column.key];
     if (typeof value === 'string' && (IMAGE_EXTENSION.test(value) || value.startsWith('/uploads/'))) return value;
+  }
+  return null;
+}
+
+/** The first link cell on the row that is not itself a picture — the candidate for a fetched page preview. */
+export function previewLink(columns: DataColumn[], row: DataTableRowValue): string | null {
+  for (const column of columns) {
+    if (column.type !== 'url') continue;
+    const value = row.data[column.key];
+    if (typeof value === 'string' && /^https?:\/\//i.test(value.trim()) && !IMAGE_EXTENSION.test(value)) return value.trim();
   }
   return null;
 }

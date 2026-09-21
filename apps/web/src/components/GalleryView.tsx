@@ -1,9 +1,10 @@
 'use client';
 
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { clientAccent, readableOn } from '../lib/table-tags';
-import { coverImage, rowTitle, titleColumn } from '../lib/table-views';
-import type { DataColumn, DataTableRowValue, TableEnv } from './data-table-types';
+import { coverImage, previewLink, rowTitle, titleColumn } from '../lib/table-views';
+import { useLinkPreview } from './useLinkPreview';
+import type { DataColumn, DataTableRowValue, TableClient, TableEnv } from './data-table-types';
 import { ClientAvatar, ClientPill, TagPills } from './TagPill';
 
 export interface GalleryViewProps {
@@ -19,13 +20,52 @@ const CARD_PROPS = 3;
 
 function cardProps(columns: DataColumn[], titleKey: string | undefined, row: DataTableRowValue): DataColumn[] {
   const filled = columns.filter((column) => {
-    if (column.key === titleKey) return false;
+    // A link or picture URL as caption text is noise — the cover already shows it.
+    if (column.key === titleKey || column.type === 'image' || column.type === 'url') return false;
     const value = row.data[column.key];
     return value !== null && value !== undefined && value !== '' && !(Array.isArray(value) && value.length === 0);
   });
   const rank = (column: DataColumn): number =>
     column.type === 'select' ? 0 : column.type === 'multiselect' ? 1 : column.type === 'client' ? 2 : column.type === 'date' ? 3 : 4;
   return [...filled].sort((a, b) => rank(a) - rank(b)).slice(0, CARD_PROPS);
+}
+
+interface CardCoverProps {
+  image: string | null;
+  link: string | null;
+  accent: string | null;
+  client: TableClient | undefined;
+  initial: string;
+}
+
+/**
+ * The top of a card. A picture stored on the row wins; otherwise the picture the
+ * row's link declares for itself (fetched once, server-side); otherwise the
+ * client's brand block — so a card is never blank, and never a lie.
+ */
+function CardCover({ image, link, accent, client, initial }: CardCoverProps): JSX.Element {
+  const fetched = useLinkPreview(image ? null : link);
+  const src = image ?? fetched.preview?.image ?? null;
+  const [broken, setBroken] = useState<string | null>(null);
+  const showImage = src !== null && broken !== src;
+
+  return (
+    <div
+      className="eve-gallery__cover"
+      style={!showImage && accent ? { background: accent, color: readableOn(accent) } : undefined}
+    >
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- preview pictures come from arbitrary sites
+        <img className="eve-gallery__coverimg" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setBroken(src)} />
+      ) : fetched.loading ? (
+        <span className="eve-gallery__skeleton" aria-hidden="true" />
+      ) : client && (client.logoUrl || client.icon) ? (
+        <ClientAvatar client={client} size={64} bare />
+      ) : (
+        <span className="eve-gallery__initial">{fetched.preview?.site ?? initial}</span>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -56,13 +96,13 @@ export function GalleryView({ env, rows, clientLabels, onOpen, onAdd }: GalleryV
             onClick={() => onOpen(row.id)}
             onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), onOpen(row.id))}
           >
-            <div
-              className="eve-gallery__cover"
-              style={image ? { backgroundImage: `url("${image}")` } : accent ? { background: accent, color: readableOn(accent) } : undefined}
-            >
-              {!image && client && (client.logoUrl || client.icon) && <ClientAvatar client={client} size={64} bare />}
-              {!image && !client && <span className="eve-gallery__initial">{rowTitle(columns, row, clientLabels).charAt(0).toUpperCase()}</span>}
-            </div>
+            <CardCover
+              image={image}
+              link={previewLink(columns, row)}
+              accent={accent}
+              client={client}
+              initial={rowTitle(columns, row, clientLabels).charAt(0).toUpperCase()}
+            />
             <div className="eve-gallery__body">
               <strong className="eve-gallery__title">{rowTitle(columns, row, clientLabels)}</strong>
               {props.map((column) => (

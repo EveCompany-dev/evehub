@@ -11,6 +11,8 @@ export const runtime = 'nodejs';
 const createSchema = z.object({
   connectorId: z.string().min(1),
   label: z.string().min(1).max(80),
+  /** The client this connection belongs to (created from a client's page). */
+  clientId: z.string().min(1).optional(),
   config: z.unknown().optional(),
   /**
    * Segredo em texto puro, cifrado aqui e nunca devolvido por nenhum endpoint.
@@ -21,17 +23,20 @@ const createSchema = z.object({
 });
 
 /** Instances in the caller's workspace, plus the catalogue of what can be added. */
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   return handle(async () => {
     const user = await requireUser();
+    // ?clientId= narrows to one client's connections (the client page).
+    const clientId = new URL(request.url).searchParams.get('clientId');
 
     const instances = await prisma.connectorInstance.findMany({
-      where: { workspaceId: user.workspaceId },
+      where: { workspaceId: user.workspaceId, ...(clientId ? { clientId } : {}) },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
         connectorId: true,
         label: true,
+        clientId: true,
         status: true,
         statusMessage: true,
         lastSyncedAt: true,
@@ -64,6 +69,11 @@ export async function POST(request: Request): Promise<Response> {
 
     const connector = requireConnector(body.data.connectorId);
 
+    if (body.data.clientId) {
+      const client = await prisma.client.findUnique({ where: { id: body.data.clientId }, select: { workspaceId: true } });
+      if (!client || client.workspaceId !== user.workspaceId) throw new HttpError(404, strings.errors.notFound);
+    }
+
     if (!canCreateInstance(user, connector.auth)) {
       throw new HttpError(403, strings.errors.notOwner);
     }
@@ -92,10 +102,11 @@ export async function POST(request: Request): Promise<Response> {
         workspaceId: user.workspaceId,
         connectorId: connector.id,
         label: body.data.label,
+        ...(body.data.clientId ? { clientId: body.data.clientId } : {}),
         config: config.data as object,
         ...secret,
       },
-      select: { id: true, connectorId: true, label: true, status: true, lastSyncedAt: true },
+      select: { id: true, connectorId: true, label: true, clientId: true, status: true, lastSyncedAt: true },
     });
 
     // Primeira sincronizacao na hora: e o unico feedback honesto de que o token

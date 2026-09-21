@@ -39,6 +39,7 @@ export {
   Hash,
   House,
   IdCard,
+  Image as ImageIcon,
   Lightbulb,
   Link2,
   List,
@@ -62,6 +63,7 @@ export {
   Trash2,
   Type,
   Users,
+  Wrench,
   X,
   Zap,
 } from 'lucide-react';

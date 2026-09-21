@@ -65,6 +65,9 @@ export function TableToolbar({
 
   const setColumnFilter = (key: string, next: ColumnFilter | null) => onFilterChange(withColumnFilter(filter, next, key));
 
+  // Nothing to show (a single view and no filters): render no bar at all rather than an empty gap.
+  if (modes.length <= 1 && !showFilters && !(mode === 'calendar' && dateColumns.length > 1)) return <></>;
+
   return (
     <div className="eve-toolbar">
       <div className="eve-toolbar__row">

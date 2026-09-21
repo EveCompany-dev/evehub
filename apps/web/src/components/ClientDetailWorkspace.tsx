@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, MessageSquareQuote, Pencil, Search, SquareKanban } from '@eve/ui';
+import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, MessageSquareQuote, Pencil, Plug, Search, SquareKanban } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX, type ReactNode } from 'react';
 import { pickProfile, PROFILE_FIELDS } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientActivity } from './ClientActivity';
 import { ClientBrandEditor } from './ClientBrandEditor';
+import { ClientConnectors } from './ClientConnectors';
 import { ClientSubTable } from './ClientSubTable';
+import { CollapsibleSection, openSection } from './CollapsibleSection';
 import type { ClientDetail } from './project-types';
 import { ClientAvatar, TagPill } from './TagPill';
 
@@ -32,10 +34,13 @@ const MENU: { target: string; label: string; icon: ReactNode }[] = [
   { target: 'jobs', label: 'Jobs', icon: <SquareKanban size={16} aria-hidden="true" /> },
   { target: 'arquivos', label: 'Arquivos', icon: <Files size={16} aria-hidden="true" /> },
   { target: 'mencoes', label: 'Menções', icon: <MessageSquareQuote size={16} aria-hidden="true" /> },
+  { target: 'conectores', label: 'Conectores', icon: <Plug size={16} aria-hidden="true" /> },
 ];
 
 function jumpTo(id: string): void {
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // A folded section has to open before there is anything to scroll to.
+  openSection(id);
+  window.setTimeout(() => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
 }
 
 /**
@@ -160,7 +165,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
             >
               <Link2 size={14} aria-hidden="true" /> Novo perfil social
             </button>
-            <Link href="/jobs" className="eve-shortcut">
+            <Link href={`/jobs?client=${clientId}`} className="eve-shortcut">
               <SquareKanban size={14} aria-hidden="true" /> Ver quadro de jobs
             </Link>
           </div>
@@ -179,13 +184,15 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         </nav>
       </div>
 
-      <section id="informacoes" className="eve-clientpage__section">
-        <div className="eve-clientpage__section-head">
-          <h3>Informações</h3>
+      <CollapsibleSection
+        id="informacoes"
+        title="Informações"
+        actions={
           <button type="button" className="eve-btn" onClick={() => setEditingBrand(true)}>
             Editar
           </button>
-        </div>
+        }
+      >
         {client.notes && <p className="eve-dim eve-clientpage__notes">{client.notes}</p>}
         {PROFILE_FIELDS.some((field) => client[field.key]) ? (
           <dl className="eve-clientpage__facts">
@@ -199,7 +206,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         ) : (
           <p className="eve-dim">Nenhum dado cadastral ainda (CNPJ, razão social, endereço…). Use “Editar” para preencher.</p>
         )}
-      </section>
+      </CollapsibleSection>
 
       <ClientSubTable id="perfis" kind="profiles" title="Perfis sociais" clientId={clientId} modes={['table']} defaultMode="table" addSignal={profileSignal} />
       <ClientSubTable id="referencias" kind="references" title="Referências" clientId={clientId} modes={['table', 'gallery']} defaultMode="table" addSignal={referenceSignal} />
@@ -227,11 +234,22 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         onRowsChange={onCalendarChange}
       />
 
+      <ClientActivity clientId={clientId} />
+
+      <CollapsibleSection
+        id="conectores"
+        title={
+          <>
+            <Plug size={16} aria-hidden="true" /> Conectores
+          </>
+        }
+        hint="conexões (Meta, Notion…) deste cliente"
+      >
+        <ClientConnectors clientId={clientId} />
+      </CollapsibleSection>
+
       {linkedRows.length > 0 && (
-        <section className="eve-clientpage__section">
-          <div className="eve-clientpage__section-head">
-            <h3>Em outras tabelas</h3>
-          </div>
+        <CollapsibleSection id="outras-tabelas" title="Em outras tabelas">
           {linkedRows.map((group) => (
             <div key={group.table.id} className="eve-clientpage__linked">
               <div className="eve-clientpage__section-head">
@@ -255,10 +273,8 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
               </ul>
             </div>
           ))}
-        </section>
+        </CollapsibleSection>
       )}
-
-      <ClientActivity clientId={clientId} />
 
       {editingBrand && (
         <ClientBrandEditor

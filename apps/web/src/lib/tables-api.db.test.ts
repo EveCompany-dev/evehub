@@ -62,6 +62,7 @@ const clientRoute = await import('../app/api/scheduling/clients/[id]/route');
 const linkedRoute = await import('../app/api/clients/[id]/linked-rows/route');
 const systemRoute = await import('../app/api/system-tables/[kind]/route');
 const activityRoute = await import('../app/api/clients/[id]/activity/route');
+const instancesRoute = await import('../app/api/instances/route');
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -441,6 +442,63 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
       await prisma.attachment.deleteMany({ where: { uploadedBy: author.id } });
       await prisma.job.deleteMany({ where: { workspaceId } });
       await prisma.project.deleteMany({ where: { workspaceId } });
+    }
+  });
+
+  it('adds columns introduced later to an existing system table, without undoing the team\'s own edits', async () => {
+    const other = await prisma.workspace.create({ data: { name: `vitest-backfill-${Date.now()}` } });
+    try {
+      // A "references" table as an earlier version created it: no picture column, one column renamed, one of the team's own.
+      await prisma.dataTable.create({
+        data: {
+          workspaceId: other.id,
+          kind: 'references',
+          name: 'Referências',
+          columns: [
+            { key: 'referencia', label: 'Nome da ref', type: 'text' },
+            { key: 'cliente', label: 'Cliente', type: 'client' },
+            { key: 'minha_coluna', label: 'Minha coluna', type: 'text' },
+          ],
+        },
+      });
+      const { ensureSystemTable } = await import('./system-tables');
+      const table = await ensureSystemTable(other.id, 'references');
+      const columns = table.columns as { key: string; label: string; type: string }[];
+      expect(columns.map((column) => column.key)).toEqual(['referencia', 'cliente', 'minha_coluna', 'imagem']);
+      expect(columns.find((column) => column.key === 'referencia')!.label).toBe('Nome da ref');
+      expect(columns.find((column) => column.key === 'imagem')!.type).toBe('image');
+      // Deliberately removed standard columns (status, formato, link) are not resurrected.
+      expect(columns.some((column) => column.key === 'status')).toBe(false);
+      // Idempotent.
+      expect(((await ensureSystemTable(other.id, 'references')).columns as unknown[]).length).toBe(4);
+    } finally {
+      await prisma.workspace.delete({ where: { id: other.id } });
+    }
+  });
+
+  it('ties a connector to a client, lists a client\'s connectors, and refuses a foreign client', async () => {
+    const client = await prisma.client.create({ data: { workspaceId, name: 'Cliente dos Conectores' } });
+    const created = await instancesRoute.POST(post('/api/instances', { connectorId: 'demo', label: 'Demo do cliente', clientId: client.id }));
+    expect(created.status).toBe(201);
+    const { instance } = (await created.json()) as { instance: { id: string; clientId: string } };
+    expect(instance.clientId).toBe(client.id);
+
+    const loose = await instancesRoute.POST(post('/api/instances', { connectorId: 'demo', label: 'Demo geral' }));
+    expect(loose.status).toBe(201);
+
+    const mine = (await (await instancesRoute.GET(new Request(`http://test/api/instances?clientId=${client.id}`))).json()) as { instances: { label: string; clientId: string | null }[] };
+    expect(mine.instances.map((row) => row.label)).toEqual(['Demo do cliente']);
+    const all = (await (await instancesRoute.GET(new Request('http://test/api/instances'))).json()) as { instances: unknown[]; available: { id: string }[] };
+    expect(all.instances.length).toBeGreaterThanOrEqual(2);
+    expect(all.available.some((connector) => connector.id === 'demo')).toBe(true);
+
+    const other = await prisma.workspace.create({ data: { name: `vitest-foreign-conn-${Date.now()}` } });
+    const foreign = await prisma.client.create({ data: { workspaceId: other.id, name: 'Alheio' } });
+    try {
+      const refused = await instancesRoute.POST(post('/api/instances', { connectorId: 'demo', label: 'Roubado', clientId: foreign.id }));
+      expect(refused.status).toBe(404);
+    } finally {
+      await prisma.workspace.delete({ where: { id: other.id } });
     }
   });
 

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, type JSX, type KeyboardEvent, type RefObject } from 'react';
 import { displayDate, parseLooseDate, toIsoDate } from '../lib/table-dates';
 import { ChoicePopover, type Choice } from './ChoicePopover';
+import { ImageCell } from './ImageCell';
 import type { DataColumn, TableEnv } from './data-table-types';
 import { ClientPill, TagPill, TagPills } from './TagPill';
 import { CalendarDays } from '@eve/ui';
@@ -48,6 +49,9 @@ export function TableCell({ column, value, rowId, env, variant, single = false }
       <input type="checkbox" className="eve-checkbox" checked={Boolean(value)} onChange={(event) => void save(event.target.checked)} />
     );
   }
+
+  // --- picture: thumbnail with upload / paste-a-link ------------------------------
+  if (column.type === 'image') return <ImageCell value={value} save={save} variant={variant} />;
 
   // --- tags / status / client: search popover --------------------------------------
   if (column.type === 'select' || column.type === 'multiselect' || column.type === 'client') {

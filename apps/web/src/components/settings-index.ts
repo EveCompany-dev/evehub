@@ -58,6 +58,12 @@ export const SETTINGS_OPTIONS: SettingsOption[] = [
     keywords: ['cursor', 'mouse', 'bolinha', 'rastro', 'ponteiro'],
   },
   {
+    id: 'defaultPage',
+    label: strings.dashboardSettings.defaultPage,
+    category: 'behavior',
+    keywords: ['inicio', 'abrir', 'padrao', 'pagina', 'landing', 'home', 'ao entrar', 'primeira'],
+  },
+  {
     id: 'liveUpdates',
     label: strings.dashboardSettings.liveUpdates,
     category: 'behavior',

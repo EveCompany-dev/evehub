@@ -61,6 +61,7 @@ export const SYSTEM_TABLES: Record<SystemTableKind, SystemTableDefinition> = {
       },
       { key: 'data', label: 'Data da Publicação', type: 'date' },
       { key: 'link', label: 'Link da publicação', type: 'url' },
+      { key: 'imagem', label: 'Imagem', type: 'image' },
       { key: 'texto', label: 'Roteiro / legenda', type: 'text' },
     ],
   },
@@ -98,16 +99,35 @@ export const SYSTEM_TABLES: Record<SystemTableKind, SystemTableDefinition> = {
         ]),
       },
       { key: 'link', label: 'Link da referência', type: 'url' },
+      { key: 'imagem', label: 'Imagem', type: 'image' },
     ],
   },
 };
 
 const SUMMARY = { id: true, name: true, columns: true, webhookToken: true, webhookKeyColumn: true } as const;
 
+type SummaryRow = NonNullable<Awaited<ReturnType<typeof findSummary>>>;
+const findSummary = (workspaceId: string, kind: SystemTableKind) => prisma.dataTable.findFirst({ where: { workspaceId, kind }, select: SUMMARY });
+
+/**
+ * A table created by an earlier version lacks columns added since. Appends
+ * just those (listed in BACKFILL) when missing; everything else the team
+ * renamed, removed or added on their own stays exactly as they left it.
+ */
+const BACKFILL: Record<SystemTableKind, string[]> = { content: ['imagem'], profiles: [], references: ['imagem'] };
+
+async function addMissingColumns(table: SummaryRow, kind: SystemTableKind): Promise<SummaryRow> {
+  const current = Array.isArray(table.columns) ? (table.columns as unknown as DataColumn[]) : [];
+  const have = new Set(current.map((column) => column.key));
+  const missing = SYSTEM_TABLES[kind].columns.filter((column) => BACKFILL[kind].includes(column.key) && !have.has(column.key));
+  if (missing.length === 0) return table;
+  return prisma.dataTable.update({ where: { id: table.id }, data: { columns: [...current, ...missing] as unknown as object }, select: SUMMARY });
+}
+
 /** The workspace's table of this kind, created with its standard columns the first time it is asked for. */
 export async function ensureSystemTable(workspaceId: string, kind: SystemTableKind) {
   const existing = await prisma.dataTable.findFirst({ where: { workspaceId, kind }, select: SUMMARY });
-  if (existing) return existing;
+  if (existing) return addMissingColumns(existing, kind);
 
   const definition = SYSTEM_TABLES[kind];
   try {

@@ -26,7 +26,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Settings, strings } from '@eve/ui';
+import { strings } from '@eve/ui';
 import { useSearchParams } from 'next/navigation';
 import {
   useCallback,
@@ -114,10 +114,6 @@ function computeJobDropTarget(activeJobId: string, over: Over | null, jobs: JobS
     if (overIndex !== -1) index = overIndex;
   }
   return { columnId: destColumnId, index };
-}
-
-function GearIcon(): JSX.Element {
-  return <Settings size={16} aria-hidden="true" />;
 }
 
 /**
@@ -288,9 +284,7 @@ function BoardColumn({
         style={manageMode ? { cursor: isDragging ? 'grabbing' : 'grab' } : undefined}
         {...(manageMode ? attributes : {})}
         {...(manageMode ? listeners : {})}
-        onContextMenu={(event) => {
-          if (manageMode) onContextMenu(event, column);
-        }}
+        onContextMenu={(event) => onContextMenu(event, column)}
       >
         <span className="eve-jobs__column-title">{column.name}</span>
         <button
@@ -423,22 +417,51 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
   // the URL. Adjusting state during render (per
   // https://react.dev/learn/you-might-not-need-an-effect) rather than an
   // effect, since it's derived purely from data already available here.
-  const deepLinkJobId = useSearchParams().get('job');
+  const searchParams = useSearchParams();
+  const deepLinkJobId = searchParams.get('job');
+  // '' = every client, '__none__' = jobs without one, otherwise a client id.
+  const [clientFilter, setClientFilter] = useState<string>(() => searchParams.get('client') ?? '');
   const [deepLinkApplied, setDeepLinkApplied] = useState(false);
   if (deepLinkJobId && !deepLinkApplied && jobs.some((job) => job.id === deepLinkJobId)) {
     setOpenJobId(deepLinkJobId);
     setDeepLinkApplied(true);
   }
 
+  const clientOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const job of jobs) if (job.client) byId.set(job.client.id, job.client.name);
+    // Keep the filtered-to client selectable even when it currently has no job (a stale link).
+    if (clientFilter && clientFilter !== '__none__' && !byId.has(clientFilter)) byId.set(clientFilter, 'Cliente');
+    return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  }, [jobs, clientFilter]);
+
+  const visibleJobs = useMemo(() => {
+    if (!clientFilter) return jobs;
+    return jobs.filter((job) => (clientFilter === '__none__' ? !job.clientId : job.clientId === clientFilter));
+  }, [jobs, clientFilter]);
+
   const jobsByColumn = useMemo(() => {
     const map = new Map<string, JobSummary[]>();
     for (const column of columns) map.set(column.id, []);
-    for (const job of [...jobs].sort((a, b) => a.position - b.position)) {
+    for (const job of [...visibleJobs].sort((a, b) => a.position - b.position)) {
       const list = map.get(job.columnId);
       if (list) list.push(job);
     }
     return map;
-  }, [columns, jobs]);
+  }, [columns, visibleJobs]);
+
+  /** Column management used to live behind a cog in the toolbar; now it is a right-click away. */
+  const boardMenuItems = () => [
+    { label: '', separator: true },
+    {
+      label: strings.jobs.newColumn,
+      onSelect: () => {
+        setManageMode(true);
+        setAddingColumn(true);
+      },
+    },
+    { label: manageMode ? 'Concluir reordenação' : 'Reordenar colunas', onSelect: () => setManageMode((value) => !value) },
+  ];
 
   const activeJob = activeId ? jobs.find((job) => job.id === activeId) ?? null : null;
   const activeColumn = activeId ? columns.find((column) => column.id === activeId) ?? null : null;
@@ -681,16 +704,31 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
       )}
 
       <div className="eve-jobs__toolbar">
-        <button
-          type="button"
-          className={manageMode ? 'eve-btn eve-btn--icon is-active' : 'eve-btn eve-btn--icon'}
-          aria-pressed={manageMode}
-          aria-label={strings.jobs.manageColumns}
-          title={strings.jobs.manageColumns}
-          onClick={() => setManageMode((value) => !value)}
-        >
-          <GearIcon />
-        </button>
+        <label className="eve-jobs__filter">
+          <span className="eve-dim">Cliente</span>
+          <select className="eve-input" value={clientFilter} aria-label="Filtrar jobs por cliente" onChange={(event) => setClientFilter(event.target.value)}>
+            <option value="">Todos os clientes</option>
+            {clientOptions.map(([id, name]) => (
+              <option key={id} value={id}>
+                {name}
+              </option>
+            ))}
+            {jobs.some((job) => !job.clientId) && <option value="__none__">Sem cliente</option>}
+          </select>
+        </label>
+        {clientFilter && (
+          <button type="button" className="eve-btn" onClick={() => setClientFilter('')}>
+            Limpar filtro
+          </button>
+        )}
+        {manageMode && (
+          <span className="eve-jobs__editing">
+            Arraste os títulos das colunas para reordenar · clique direito em uma coluna para renomear, colorir ou apagar
+            <button type="button" className="eve-btn eve-btn--primary" onClick={() => setManageMode(false)}>
+              Concluir
+            </button>
+          </span>
+        )}
       </div>
 
       <DndContext
@@ -703,7 +741,13 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
         onDragCancel={handleDragCancel}
       >
         <SortableContext items={columns.map((column) => column.id)} strategy={horizontalListSortingStrategy}>
-          <div className="eve-jobs__board">
+          <div
+            className="eve-jobs__board"
+            onContextMenu={(event) => {
+              // Only the empty board itself — a card or column has its own behavior.
+              if (event.target === event.currentTarget) menu.open(event, boardMenuItems().slice(1));
+            }}
+          >
             {columns.map((column) => (
               <BoardColumn
                 key={column.id}
@@ -731,6 +775,7 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
                       danger: true,
                       onSelect: () => void deleteColumn(targetColumn.id),
                     },
+                    ...boardMenuItems(),
                   ])
                 }
               />

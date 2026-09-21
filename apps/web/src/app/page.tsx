@@ -3,6 +3,8 @@ import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { listConnectors } from '../connectors';
 import { DashboardShell, type AvailableConnector } from '../components/DashboardShell';
+import { DefaultPageRedirect } from '../components/DefaultPageRedirect';
+import { resolveLandingPage } from '../lib/navigation';
 import { canCreateInstance, getVisibleTabs } from '../lib/permissions';
 import { getSessionUser } from '../lib/session';
 
@@ -36,16 +38,22 @@ export default async function DashboardPage(): Promise<JSX.Element> {
     category: connector.category,
   }));
 
+  const config = parseDashboardConfig(row?.dashboardConfig);
+  const landing = resolveLandingPage(config.defaultPage, [...getVisibleTabs(user)]);
+
   return (
-    <DashboardShell
+    <>
+      {landing && <DefaultPageRedirect target={landing} />}
+      <DashboardShell
       userName={user.name ?? user.email}
       userEmail={user.email}
       userImage={user.image}
       isOwner={user.isOwner}
-      initialConfig={parseDashboardConfig(row?.dashboardConfig)}
+      initialConfig={config}
       initialInstances={instances}
       available={available}
       visibleTabs={[...getVisibleTabs(user)]}
     />
+    </>
   );
 }

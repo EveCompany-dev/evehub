@@ -3,6 +3,7 @@
 import { FileText, Files, MessageSquareQuote, Paperclip, SquareKanban } from '@eve/ui';
 import Link from 'next/link';
 import { useEffect, useState, type JSX } from 'react';
+import { CollapsibleSection } from './CollapsibleSection';
 
 interface ActivityJob {
   id: string;
@@ -94,15 +95,19 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
 
   return (
     <>
-      <section id="jobs" className="eve-clientpage__section">
-        <div className="eve-clientpage__section-head">
-          <h3>
+      <CollapsibleSection
+        id="jobs"
+        title={
+          <>
             <SquareKanban size={16} aria-hidden="true" /> Jobs {activity && <span className="eve-dim">({activity.jobs.length})</span>}
-          </h3>
-          <Link href="/jobs" className="eve-btn">
-            Abrir quadro
+          </>
+        }
+        actions={
+          <Link href={`/jobs?client=${clientId}`} className="eve-btn">
+            Abrir no quadro de jobs
           </Link>
-        </div>
+        }
+      >
         {error && <p className="eve-alert eve-alert--error">{error}</p>}
         {loading && <p className="eve-dim">carregando...</p>}
         {activity && activity.jobs.length === 0 && <p className="eve-dim">Nenhum job vinculado a este cliente ainda. Ao criar um job, escolha o cliente para ele aparecer aqui.</p>}
@@ -126,15 +131,17 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section id="arquivos" className="eve-clientpage__section">
-        <div className="eve-clientpage__section-head">
-          <h3>
+      <CollapsibleSection
+        id="arquivos"
+        title={
+          <>
             <Files size={16} aria-hidden="true" /> Arquivos {activity && <span className="eve-dim">({activity.files.length})</span>}
-          </h3>
-          <span className="eve-dim eve-clientpage__hint">anexos dos jobs e mídia dos posts agendados</span>
-        </div>
+          </>
+        }
+        hint="anexos dos jobs e mídia dos posts agendados"
+      >
         {activity && activity.files.length === 0 && <p className="eve-dim">Nenhum arquivo ainda.</p>}
         {activity && activity.files.length > 0 && (
           <ul className="eve-clientpage__joblist">
@@ -151,15 +158,17 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
 
-      <section id="mencoes" className="eve-clientpage__section">
-        <div className="eve-clientpage__section-head">
-          <h3>
+      <CollapsibleSection
+        id="mencoes"
+        title={
+          <>
             <MessageSquareQuote size={16} aria-hidden="true" /> Menções {activity && <span className="eve-dim">({activity.mentions.length})</span>}
-          </h3>
-          <span className="eve-dim eve-clientpage__hint">onde o nome do cliente aparece no chat e em comentários de outros jobs</span>
-        </div>
+          </>
+        }
+        hint="onde o nome do cliente aparece no chat e em comentários de outros jobs"
+      >
         {activity && activity.mentions.length === 0 && <p className="eve-dim">Nenhuma menção encontrada.</p>}
         {activity && activity.mentions.length > 0 && (
           <ul className="eve-clientpage__mentions">
@@ -177,7 +186,7 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
             ))}
           </ul>
         )}
-      </section>
+      </CollapsibleSection>
     </>
   );
 }

@@ -18,9 +18,10 @@ const SAVE_DEBOUNCE_MS = 500;
  */
 export interface SettingsWorkspaceProps {
   isOwner: boolean;
+  visibleTabs: readonly string[];
 }
 
-export function SettingsWorkspace({ isOwner }: SettingsWorkspaceProps): JSX.Element {
+export function SettingsWorkspace({ isOwner, visibleTabs }: SettingsWorkspaceProps): JSX.Element {
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category');
   const requestedOption = searchParams.get('option');
@@ -123,7 +124,7 @@ export function SettingsWorkspace({ isOwner }: SettingsWorkspaceProps): JSX.Elem
           <p className="eve-dim">carregando...</p>
         ) : (
           <>
-            <ActiveSection settings={config} onChange={handleChange} />
+            <ActiveSection settings={config} onChange={handleChange} visibleTabs={visibleTabs} />
 
             <button
               type="button"
@@ -141,6 +142,7 @@ export function SettingsWorkspace({ isOwner }: SettingsWorkspaceProps): JSX.Elem
                   uiScale: 1,
                   railFullHide: false,
                   cursorFollower: true,
+                  defaultPage: null,
                 });
               }}
             >
