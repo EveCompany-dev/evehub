@@ -47,10 +47,29 @@ export function TagPills({ column, value }: { column: DataColumn; value: unknown
   );
 }
 
-/** Round brand mark: logo if there is one, else the emoji, else the color with the initial. */
-export function ClientAvatar({ client, size = 18 }: { client: Pick<TableClient, 'label' | 'color' | 'icon' | 'logoUrl'>; size?: number }): JSX.Element {
+/**
+ * Brand mark: logo if there is one, else the emoji, else the color with the
+ * initial. The logo always sits on the brand color (never a forced white box),
+ * so a transparent PNG/WebP shows as designed. `bare` is for banners: the logo
+ * is drawn uncropped and un-boxed straight on the banner instead of in a circle.
+ */
+export function ClientAvatar({
+  client,
+  size = 18,
+  bare = false,
+}: {
+  client: Pick<TableClient, 'label' | 'color' | 'icon' | 'logoUrl'>;
+  size?: number;
+  bare?: boolean;
+}): JSX.Element {
   const accent = clientAccent(client.label, client.color);
-  const style = { width: size, height: size, background: client.logoUrl ? '#fff' : accent, color: readableOn(accent), fontSize: Math.round(size * 0.55) };
+  if (bare && client.logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- user-uploaded brand logo served from /uploads
+      <img className="eve-logo" src={client.logoUrl} alt="" style={{ height: size, maxWidth: size * 2.5 }} />
+    );
+  }
+  const style = { width: size, height: size, background: accent, color: readableOn(accent), fontSize: Math.round(size * 0.55) };
   return (
     <span className="eve-avatar" style={style} aria-hidden="true">
       {client.logoUrl ? (

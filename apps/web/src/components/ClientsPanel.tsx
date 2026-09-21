@@ -120,7 +120,7 @@ export function ClientsPanel(): JSX.Element {
               <div key={client.id} className="eve-gallery__card eve-gallery__card--client">
                 <Link href={`/clients/${client.id}`} className="eve-gallery__cardlink" aria-label={`Abrir ${client.name}`}>
                   <div className="eve-gallery__cover" style={{ background: accent, color: readableOn(accent) }}>
-                    {client.logoUrl || client.icon ? <ClientAvatar client={{ label: client.name, ...client }} size={64} /> : <span className="eve-gallery__initial">{client.name.charAt(0).toUpperCase()}</span>}
+                    {client.logoUrl || client.icon ? <ClientAvatar client={{ label: client.name, ...client }} size={72} bare /> : <span className="eve-gallery__initial">{client.name.charAt(0).toUpperCase()}</span>}
                   </div>
                   <div className="eve-gallery__body">
                     <strong className="eve-gallery__title">

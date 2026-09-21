@@ -60,7 +60,7 @@ export function GalleryView({ env, rows, clientLabels, onOpen, onAdd }: GalleryV
               className="eve-gallery__cover"
               style={image ? { backgroundImage: `url("${image}")` } : accent ? { background: accent, color: readableOn(accent) } : undefined}
             >
-              {!image && client && (client.logoUrl || client.icon) && <ClientAvatar client={client} size={56} />}
+              {!image && client && (client.logoUrl || client.icon) && <ClientAvatar client={client} size={64} bare />}
               {!image && !client && <span className="eve-gallery__initial">{rowTitle(columns, row, clientLabels).charAt(0).toUpperCase()}</span>}
             </div>
             <div className="eve-gallery__body">

@@ -23,7 +23,8 @@ export interface ClientBrandEditorProps {
   onClose: () => void;
 }
 
-const PRESET_COLORS = ['#fa5300', '#e0553a', '#e8a33d', '#4f9d7f', '#2f7fd1', '#6a4fd1', '#c94f9b', '#1e1e1e'];
+// White is here for logos designed for a light background (a transparent PNG in dark colors).
+const PRESET_COLORS = ['#fa5300', '#e0553a', '#e8a33d', '#4f9d7f', '#2f7fd1', '#6a4fd1', '#c94f9b', '#1e1e1e', '#ffffff'];
 
 /**
  * A client's identity card: name, brand color, logo, emoji and notes. These

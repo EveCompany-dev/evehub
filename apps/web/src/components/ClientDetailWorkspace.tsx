@@ -129,7 +129,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
       <div className="eve-clientpage__hero" style={{ background: accent, color: readableOn(accent) }}>
-        <ClientAvatar client={{ label: client.name, color: client.color, icon: client.icon, logoUrl: client.logoUrl }} size={72} />
+        <ClientAvatar client={{ label: client.name, color: client.color, icon: client.icon, logoUrl: client.logoUrl }} size={72} bare />
         <div className="eve-clientpage__heroinfo">
           <h2 className="eve-clientpage__name">{client.name}</h2>
           <p className="eve-clientpage__meta">

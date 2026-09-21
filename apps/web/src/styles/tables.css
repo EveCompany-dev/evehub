@@ -992,13 +992,29 @@
   border-radius: var(--radius-card);
 }
 
+/* Logos are drawn as-is on the brand color: transparent PNG/WebP must not get a white box. */
+.eve-logo {
+  display: block;
+  width: auto;
+  object-fit: contain;
+  flex: none;
+}
+
 .eve-brand__preview img {
   height: 64px;
-  max-width: 110px;
+  max-width: 160px;
   object-fit: contain;
-  border-radius: 8px;
-  background: #fff;
-  padding: 4px;
+}
+
+/* Checkerboard behind the uploaded logo so its transparent areas are visible. */
+.eve-brand .eve-upload-drop__preview {
+  object-fit: contain;
+  background:
+    repeating-conic-gradient(color-mix(in srgb, var(--text) 12%, transparent) 0% 25%, transparent 0% 50%) 50% / 16px 16px;
+}
+
+.eve-avatar img {
+  padding: 2px;
 }
 
 .eve-brand__initial {
