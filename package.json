@@ -2,7 +2,7 @@
   "name": "eve-hub",
   "version": "0.0.3",
   "private": true,
-  "description": "Eve Hub \u2014 central de visualizacao e acao da EveCompany",
+  "description": "Eve Hub — central de visualizacao e acao da EveCompany",
   "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=22"
@@ -27,14 +27,14 @@
   "devDependencies": {
     "@eve/core": "workspace:*",
     "@prisma/client": "^7.10.0",
-    "@types/node": "^22.20.2",
+    "@types/node": "^22.20.4",
     "dotenv": "^17.4.2",
-    "eslint": "^9.39.1",
-    "eslint-config-next": "^16.3.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.5",
     "prisma": "^7.10.0",
-    "tsx": "^4.23.13",
-    "turbo": "^2.10.12",
+    "tsx": "^4.23.15",
+    "turbo": "^2.11.2",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.1"
   }
 }
