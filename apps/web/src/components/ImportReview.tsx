@@ -15,6 +15,7 @@ import {
   type PlanColumn,
 } from '../lib/table-import/plan';
 import { TagPill } from './TagPill';
+import { Check, ChevronDown, ChevronRight } from '@eve/ui';
 
 const TYPE_ORDER: ColumnType[] = ['text', 'select', 'multiselect', 'client', 'date', 'number', 'boolean', 'url'];
 
@@ -141,7 +142,7 @@ function ColumnRow({ plan, column, clients, onPlanChange }: ColumnRowProps): JSX
           </span>
         )}
         <button type="button" className="eve-btn eve-btn--icon" aria-label={open ? 'Recolher' : 'Ver detalhes'} onClick={() => setOpen((value) => !value)}>
-          {showDetails ? '▾' : '▸'}
+          {showDetails ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         </button>
       </div>
 
@@ -224,7 +225,9 @@ function ClientNames({ plan, column, clients, onPlanChange }: ColumnRowProps): J
   return (
     <div className="eve-import__clients">
       <p className="eve-import__clientsummary">
-        {matched > 0 && <span>✓ {matched} já existe(m) em Clientes. </span>}
+        {matched > 0 && <span>
+            <Check size={14} aria-hidden="true" /> {matched} já existe(m) em Clientes.{' '}
+          </span>}
         {unresolved.length > 0 && <span>{unresolved.length} não bate(m) com nenhum cliente:</span>}
       </p>
       {hasSuggestions && (

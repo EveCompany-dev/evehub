@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { mediaKindFromUrl } from '@eve/connector-meta/shared';
 import { useRef, useState, type DragEvent, type JSX } from 'react';
+import { X } from '@eve/ui';
 
 export interface CarouselDropZoneProps {
   /** Ordered media URLs — index 0 is the first slide. */
@@ -66,7 +67,7 @@ function Slide({ url, index, showIndex, onRemove }: SlideProps): JSX.Element {
         onPointerDown={(event) => event.stopPropagation()}
         onClick={onRemove}
       >
-        ×
+        <X size={14} aria-hidden="true" />
       </button>
     </div>
   );

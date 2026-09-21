@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { JSX, MouseEvent } from 'react';
 import { clientAccent, readableOn, tagColorFor } from '../lib/table-tags';
 import type { DataColumn, TableClient } from './data-table-types';
+import { X } from '@eve/ui';
 
 export interface TagPillProps {
   name: string;
@@ -27,7 +28,7 @@ export function TagPill({ name, color, onRemove }: TagPillProps): JSX.Element {
             onRemove();
           }}
         >
-          ×
+          <X size={11} aria-hidden="true" />
         </button>
       )}
     </span>

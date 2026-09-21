@@ -3,9 +3,10 @@
 import type { JSX } from 'react';
 import { rowTitle, titleColumn } from '../lib/table-views';
 import type { DataTableRowValue, TableEnv } from './data-table-types';
-import { COLUMN_TYPE_ICON } from './table-column-meta';
+import { ColumnTypeIcon } from './table-column-meta';
 import { TableCell } from './TableCell';
 import { useEscapeToClose } from './useEscapeToClose';
+import { X } from '@eve/ui';
 
 export interface RowDetailModalProps {
   env: TableEnv;
@@ -46,7 +47,7 @@ export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: Ro
               Remover linha
             </button>
             <button type="button" className="eve-btn eve-btn--icon" aria-label="Fechar" onClick={onClose}>
-              ✕
+              <X size={14} aria-hidden="true" />
             </button>
           </span>
         </div>
@@ -63,7 +64,7 @@ export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: Ro
           {shortProps.map((column) => (
             <div key={column.key} className="eve-rowpage__prop">
               <span className="eve-rowpage__label" title={column.label}>
-                <span aria-hidden="true">{COLUMN_TYPE_ICON[column.type]}</span> {column.label}
+                <ColumnTypeIcon type={column.type} /> {column.label}
               </span>
               <span className="eve-rowpage__value">
                 <TableCell column={column} value={row.data[column.key]} rowId={row.id} env={env} variant="form" />

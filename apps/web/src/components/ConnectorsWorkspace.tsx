@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { Plug, strings } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import type { AvailableConnector } from './DashboardShell';
 import { ConnectorSetup } from './ConnectorSetup';
@@ -261,11 +261,5 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
 }
 
 function SocketIcon(): JSX.Element {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="4" y="8" width="16" height="12" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M9 8V5M15 8V5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="12" cy="14" r="2" stroke="currentColor" strokeWidth="1.6" />
-    </svg>
-  );
+  return <Plug size={20} aria-hidden="true" />;
 }

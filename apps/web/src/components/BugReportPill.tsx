@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type ChangeEvent, type JSX } from 'react';
+import { Bug, X } from '@eve/ui';
 
 interface PendingAttachment {
   id: string;
@@ -10,17 +11,7 @@ interface PendingAttachment {
 }
 
 function BugIcon(): JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M9 8V6a3 3 0 0 1 6 0v2M6 10h12M6 10c0 5-1 8 6 8s6-3 6-8M6 10 3 8m3 2-3 5m15-7 3-2m-3 2 3 5M9 14h6"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Bug size={16} aria-hidden="true" />;
 }
 
 /**
@@ -157,7 +148,7 @@ export function BugReportPill(): JSX.Element {
                       <li key={attachment.id} className="eve-chat-workspace__pending-item">
                         <span>{attachment.filename}</span>
                         <button type="button" className="eve-btn eve-btn--icon" onClick={() => removePending(attachment.id)}>
-                          ×
+                          <X size={14} aria-hidden="true" />
                         </button>
                       </li>
                     ))}

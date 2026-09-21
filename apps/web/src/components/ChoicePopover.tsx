@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type JSX, type ReactNode } from 'react';
 import { Popover } from './Popover';
+import { Check } from '@eve/ui';
 
 export interface Choice {
   id: string;
@@ -105,7 +106,7 @@ export function ChoicePopover({
               onClick={() => pick(choice.id)}
             >
               <span className="eve-popover__tick" aria-hidden="true">
-                {on ? '✓' : ''}
+                {on ? <Check size={14} aria-hidden="true" /> : null}
               </span>
               {choice.node}
             </button>

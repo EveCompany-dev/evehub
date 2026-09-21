@@ -7,6 +7,7 @@ import { formatDateTimePtBr, memberInitials, memberLabel, type JobMember } from 
 import { renderRichText } from './RichText';
 import { useFormattingToolbar } from './useFormattingToolbar';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
+import { Paperclip, Smile, X } from '@eve/ui';
 
 export interface DirectChatWorkspaceProps {
   currentUserId: string;
@@ -16,28 +17,11 @@ const POLL_INTERVAL_MS = 6000;
 const NEAR_BOTTOM_PX = 80;
 
 function PaperclipIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M8 12.5 15 5.5a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 1 1-7-7l7.5-7.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Paperclip size={14} aria-hidden="true" />;
 }
 
 function EmojiIcon(): JSX.Element {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.7" />
-      <circle cx="9" cy="10" r="1" fill="currentColor" />
-      <circle cx="15" cy="10" r="1" fill="currentColor" />
-      <path d="M8.5 14.5c1 1.3 2.2 2 3.5 2s2.5-.7 3.5-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <Smile size={16} aria-hidden="true" />;
 }
 
 function formatBytes(size: number): string {
@@ -377,7 +361,7 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
                         title="Apagar mensagem"
                         onClick={() => void deleteMessage(message.id)}
                       >
-                        ×
+                        <X size={14} aria-hidden="true" />
                       </button>
                     )}
                   </div>
@@ -392,7 +376,7 @@ export function DirectChatWorkspace({ currentUserId }: DirectChatWorkspaceProps)
                     <PaperclipIcon />
                     <span>{attachment.filename}</span>
                     <button type="button" className="eve-btn eve-btn--icon" onClick={() => removePendingAttachment(attachment.id)}>
-                      ×
+                      <X size={14} aria-hidden="true" />
                     </button>
                   </li>
                 ))}

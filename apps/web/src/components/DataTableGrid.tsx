@@ -10,10 +10,11 @@ import { useContextMenu } from './ContextMenu';
 import type { DataColumn, DataColumnType, DataTableRowValue, DataTableSummary, TableClient, TableEnv } from './data-table-types';
 import { GalleryView } from './GalleryView';
 import { RowDetailModal } from './RowDetailModal';
-import { COLUMN_TYPE_ICON, COLUMN_TYPE_LABEL } from './table-column-meta';
+import { COLUMN_TYPE_LABEL, ColumnTypeIcon } from './table-column-meta';
 import { TableCell } from './TableCell';
 import { TableToolbar } from './TableToolbar';
 import { useEscapeToClose } from './useEscapeToClose';
+import { Maximize2, X } from '@eve/ui';
 
 export interface DataTableGridProps {
   table: DataTableSummary;
@@ -470,7 +471,7 @@ export function DataTableGrid({
                     }
                   >
                     <span className="eve-th__icon" aria-hidden="true">
-                      {COLUMN_TYPE_ICON[column.type]}
+                      <ColumnTypeIcon type={column.type} />
                     </span>{' '}
                     {column.label}
                   </th>
@@ -495,7 +496,7 @@ export function DataTableGrid({
                         <TableCell column={column} value={row.data[column.key]} rowId={row.id} env={env} variant="grid" />
                         {index === 0 && (
                           <button type="button" className="eve-datatable__open" aria-label="Abrir linha" title="Abrir linha" onClick={() => setOpenRowId(row.id)}>
-                            ⤢
+                            <Maximize2 size={13} aria-hidden="true" />
                           </button>
                         )}
                       </div>
@@ -578,7 +579,7 @@ export function DataTableGrid({
                         aria-label={`Remover ${option.name}`}
                         onClick={() => setModalOptions((current) => current.filter((item) => item.name !== option.name))}
                       >
-                        ×
+                        <X size={14} aria-hidden="true" />
                       </button>
                     </div>
                   ))}

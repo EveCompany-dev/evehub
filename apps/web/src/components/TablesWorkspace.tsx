@@ -7,6 +7,7 @@ import { DataTableGrid } from './DataTableGrid';
 import { ImportWizard } from './ImportWizard';
 import { TableWebhookModal } from './TableWebhookModal';
 import type { DataTableRowValue, DataTableSummary } from './data-table-types';
+import { EllipsisVertical } from '@eve/ui';
 
 const NEW_TABLE_VALUE = '__new__';
 
@@ -190,7 +191,7 @@ export function TablesWorkspace({ initialTableId }: TablesWorkspaceProps = {}): 
                     ])
                   }
                 >
-                  &#8942;
+                  <EllipsisVertical size={14} aria-hidden="true" />
                 </button>
               </>
             )}

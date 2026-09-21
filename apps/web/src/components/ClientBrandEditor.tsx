@@ -6,6 +6,7 @@ import { clientAccent, readableOn } from '../lib/table-tags';
 import { EmojiPicker } from './EmojiPicker';
 import { ImageDropZone } from './ImageDropZone';
 import { useEscapeToClose } from './useEscapeToClose';
+import { Smile } from '@eve/ui';
 
 export interface BrandClient extends ClientProfile {
   id: string;
@@ -163,7 +164,7 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
           <span className="eve-brand__emoji">
             <input className="eve-input" maxLength={8} value={icon} onChange={(event) => setIcon(event.target.value)} placeholder="ex.: 🧵" />
             <button type="button" className="eve-btn" onClick={() => setShowEmoji((value) => !value)}>
-              😀
+              <Smile size={14} aria-hidden="true" />
             </button>
           </span>
           {showEmoji && (

@@ -396,3 +396,9 @@ textarea {
 .eve-menu__item--danger {
   color: var(--danger);
 }
+
+/* Icones (lucide-react): um so peso de traco no app inteiro. */
+svg.lucide {
+  stroke-width: 1.75;
+  flex: none;
+}

@@ -5,6 +5,7 @@ import { formatRelativeTime } from './relative-time';
 import { StatusPill, type ConnectorStatusValue } from './StatusPill';
 import { strings } from './strings';
 import { useNow } from './useNow';
+import { EllipsisVertical, Pencil, X } from './icons';
 
 export interface WidgetAction {
   label: string;
@@ -93,7 +94,7 @@ export function WidgetShell({
             aria-label={editing ? strings.edit.cancel : strings.edit.edit}
             onClick={onToggleEdit}
           >
-            {editing ? '✕' : '✎'}
+            {editing ? <X size={14} aria-hidden="true" /> : <Pencil size={14} aria-hidden="true" />}
           </button>
         )}
 
@@ -108,7 +109,7 @@ export function WidgetShell({
               aria-label="Acoes do widget"
               onClick={() => setMenuOpen((open) => !open)}
             >
-              &#8942;
+              <EllipsisVertical size={14} aria-hidden="true" />
             </button>
 
             {menuOpen && (

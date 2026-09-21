@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { strings, X } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import {
   durationMinutes,
@@ -173,7 +173,7 @@ export function JobTimesheetTab({ jobId }: JobTimesheetTabProps): JSX.Element {
                 title={strings.jobs.deleteEntry}
                 onClick={() => void removeEntry(entry.id)}
               >
-                ×
+                <X size={14} aria-hidden="true" />
               </button>
             </li>
           ))}

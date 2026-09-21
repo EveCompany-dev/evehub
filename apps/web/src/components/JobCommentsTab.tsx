@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { strings, X } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { linkify } from './Linkify';
 import { formatDateTimePtBr, memberInitials, memberLabel, type JobCommentSummary } from './job-types';
@@ -113,7 +113,7 @@ export function JobCommentsTab({ jobId, currentUserId }: JobCommentsTabProps): J
                 title={strings.jobs.deleteComment}
                 onClick={() => void remove(comment.id)}
               >
-                ×
+                <X size={14} aria-hidden="true" />
               </button>
             )}
           </div>

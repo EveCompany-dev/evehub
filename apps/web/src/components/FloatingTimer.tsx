@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { strings, X } from '@eve/ui';
 import { useEffect, useRef, useState, type JSX, type PointerEvent as ReactPointerEvent } from 'react';
 import { durationMinutes, type TimeEntrySummary } from './job-types';
 import { CollapseIcon, PauseIcon, PlayIcon } from './TimerIcons';
@@ -140,7 +140,7 @@ export function FloatingTimer({ entry, onStop, onRestart, onDismiss }: FloatingT
             <span className="eve-timer-popup__elapsed">{formatElapsed(entry.startedAt, entry.endedAt)}</span>
           </div>
           <button type="button" className="eve-btn eve-btn--icon" title={strings.jobs.timerHide} onClick={onDismiss}>
-            ×
+            <X size={14} aria-hidden="true" />
           </button>
         </>
       )}

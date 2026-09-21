@@ -6,6 +6,7 @@ import { pickProfile } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientAvatar } from './TagPill';
 import { ClientBrandEditor, type BrandClient } from './ClientBrandEditor';
+import { Pencil } from '@eve/ui';
 
 interface ClientApiEntry {
   source: 'local' | 'notion';
@@ -133,7 +134,7 @@ export function ClientsPanel(): JSX.Element {
                   </div>
                 </Link>
                 <button type="button" className="eve-btn eve-btn--icon eve-gallery__edit" aria-label={`Editar ${client.name}`} onClick={() => setEditing(client)}>
-                  ✎
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
               </div>
             );

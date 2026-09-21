@@ -1,7 +1,7 @@
 'use client';
 
 import type { CanvasNode } from '@eve/core/canvas';
-import { strings } from '@eve/ui';
+import { Lock, strings } from '@eve/ui';
 import { memo, useEffect, useRef, type CSSProperties, type JSX, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
 
 export interface CanvasNodeViewProps {
@@ -125,7 +125,7 @@ function CanvasNodeViewImpl({
       {screenName && <span className="eve-canvas__screen-badge">{screenName}</span>}
       {node.locked && (
         <span className="eve-canvas__lock-badge" title={strings.canvas.locked} aria-label={strings.canvas.locked}>
-          🔒
+          <Lock size={14} aria-hidden="true" />
         </span>
       )}
 

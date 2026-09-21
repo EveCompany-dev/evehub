@@ -5,3 +5,4 @@ export { useNow } from './useNow';
 export { UndoBanner, type UndoBannerProps } from './UndoBanner';
 export { StatusPill, type ConnectorStatusValue, type StatusPillProps } from './StatusPill';
 export { WidgetShell, type WidgetAction, type WidgetShellProps } from './WidgetShell';
+export * from './icons';

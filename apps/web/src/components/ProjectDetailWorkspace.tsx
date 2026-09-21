@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { strings, Trash2, X } from '@eve/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
@@ -263,7 +263,7 @@ export function ProjectDetailWorkspace({ projectId }: ProjectDetailWorkspaceProp
           </Link>
         )}
         <button type="button" className="eve-btn eve-btn--icon" title="Apagar projeto" aria-label="Apagar projeto" onClick={() => void deleteProject()}>
-          🗑
+          <Trash2 size={14} aria-hidden="true" />
         </button>
       </div>
 
@@ -392,7 +392,7 @@ export function ProjectDetailWorkspace({ projectId }: ProjectDetailWorkspaceProp
                   {formatDate(job.dueDate) && <span className="eve-dim">{formatDate(job.dueDate)}</span>}
                   {job.important && <span title="Importante">!</span>}
                   <button type="button" className="eve-btn eve-btn--icon" title="Remover do projeto" onClick={() => void unlinkJob(job.id)}>
-                    ×
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </li>
               ))}

@@ -5,6 +5,7 @@ import { displayDate, parseLooseDate, toIsoDate } from '../lib/table-dates';
 import { ChoicePopover, type Choice } from './ChoicePopover';
 import type { DataColumn, TableEnv } from './data-table-types';
 import { ClientPill, TagPill, TagPills } from './TagPill';
+import { CalendarDays } from '@eve/ui';
 
 export interface TableCellProps {
   column: DataColumn;
@@ -130,7 +131,7 @@ export function TableCell({ column, value, rowId, env, variant, single = false }
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => dateRef.current?.showPicker?.()}
             >
-              📅
+              <CalendarDays size={14} aria-hidden="true" />
             </button>
             <input
               ref={dateRef}

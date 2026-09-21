@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { Pencil, strings, Trash2 } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 
 interface FinancialEntryRow {
@@ -325,7 +325,7 @@ export function FinancialWorkspace(): JSX.Element {
                       </td>
                       <td>
                         <button type="button" className="eve-btn eve-btn--icon" aria-label="Editar" onClick={() => startEdit(entry)}>
-                          ✎
+                          <Pencil size={14} aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -333,7 +333,7 @@ export function FinancialWorkspace(): JSX.Element {
                           aria-label="Apagar"
                           onClick={() => void deleteEntry(entry.id)}
                         >
-                          🗑
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </td>
                     </>

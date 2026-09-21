@@ -8,6 +8,7 @@ import { extractCsvFiles, ZipError } from '../lib/table-import/zip';
 import type { DataTableSummary } from './data-table-types';
 import { ImportReview } from './ImportReview';
 import { useEscapeToClose } from './useEscapeToClose';
+import { CircleCheck, CircleX, X } from '@eve/ui';
 
 export interface ImportWizardProps {
   onClose: () => void;
@@ -218,7 +219,7 @@ export function ImportWizard({ onClose, onImported }: ImportWizardProps): JSX.El
         <div className="eve-import__head">
           <h2 className="eve-card__title">Importar tabela</h2>
           <button type="button" className="eve-btn eve-btn--icon" aria-label="Fechar" disabled={stage === 'importing'} onClick={close}>
-            ✕
+            <X size={14} aria-hidden="true" />
           </button>
         </div>
 
@@ -405,7 +406,7 @@ export function ImportWizard({ onClose, onImported }: ImportWizardProps): JSX.El
             <div className="eve-import__results">
               {results.map((result) => (
                 <p key={result.title} className={result.ok ? 'eve-import__result' : 'eve-import__result is-error'} role={result.ok ? undefined : 'alert'}>
-                  {result.ok ? '✓' : '✕'} <strong>{result.title}</strong> — {result.message}
+                  {result.ok ? <CircleCheck size={14} aria-hidden="true" /> : <CircleX size={14} aria-hidden="true" />} <strong>{result.title}</strong> — {result.message}
                 </p>
               ))}
             </div>

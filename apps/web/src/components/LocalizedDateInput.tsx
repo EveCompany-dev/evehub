@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, type JSX } from 'react';
+import { CalendarDays } from '@eve/ui';
 
 export interface LocalizedDateInputProps {
   value: string | null;
@@ -100,10 +101,7 @@ export function LocalizedDateInput({ value, onChange }: LocalizedDateInputProps)
           else picker?.focus();
         }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" strokeWidth="2" />
-          <path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
+        <CalendarDays size={14} aria-hidden="true" />
       </button>
       <input
         ref={nativeRef}

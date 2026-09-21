@@ -1,6 +1,7 @@
 'use client';
 
 import type { JSX, ReactNode } from 'react';
+import { ChevronLeft, ChevronRight } from '@eve/ui';
 
 const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
 
@@ -64,13 +65,13 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
       <div className="eve-month__head eve-no-drag">
         <strong className="eve-month__label">{monthLabel}</strong>
         <button type="button" className="eve-btn eve-btn--icon" onClick={goToPrevious} aria-label="Mes anterior">
-          ‹
+          <ChevronLeft size={14} aria-hidden="true" />
         </button>
         <button type="button" className="eve-month__today" onClick={() => onMonthChange(today.getFullYear(), today.getMonth())}>
           Hoje
         </button>
         <button type="button" className="eve-btn eve-btn--icon" onClick={goToNext} aria-label="Proximo mes">
-          ›
+          <ChevronRight size={14} aria-hidden="true" />
         </button>
       </div>
 

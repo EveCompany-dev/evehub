@@ -6,6 +6,7 @@ import type { TableViewMode } from '../lib/table-views';
 import type { DataColumn, DataTableRowValue, TableClient } from './data-table-types';
 import { Popover } from './Popover';
 import { ClientPill, TagPill } from './TagPill';
+import { Check, X } from '@eve/ui';
 
 const VIEW_LABEL: Record<TableViewMode, string> = { table: 'Tabela', gallery: 'Galeria', calendar: 'Calendário' };
 
@@ -143,7 +144,7 @@ export function TableToolbar({
                   {chipText(column, item, facetLabel)}
                 </button>
                 <button type="button" className="eve-chip__x" aria-label={`Remover filtro de ${column.label}`} onClick={() => setColumnFilter(item.key, null)}>
-                  ×
+                  <X size={14} aria-hidden="true" />
                 </button>
               </span>
             );
@@ -232,7 +233,7 @@ function FilterEditor({ column, rows, clientById, clientLabels, anchor, current,
           return (
             <button key={facet.token} type="button" className={on ? 'eve-popover__item is-selected' : 'eve-popover__item'} onClick={() => toggle(facet.token)}>
               <span className="eve-popover__tick" aria-hidden="true">
-                {on ? '✓' : ''}
+                {on ? <Check size={14} aria-hidden="true" /> : null}
               </span>
               {client ? (
                 <ClientPill client={client} />

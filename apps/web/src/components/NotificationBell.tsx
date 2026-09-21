@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { Bell, strings } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
@@ -73,17 +73,7 @@ function requestNotificationPermission(): void {
 }
 
 function BellIcon(): JSX.Element {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M6 10a6 6 0 0 1 12 0v4.5l1.6 2.4a.6.6 0 0 1-.5.9H4.9a.6.6 0 0 1-.5-.9L6 14.5V10Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-      <path d="M9.5 20a2.5 2.5 0 0 0 5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <Bell size={18} aria-hidden="true" />;
 }
 
 /**

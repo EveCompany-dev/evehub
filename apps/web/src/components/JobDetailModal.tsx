@@ -1,6 +1,6 @@
 'use client';
 
-import { strings } from '@eve/ui';
+import { CalendarDays, Clock, FileText, Folder, ListChecks, MessageCircle, Paperclip, strings, Users, X } from '@eve/ui';
 import Link from 'next/link';
 import { cloneElement, isValidElement, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { JobCommentsTab } from './JobCommentsTab';
@@ -37,92 +37,35 @@ export interface JobDetailModalProps {
 type Tab = 'details' | 'timesheet';
 
 function DocIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M6 3.5h9l4 4V20a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M9 12h7M9 16h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <FileText size={14} aria-hidden="true" />;
 }
 
 function FolderIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M3.5 6.5a1 1 0 0 1 1-1H10l2 2.2h7.5a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1V6.5Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Folder size={14} aria-hidden="true" />;
 }
 
 function CalendarIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3.5" y="5" width="17" height="15" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3.5 9.5h17M8 3v4M16 3v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
+  return <CalendarDays size={14} aria-hidden="true" />;
 }
 
 function PeopleIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <circle cx="17" cy="7" r="2.2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M15.5 13c2.6.4 4.5 2.6 4.5 5.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <Users size={14} aria-hidden="true" />;
 }
 
 function ChecklistIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <rect x="3.5" y="4.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M5 7.5l1.2 1.2L8.5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M13 6.5h7.5M3.5 15.5h6M13 15.5h7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <rect x="3.5" y="13.5" width="6" height="6" rx="1.2" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
+  return <ListChecks size={14} aria-hidden="true" />;
 }
 
 function ChatIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 5.5h16a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H9l-4.2 3.5A.6.6 0 0 1 4 19.05V16H4a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <MessageCircle size={14} aria-hidden="true" />;
 }
 
 function PaperclipIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M8 12.5 15 5.5a3 3 0 0 1 4.2 4.2l-8.5 8.5a5 5 0 1 1-7-7l7.5-7.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <Paperclip size={14} aria-hidden="true" />;
 }
 
 function ClockIcon(): JSX.Element {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M12 7.5V12l3 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <Clock size={14} aria-hidden="true" />;
 }
 
 /**
@@ -459,7 +402,7 @@ export function JobDetailModal({
                 {job.client.name}
               </Link>
               <button type="button" className="eve-jobs__client-unlink" aria-label="Desvincular cliente" onClick={unlinkClient}>
-                &times;
+                <X size={14} aria-hidden="true" />
               </button>
             </span>
           )}
@@ -587,7 +530,7 @@ export function JobDetailModal({
                       title={strings.jobs.removeCollaborator}
                       onClick={() => void removeCollaborator(collaborator.userId)}
                     >
-                      ×
+                      <X size={14} aria-hidden="true" />
                     </button>
                   </li>
                 ))}
@@ -687,7 +630,7 @@ export function JobDetailModal({
                         title={strings.jobs.deleteTask}
                         onClick={() => void deleteTask(task.id)}
                       >
-                        ×
+                        <X size={14} aria-hidden="true" />
                       </button>
                     </div>
 
@@ -707,7 +650,7 @@ export function JobDetailModal({
                               title={strings.jobs.removeAttachment}
                               onClick={() => void deleteAttachment(task.id, attachment.id)}
                             >
-                              ×
+                              <X size={14} aria-hidden="true" />
                             </button>
                           </li>
                         ))}

@@ -2,7 +2,7 @@
 
 import type { FieldSchema } from '@eve/connector-sdk';
 import type { ViewConfig } from '@eve/core/dashboard';
-import { strings } from '@eve/ui';
+import { ArrowDown, ArrowUp, strings } from '@eve/ui';
 import type { JSX } from 'react';
 
 export interface ViewConfigMenuProps {
@@ -73,7 +73,7 @@ export function ViewConfigMenu({ allFields, value, onChange, onClose }: ViewConf
                     onClick={() => move(field.key, -1)}
                     aria-label="Mover para cima"
                   >
-                    ↑
+                    <ArrowUp size={14} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -82,7 +82,7 @@ export function ViewConfigMenu({ allFields, value, onChange, onClose }: ViewConf
                     onClick={() => move(field.key, 1)}
                     aria-label="Mover para baixo"
                   >
-                    ↓
+                    <ArrowDown size={14} aria-hidden="true" />
                   </button>
                 </span>
               )}

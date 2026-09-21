@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type JSX, type MouseEvent as ReactMouseEvent } from 'react';
 import { currentUiZoom } from '../lib/ui-scale';
+import { Check, ChevronRight } from '@eve/ui';
 
 export interface ContextMenuItem {
   label: string;
@@ -119,11 +120,11 @@ export function useContextMenu(): ContextMenuControls {
           }}
         >
           <span className="eve-menu__label">
-            {item.checked ? '✓ ' : ''}
+            {item.checked ? <Check size={14} aria-hidden="true" className="eve-menu__check" /> : null}
             {item.label}
           </span>
           {item.hint && <span className="eve-menu__hint">{item.hint}</span>}
-          {hasSub && <span className="eve-menu__chevron" aria-hidden="true">›</span>}
+          {hasSub && <span className="eve-menu__chevron" aria-hidden="true"><ChevronRight size={14} aria-hidden="true" /></span>}
         </button>
 
         {hasSub && openSub === index && (

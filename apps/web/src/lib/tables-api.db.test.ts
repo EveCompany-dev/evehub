@@ -61,6 +61,7 @@ const clientsRoute = await import('../app/api/scheduling/clients/route');
 const clientRoute = await import('../app/api/scheduling/clients/[id]/route');
 const linkedRoute = await import('../app/api/clients/[id]/linked-rows/route');
 const systemRoute = await import('../app/api/system-tables/[kind]/route');
+const activityRoute = await import('../app/api/clients/[id]/activity/route');
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -390,6 +391,57 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Reels X', cliente: client!.id, status: 'Ideia' } } });
     const linked = (await (await linkedRoute.GET(new Request('http://test'), params(client!.id))).json()) as { groups: { table: { name: string } }[] };
     expect(linked.groups.map((group) => group.table.name)).not.toContain('Calendário de Conteúdo');
+  });
+
+  it('gathers a client\'s jobs, files and mentions in one place', async () => {
+    const author = await prisma.user.create({ data: { workspaceId, email: `vitest-activity-${Date.now()}@example.com`, name: 'Ana Autora' } });
+    const client = await prisma.client.create({ data: { workspaceId, name: 'Uniformes Delta' } });
+    const other = await prisma.client.create({ data: { workspaceId, name: 'Outro Cliente' } });
+    const column = await prisma.jobColumn.create({ data: { workspaceId, name: 'Em produção', position: 0 } });
+    const base = { workspaceId, columnId: column.id, createdBy: author.id };
+    try {
+      const project = await prisma.project.create({ data: { workspaceId, clientId: client.id, title: 'Setembro', createdBy: author.id } });
+      const filed = await prisma.job.create({ data: { ...base, position: 0, title: 'Gravar reels', clientId: client.id, projectId: project.id, important: true } });
+      await prisma.job.create({ data: { ...base, position: 1, title: 'Job solto', clientId: client.id } });
+      const foreign = await prisma.job.create({ data: { ...base, position: 2, title: 'Job de outro cliente', clientId: other.id } });
+
+      const task = await prisma.jobTask.create({ data: { jobId: filed.id, title: 'Roteiro', position: 0, done: true } });
+      await prisma.jobTask.create({ data: { jobId: filed.id, title: 'Edição', position: 1 } });
+      await prisma.attachment.create({ data: { taskId: task.id, uploadedBy: author.id, filename: 'roteiro.pdf', url: '/uploads/attachments/roteiro.pdf', size: 2048 } });
+
+      await prisma.teamMessage.create({ data: { workspaceId, authorId: author.id, body: 'Alguém falou com a UNIFORMES DELTA hoje?' } });
+      await prisma.teamMessage.create({ data: { workspaceId, authorId: author.id, body: 'Nada a ver com o assunto' } });
+      await prisma.jobComment.create({ data: { jobId: foreign.id, authorId: author.id, body: 'Reaproveitar a arte da Uniformes Delta' } });
+      // A comment on the client's own job is already under "Jobs" — it must not be repeated as a mention.
+      await prisma.jobComment.create({ data: { jobId: filed.id, authorId: author.id, body: 'Uniformes Delta aprovou' } });
+
+      const response = await activityRoute.GET(new Request('http://test'), params(client.id));
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as {
+        jobs: { title: string; projectTitle: string | null; tasksDone: number; tasksTotal: number; columnName: string; important: boolean }[];
+        files: { name: string; origin: string; size: number | null }[];
+        mentions: { source: string; where: string; author: string; body: string }[];
+      };
+
+      // Jobs: filed or not, none of the other client's.
+      expect(body.jobs.map((job) => job.title).sort()).toEqual(['Gravar reels', 'Job solto']);
+      const reels = body.jobs.find((job) => job.title === 'Gravar reels')!;
+      expect(reels).toMatchObject({ projectTitle: 'Setembro', tasksDone: 1, tasksTotal: 2, columnName: 'Em produção', important: true });
+
+      expect(body.files).toEqual([expect.objectContaining({ name: 'roteiro.pdf', size: 2048, origin: 'Job: Gravar reels' })]);
+
+      // Mentions: case-insensitive name match in chat and in *other* jobs' comments.
+      expect(body.mentions.map((mention) => mention.source).sort()).toEqual(['chat', 'comment']);
+      expect(body.mentions.find((mention) => mention.source === 'chat')).toMatchObject({ where: 'Chat da equipe', author: 'Ana Autora' });
+      expect(body.mentions.find((mention) => mention.source === 'comment')!.where).toBe('Comentário em “Job de outro cliente”');
+    } finally {
+      // Author-restricted rows first, so deleting the throwaway workspace can cascade cleanly.
+      await prisma.jobComment.deleteMany({ where: { authorId: author.id } });
+      await prisma.teamMessage.deleteMany({ where: { authorId: author.id } });
+      await prisma.attachment.deleteMany({ where: { uploadedBy: author.id } });
+      await prisma.job.deleteMany({ where: { workspaceId } });
+      await prisma.project.deleteMany({ where: { workspaceId } });
+    }
   });
 
   it('404s for a client of another workspace', async () => {
