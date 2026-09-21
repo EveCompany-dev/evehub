@@ -260,6 +260,7 @@ export const strings = {
     pendingChanges: 'Alterações não salvas.',
     dismiss: 'Fechar aviso',
     undoLast: 'Desfazer última edição',
+    alertsBottom: 'Avisos embaixo',
   },
 
   view: {
