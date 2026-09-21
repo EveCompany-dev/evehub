@@ -3,6 +3,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { canViewScheduling } from '../../../../../lib/permissions';
+import { clientProfileOut, parseClientProfile } from '../../../../../lib/client-fields';
 import { HttpError, requireUser } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -33,11 +34,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     await requireLocalClient(id, user.workspaceId);
 
-    const body = patchSchema.safeParse(await request.json());
+    const raw: unknown = await request.json().catch(() => null);
+    const body = patchSchema.safeParse(raw);
     if (!body.success) return fail(400, strings.errors.invalidPayload);
+    const profile = parseClientProfile(raw, true);
+    if (!profile.ok) return fail(400, profile.error);
 
-    const client = await prisma.client.update({ where: { id }, data: body.data });
-    return ok({ client });
+    const client = await prisma.client.update({ where: { id }, data: { ...body.data, ...profile.data } });
+    return ok({ client: { ...client, ...clientProfileOut(client) } });
   });
 }
 

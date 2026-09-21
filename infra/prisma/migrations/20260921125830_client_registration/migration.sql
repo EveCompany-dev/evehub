@@ -1,0 +1,16 @@
+-- AlterTable
+ALTER TABLE "Client" ADD COLUMN     "city" TEXT,
+ADD COLUMN     "cnpj" TEXT,
+ADD COLUMN     "complement" TEXT,
+ADD COLUMN     "country" TEXT,
+ADD COLUMN     "district" TEXT,
+ADD COLUMN     "email" TEXT,
+ADD COLUMN     "legalName" TEXT,
+ADD COLUMN     "municipalRegistration" TEXT,
+ADD COLUMN     "phone" TEXT,
+ADD COLUMN     "startDate" DATE,
+ADD COLUMN     "state" TEXT,
+ADD COLUMN     "stateRegistration" TEXT,
+ADD COLUMN     "street" TEXT,
+ADD COLUMN     "streetNumber" TEXT,
+ADD COLUMN     "zip" TEXT;

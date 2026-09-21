@@ -3,6 +3,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canViewScheduling } from '../../../../lib/permissions';
+import { clientProfileOut, parseClientProfile } from '../../../../lib/client-fields';
 import { HttpError, requireUser } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -46,6 +47,7 @@ export async function GET(): Promise<Response> {
         color: client.color,
         icon: client.icon,
         logoUrl: client.logoUrl,
+        ...clientProfileOut(client),
         createdAt: client.createdAt,
       })),
     });
@@ -58,8 +60,11 @@ export async function POST(request: Request): Promise<Response> {
     const user = await requireUser();
     if (!canViewScheduling(user)) throw new HttpError(403, strings.errors.notAllowedScheduling);
 
-    const body = createSchema.safeParse(await request.json());
+    const raw: unknown = await request.json().catch(() => null);
+    const body = createSchema.safeParse(raw);
     if (!body.success) return fail(400, strings.errors.invalidPayload);
+    const profile = parseClientProfile(raw, false);
+    if (!profile.ok) return fail(400, profile.error);
 
     const client = await prisma.client.create({
       data: {
@@ -69,9 +74,10 @@ export async function POST(request: Request): Promise<Response> {
         color: body.data.color ?? null,
         icon: body.data.icon || null,
         logoUrl: body.data.logoUrl ?? null,
+        ...profile.data,
       },
     });
 
-    return ok({ client }, 201);
+    return ok({ client: { ...client, ...clientProfileOut(client) } }, 201);
   });
 }

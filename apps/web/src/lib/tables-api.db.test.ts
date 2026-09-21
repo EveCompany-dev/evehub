@@ -309,6 +309,45 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     }
   });
 
+  it('stores the registration data, keeps it across unrelated edits, and rejects invalid values', async () => {
+    const created = await clientsRoute.POST(
+      post('/api/scheduling/clients', {
+        name: 'Cadastro Ltda',
+        legalName: 'Cadastro Comércio Ltda',
+        cnpj: '11222333000181',
+        stateRegistration: '123',
+        municipalRegistration: '456',
+        email: 'oi@cadastro.com.br',
+        phone: '47912345678',
+        zip: '89010000',
+        street: 'Rua XV',
+        streetNumber: '10',
+        complement: 'Sala 2',
+        district: 'Centro',
+        city: 'Blumenau',
+        state: 'sc',
+        country: 'Brasil',
+        startDate: '2026-03-01',
+      }),
+    );
+    expect(created.status).toBe(201);
+    const { client } = (await created.json()) as { client: Record<string, string | null> & { id: string } };
+    expect(client).toMatchObject({ cnpj: '11.222.333/0001-81', phone: '(47) 91234-5678', zip: '89010-000', state: 'SC', startDate: '2026-03-01', legalName: 'Cadastro Comércio Ltda' });
+
+    // Changing only the color must not wipe anything else.
+    const recolored = await clientRoute.PATCH(patch(`/api/scheduling/clients/${client.id}`, { color: '#2f7fd1' }), params(client.id));
+    expect(((await recolored.json()) as { client: Record<string, string | null> }).client).toMatchObject({ cnpj: '11.222.333/0001-81', city: 'Blumenau', startDate: '2026-03-01' });
+
+    // Clearing one field, and the list endpoint carries the data.
+    await clientRoute.PATCH(patch(`/api/scheduling/clients/${client.id}`, { complement: '' }), params(client.id));
+    const list = (await (await clientsRoute.GET()).json()) as { clients: Record<string, string | null>[] };
+    expect(list.clients.find((item) => item.id === client.id)).toMatchObject({ complement: null, district: 'Centro', cnpj: '11.222.333/0001-81' });
+
+    const bad = await clientRoute.PATCH(patch(`/api/scheduling/clients/${client.id}`, { cnpj: '11222333000182' }), params(client.id));
+    expect(bad.status).toBe(400);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/CNPJ/);
+  });
+
   it('lists, on a client, the table rows that point at it (the back-link of the relation)', async () => {
     const clients = await prisma.client.findMany({ where: { workspaceId } });
     const fourS = clients.find((client) => client.name === '4s Estamparia')!;

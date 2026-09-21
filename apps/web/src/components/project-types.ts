@@ -1,3 +1,4 @@
+import type { ClientProfile } from '../lib/client-profile-meta';
 import type { JobClientSummary, JobCollaboratorSummary, JobCommentSummary, JobTaskSummary } from './job-types';
 
 export interface ProjectSummary {
@@ -36,7 +37,7 @@ export interface ProjectJobSummary {
   comments: JobCommentSummary[];
 }
 
-export interface ClientDetail {
+export interface ClientDetail extends ClientProfile {
   id: string;
   name: string;
   notes: string | null;

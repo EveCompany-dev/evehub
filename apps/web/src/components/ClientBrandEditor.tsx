@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, type JSX } from 'react';
+import { pickProfile, PROFILE_FIELDS, type ClientProfile, type ProfileKey } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { EmojiPicker } from './EmojiPicker';
 import { ImageDropZone } from './ImageDropZone';
 import { useEscapeToClose } from './useEscapeToClose';
 
-export interface BrandClient {
+export interface BrandClient extends ClientProfile {
   id: string;
   name: string;
   notes: string | null;
@@ -38,6 +39,7 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
   const [color, setColor] = useState<string | null>(client?.color ?? null);
   const [icon, setIcon] = useState(client?.icon ?? '');
   const [logoUrl, setLogoUrl] = useState<string | null>(client?.logoUrl ?? null);
+  const [profile, setProfile] = useState<ClientProfile>(() => pickProfile(client ?? {}));
   const [showEmoji, setShowEmoji] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
     setSaving(true);
     setError(null);
     try {
-      const payload = { name: name.trim(), notes: notes.trim() || null, color, icon: icon.trim() || null, logoUrl };
+      const payload = { name: name.trim(), notes: notes.trim() || null, color, icon: icon.trim() || null, logoUrl, ...profile };
       const response = client
         ? await fetch(`/api/scheduling/clients/${client.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
         : await fetch('/api/scheduling/clients', {
@@ -67,6 +69,7 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
               ...(color ? { color } : {}),
               ...(payload.icon ? { icon: payload.icon } : {}),
               ...(logoUrl ? { logoUrl } : {}),
+              ...profile,
             }),
           });
       const body = (await response.json().catch(() => ({}))) as { client?: BrandClient; error?: string };
@@ -172,6 +175,27 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
             />
           )}
         </div>
+
+        {(['company', 'address'] as const).map((group) => (
+          <fieldset key={group} className="eve-brand__group">
+            <legend className="eve-field__label">{group === 'company' ? 'Dados cadastrais' : 'Endereço'}</legend>
+            <div className="eve-brand__grid">
+              {PROFILE_FIELDS.filter((field) => field.group === group).map((field) => (
+                <label key={field.key} className={field.wide ? 'eve-brand__cell is-wide' : 'eve-brand__cell'}>
+                  <span className="eve-brand__celllabel">{field.label}</span>
+                  <input
+                    className="eve-input"
+                    type={field.input}
+                    placeholder={field.placeholder}
+                    maxLength={field.maxLength}
+                    value={profile[field.key] ?? ''}
+                    onChange={(event) => setProfile((current) => ({ ...current, [field.key as ProfileKey]: event.target.value }))}
+                  />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        ))}
 
         <label className="eve-field">
           <span className="eve-field__label">Notas</span>

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { pickProfile, PROFILE_FIELDS } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientBrandEditor } from './ClientBrandEditor';
 import { LocalizedDateInput } from './LocalizedDateInput';
@@ -143,6 +144,17 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
       </div>
       {client.notes && <p className="eve-dim eve-clientpage__notes">{client.notes}</p>}
 
+      {PROFILE_FIELDS.some((field) => client[field.key]) && (
+        <dl className="eve-clientpage__facts">
+          {PROFILE_FIELDS.filter((field) => client[field.key]).map((field) => (
+            <div key={field.key}>
+              <dt>{field.label}</dt>
+              <dd>{field.input === 'date' ? new Date(`${client[field.key]}T00:00:00`).toLocaleDateString('pt-BR') : client[field.key]}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       {linkedRows.map((group) => (
         <section key={group.table.id} className="eve-clientpage__linked">
           <div className="eve-clientpage__section-head">
@@ -235,7 +247,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
       )}
       {editingBrand && (
         <ClientBrandEditor
-          client={{ id: client.id, name: client.name, notes: client.notes, color: client.color, icon: client.icon, logoUrl: client.logoUrl }}
+          client={{ id: client.id, name: client.name, notes: client.notes, color: client.color, icon: client.icon, logoUrl: client.logoUrl, ...pickProfile(client) }}
           onSaved={(saved) => {
             setClient((current) => (current ? { ...current, ...saved } : current));
             setEditingBrand(false);

@@ -360,6 +360,25 @@ model Client {
   /// URL de upload do logotipo (mesmo armazenamento das demais imagens).
   logoUrl String?
 
+  /// Cadastro do cliente (todos opcionais). Guardados formatados (CNPJ/CEP/telefone
+  /// com mascara) para exibir e exportar sem reformatar.
+  cnpj               String?
+  legalName          String? // Razao Social
+  stateRegistration  String? // IE
+  municipalRegistration String? // IM
+  email              String?
+  phone              String?
+  zip                String? // CEP
+  street             String? // Endereco
+  streetNumber       String? // Numero
+  complement         String?
+  district           String? // Bairro
+  state              String? // UF
+  city               String?
+  country            String?
+  /// Data de inicio do relacionamento com a agencia.
+  startDate          DateTime? @db.Date
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { pickProfile } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientAvatar } from './TagPill';
 import { ClientBrandEditor, type BrandClient } from './ClientBrandEditor';
@@ -58,6 +59,7 @@ export function ClientsPanel(): JSX.Element {
             color: client.color ?? null,
             icon: client.icon ?? null,
             logoUrl: client.logoUrl ?? null,
+            ...pickProfile(client),
           })),
       );
       setError(null);

@@ -1,5 +1,6 @@
 import { prisma } from '@eve/core';
 import { handle, ok } from '../../../../lib/api';
+import { clientProfileOut } from '../../../../lib/client-fields';
 import { requireClient } from '../../../../lib/jobs';
 import { requireUser } from '../../../../lib/session';
 
@@ -33,7 +34,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     ]);
 
     return ok({
-      client: { ...client, projectCount, jobCount },
+      client: { ...client, ...clientProfileOut(client), projectCount, jobCount },
       unassignedJobs: unassignedJobs.map((job) => ({
         id: job.id,
         title: job.title,

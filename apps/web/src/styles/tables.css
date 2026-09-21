@@ -979,7 +979,7 @@
 /* --- cliente: identidade -------------------------------------------------------------------------- */
 
 .eve-modal.eve-brand {
-  width: min(520px, 100%);
+  width: min(640px, 100%);
   gap: 8px;
 }
 
@@ -1078,6 +1078,63 @@
 .eve-clientpage__meta,
 .eve-clientpage__notes {
   margin: 0;
+}
+
+.eve-brand__group {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.eve-brand__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.eve-brand__cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.eve-brand__cell.is-wide {
+  grid-column: 1 / -1;
+}
+
+.eve-brand__celllabel {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 520px) {
+  .eve-brand__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eve-clientpage__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.eve-clientpage__facts dt {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.eve-clientpage__facts dd {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
 }
 
 .eve-clientpage__linked {
