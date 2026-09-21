@@ -51,6 +51,35 @@ function FinancialIcon(): JSX.Element {
   );
 }
 
+function ClientsIcon(): JSX.Element {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2" />
+      <circle cx="9" cy="11" r="2.2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M5.5 17c.4-1.8 1.7-2.8 3.5-2.8s3.1 1 3.5 2.8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M15 10h3M15 14h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Rail entries that open a dropdown of sub-pages instead of linking straight to one. */
+const GROUPS: Record<string, { alsoActive?: string[]; items: { href: string; label: string }[] }> = {
+  '/agenda': {
+    alsoActive: ['/scheduling'],
+    items: [
+      { href: '/agenda?mine=1', label: 'Minha Agenda' },
+      { href: '/scheduling?new=1', label: 'Agendar Post' },
+      { href: '/agenda', label: 'Time' },
+    ],
+  },
+  '/clients': {
+    items: [
+      { href: '/clients', label: 'Todos os clientes' },
+      { href: '/clients/calendar', label: 'Calendário de Conteúdo' },
+    ],
+  },
+};
+
 function TeamIcon(): JSX.Element {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -129,7 +158,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const [hidden, setHidden] = useState(false);
-  const [agendaOpen, setAgendaOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -183,6 +212,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
   const icons: Record<string, ReactNode> = {
     '/chat': <ChatIcon />,
     '/jobs': <JobsIcon />,
+    '/clients': <ClientsIcon />,
     '/tables': <TablesIcon />,
     '/connectors': <ConnectorsIcon />,
     '/automations': <AutomationsIcon />,
@@ -242,48 +272,45 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
       {items.map((item) => {
         const active = pathname.startsWith(item.href);
 
-        if (item.href === '/agenda') {
-          // Active on both /agenda (the real agenda) and /scheduling (the
-          // post-scheduler tool reached only from inside this dropdown) —
-          // they're the same feature area as far as the rail highlight goes.
-          const agendaActive = active || pathname.startsWith('/scheduling');
+        const group = GROUPS[item.href];
+        if (group) {
+          // Active on the group's own pages and on any tool page reached only from inside its
+          // dropdown (e.g. /scheduling under Agenda): same feature area as far as the highlight goes.
+          const groupActive = active || (group.alsoActive ?? []).some((prefix) => pathname.startsWith(prefix));
+          const isOpen = openGroup === item.href;
           return (
             <div key={item.href} className="eve-rail__group">
               <button
                 type="button"
-                className={agendaActive ? 'eve-rail__item eve-rail__group-trigger is-active' : 'eve-rail__item eve-rail__group-trigger'}
-                aria-expanded={agendaOpen}
+                className={groupActive ? 'eve-rail__item eve-rail__group-trigger is-active' : 'eve-rail__item eve-rail__group-trigger'}
+                aria-expanded={isOpen}
                 title={item.label}
                 onClick={() => {
                   // Collapsed rail has no room to show sub-item labels, so a
                   // click there just goes straight to the page instead of
                   // toggling an invisible dropdown.
-                  if (!expanded) router.push('/agenda');
-                  else setAgendaOpen((value) => !value);
+                  if (!expanded) router.push(item.href);
+                  else setOpenGroup(isOpen ? null : item.href);
                 }}
               >
                 <span className="eve-rail__icon">{icons[item.href]}</span>
                 {expanded && (
                   <>
                     <span className="eve-rail__label">{item.label}</span>
-                    <span className={agendaOpen ? 'eve-rail__chevron is-open' : 'eve-rail__chevron'} aria-hidden="true">
+                    <span className={isOpen ? 'eve-rail__chevron is-open' : 'eve-rail__chevron'} aria-hidden="true">
                       <ChevronDownIcon />
                     </span>
                   </>
                 )}
               </button>
 
-              {expanded && agendaOpen && (
+              {expanded && isOpen && (
                 <div className="eve-rail__submenu">
-                  <Link href="/agenda?mine=1" className="eve-rail__subitem">
-                    Minha Agenda
-                  </Link>
-                  <Link href="/scheduling?new=1" className="eve-rail__subitem">
-                    Agendar Post
-                  </Link>
-                  <Link href="/agenda" className="eve-rail__subitem">
-                    Time
-                  </Link>
+                  {group.items.map((sub) => (
+                    <Link key={sub.label} href={sub.href} className="eve-rail__subitem">
+                      {sub.label}
+                    </Link>
+                  ))}
                 </div>
               )}
             </div>

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { toCsv } from '../lib/table-csv';
-import { ClientsPanel } from './ClientsPanel';
 import { useContextMenu } from './ContextMenu';
 import { DataTableGrid } from './DataTableGrid';
 import { ImportWizard } from './ImportWizard';
@@ -24,10 +23,9 @@ function downloadCsv(filename: string, content: string): void {
 export interface TablesWorkspaceProps {
   /** Table to open first (deep link from a client page: /tables?table=<id>). */
   initialTableId?: string;
-  initialView?: 'tables' | 'clients';
 }
 
-export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspaceProps = {}): JSX.Element {
+export function TablesWorkspace({ initialTableId }: TablesWorkspaceProps = {}): JSX.Element {
   const [tables, setTables] = useState<DataTableSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialTableId ?? null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +33,6 @@ export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspace
   const [newName, setNewName] = useState('');
   const [showWebhook, setShowWebhook] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'tables' | 'clients'>(initialView ?? 'tables');
   const [showImport, setShowImport] = useState(false);
 
   const menu = useContextMenu();
@@ -135,27 +132,7 @@ export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspace
 
   return (
     <div className="eve-tables">
-      <div className="eve-tables__tabs">
-        <button
-          type="button"
-          className={view === 'tables' ? 'eve-tables__tab is-active' : 'eve-tables__tab'}
-          onClick={() => setView('tables')}
-        >
-          Tabelas
-        </button>
-        <button
-          type="button"
-          className={view === 'clients' ? 'eve-tables__tab is-active' : 'eve-tables__tab'}
-          onClick={() => setView('clients')}
-        >
-          Clientes
-        </button>
-      </div>
-
-      {view === 'clients' ? (
-        <ClientsPanel />
-      ) : (
-        <>
+      <>
           <div className="eve-tables__head">
             {creating ? (
               <span className="eve-tables__new">
@@ -196,26 +173,25 @@ export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspace
                   <option value={NEW_TABLE_VALUE}>+ Nova tabela...</option>
                 </select>
 
-                <button type="button" className="eve-btn" onClick={() => setShowImport(true)}>
-                  Importar CSV / Notion
+                <button
+                  type="button"
+                  className="eve-btn eve-btn--icon"
+                  aria-label="Ações da tabela"
+                  onClick={(event) =>
+                    menu.open(event, [
+                      { label: 'Importar CSV / Notion', onSelect: () => setShowImport(true) },
+                      ...(selected
+                        ? [
+                            { label: 'Exportar CSV', onSelect: () => void exportCsv(selected) },
+                            { label: 'Automação (webhook)', onSelect: () => setShowWebhook(true) },
+                            { label: 'Apagar tabela', danger: true, onSelect: () => void deleteTable(selected.id) },
+                          ]
+                        : []),
+                    ])
+                  }
+                >
+                  &#8942;
                 </button>
-
-                {selected && (
-                  <button
-                    type="button"
-                    className="eve-btn eve-btn--icon"
-                    aria-label="Acoes da tabela"
-                    onClick={(event) =>
-                      menu.open(event, [
-                        { label: 'Exportar CSV', onSelect: () => void exportCsv(selected) },
-                        { label: 'Automação (webhook)', onSelect: () => setShowWebhook(true) },
-                        { label: 'Apagar tabela', danger: true, onSelect: () => void deleteTable(selected.id) },
-                      ])
-                    }
-                  >
-                    &#8942;
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -230,7 +206,7 @@ export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspace
             !creating &&
             tables.length === 0 && (
               <div className="eve-empty">
-                <p className="eve-dim">Nenhuma tabela ainda. Crie a primeira pelo menu acima ou importe um CSV (ou o .zip do Notion).</p>
+                <p className="eve-dim">Nenhuma tabela ainda. Crie a primeira pelo seletor acima, ou importe um CSV (ou o .zip do Notion) pelo menu ⋮.</p>
               </div>
             )
           )}
@@ -261,8 +237,7 @@ export function TablesWorkspace({ initialTableId, initialView }: TablesWorkspace
               onClose={() => setShowWebhook(false)}
             />
           )}
-        </>
-      )}
+      </>
     </div>
   );
 }

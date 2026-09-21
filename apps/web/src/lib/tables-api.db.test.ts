@@ -60,6 +60,7 @@ const rowsRoute = await import('../app/api/tables/[id]/rows/route');
 const clientsRoute = await import('../app/api/scheduling/clients/route');
 const clientRoute = await import('../app/api/scheduling/clients/[id]/route');
 const linkedRoute = await import('../app/api/clients/[id]/linked-rows/route');
+const systemRoute = await import('../app/api/system-tables/[kind]/route');
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
@@ -360,6 +361,35 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     expect(first.count).toBe(2);
     expect(first.rows.map((row) => row.title)).toEqual(['Carrossel Quantos Uniformes', 'Reels Dr. Uniforme']);
     expect(first.rows[0]!.tags).toEqual([{ name: 'Publicado/Programado', color: 'green' }]);
+  });
+
+  it('creates the Calendário de Conteúdo once, with canal, status and formato, and keeps system tables out of "other tables"', async () => {
+    const kindParams = (kind: string) => ({ params: Promise.resolve({ kind }) });
+    const first = await systemRoute.GET(new Request('http://test'), kindParams('content'));
+    expect(first.status).toBe(200);
+    const { table } = (await first.json()) as TableBody;
+    expect(table.name).toBe('Calendário de Conteúdo');
+    const byKey = Object.fromEntries(table.columns.map((column) => [column.key, column]));
+    expect(byKey['canal']).toMatchObject({ type: 'select', options: expect.arrayContaining(['Instagram']) });
+    expect(byKey['status']).toMatchObject({ type: 'select', optionColors: { Ideia: 'yellow', 'Publicado/Programado': 'green' } });
+    expect(byKey['formato']).toMatchObject({ type: 'select', optionColors: { Reels: 'purple', Carrossel: 'pink', Feed: 'orange' } });
+    expect(byKey['cliente']!.type).toBe('client');
+    expect(byKey['data']!.type).toBe('date');
+
+    // Idempotent, and concurrent first requests still end with a single table.
+    const again = (await (await systemRoute.GET(new Request('http://test'), kindParams('content'))).json()) as TableBody;
+    expect(again.table.id).toBe(table.id);
+    await Promise.all(['profiles', 'profiles', 'references'].map((kind) => systemRoute.GET(new Request('http://test'), kindParams(kind))));
+    expect(await prisma.dataTable.count({ where: { workspaceId, kind: 'profiles' } })).toBe(1);
+    expect(await prisma.dataTable.count({ where: { workspaceId, kind: 'content' } })).toBe(1);
+
+    expect((await systemRoute.GET(new Request('http://test'), kindParams('nope'))).status).toBe(404);
+
+    // A row of the content table pointing at a client does not also show up under "Em outras tabelas".
+    const client = await prisma.client.findFirst({ where: { workspaceId, name: '4s Estamparia' } });
+    await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Reels X', cliente: client!.id, status: 'Ideia' } } });
+    const linked = (await (await linkedRoute.GET(new Request('http://test'), params(client!.id))).json()) as { groups: { table: { name: string } }[] };
+    expect(linked.groups.map((group) => group.table.name)).not.toContain('Calendário de Conteúdo');
   });
 
   it('404s for a client of another workspace', async () => {

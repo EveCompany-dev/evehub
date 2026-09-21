@@ -18,6 +18,20 @@ import { useEscapeToClose } from './useEscapeToClose';
 export interface DataTableGridProps {
   table: DataTableSummary;
   onTableChange: (table: DataTableSummary) => void;
+  /** Show only this client's rows, and stamp new rows with it (the client page's embedded tables). */
+  lockedClientId?: string;
+  /** Columns left out of the grid (the locked Cliente column would only repeat the page it sits on). */
+  hiddenKeys?: string[];
+  /** Views on offer; default is table + gallery, plus calendar when the table has a date column. */
+  modes?: TableViewMode[];
+  defaultMode?: TableViewMode;
+  /** Embedded grids don't remember their view: two of them may show the same table differently. */
+  persistView?: boolean;
+  /** Bump to add a row (pre-filled with addDefaults) and open it — how shortcut buttons reach a grid. */
+  addSignal?: number;
+  addDefaults?: Record<string, unknown>;
+  /** Called after a row is added, removed or edited — lets a page keep other views of the same table fresh. */
+  onRowsChange?: () => void;
 }
 
 type ColumnModalState = { mode: 'add' } | { mode: 'edit'; column: DataColumn } | null;
@@ -69,13 +83,24 @@ function isTagType(type: DataColumnType): boolean {
  * Row/column management lives in right-click menus (Office-style) rather
  * than a fixed toolbar.
  */
-export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX.Element {
+export function DataTableGrid({
+  table,
+  onTableChange,
+  lockedClientId,
+  hiddenKeys = [],
+  modes,
+  defaultMode,
+  persistView = true,
+  addSignal,
+  addDefaults,
+  onRowsChange,
+}: DataTableGridProps): JSX.Element {
   const [rows, setRows] = useState<DataTableRowValue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [clients, setClients] = useState<TableClient[]>([]);
   const [filter, setFilter] = useState<TableFilterState>(EMPTY_FILTERS);
-  const [prefs, setPrefs] = useState<ViewPrefs>(() => readPrefs(table.id));
+  const [prefs, setPrefs] = useState<ViewPrefs>(() => (persistView ? readPrefs(table.id) : { mode: defaultMode ?? 'table' }));
   const [openRowId, setOpenRowId] = useState<string | null>(null);
 
   const [columnModal, setColumnModal] = useState<ColumnModalState>(null);
@@ -152,12 +177,27 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
   const dateColumns = useMemo(() => pickDateColumns(table.columns), [table.columns]);
   const dateColumn = dateColumns.find((column) => column.key === prefs.dateKey) ?? dateColumns[0] ?? null;
 
+  const clientKey = table.columns.find((column) => column.type === 'client')?.key;
+  const lockedKey = lockedClientId ? clientKey : undefined;
+  const shownColumns = useMemo(() => table.columns.filter((column) => !hiddenKeys.includes(column.key)), [table.columns, hiddenKeys]);
+
+  const allowedModes: TableViewMode[] = modes ?? (dateColumns.length > 0 ? ['table', 'gallery', 'calendar'] : ['table', 'gallery']);
+  const mode: TableViewMode = allowedModes.includes(prefs.mode) ? prefs.mode : (defaultMode ?? allowedModes[0] ?? 'table');
+
   const updatePrefs = (next: ViewPrefs) => {
     setPrefs(next);
-    writePrefs(table.id, next);
+    if (persistView) writePrefs(table.id, next);
   };
 
-  const visibleRows = useMemo(() => filterRows(rows, table.columns, filter, clientLabels), [rows, table.columns, filter, clientLabels]);
+  const lockedRows = useMemo(
+    () => (lockedKey ? rows.filter((row) => row.data[lockedKey] === lockedClientId) : rows),
+    [rows, lockedKey, lockedClientId],
+  );
+  // The calendar shows everything: a filter set in the table view must not silently hide entries there.
+  const visibleRows = useMemo(
+    () => (mode === 'calendar' ? lockedRows : filterRows(lockedRows, table.columns, filter, clientLabels)),
+    [mode, lockedRows, table.columns, filter, clientLabels],
+  );
 
   // --- row + cell operations ------------------------------------------------------
 
@@ -167,7 +207,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
       const response = await fetch(`/api/tables/${table.id}/rows`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data }),
+        body: JSON.stringify({ data: { ...(lockedKey && lockedClientId ? { [lockedKey]: lockedClientId } : {}), ...data } }),
       });
       const body = (await response.json().catch(() => ({}))) as { row?: DataTableRowValue; error?: string };
       if (!response.ok || !body.row) {
@@ -175,6 +215,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
         return;
       }
       setRows((current) => [...current, body.row!]);
+      onRowsChange?.();
       if (open) setOpenRowId(body.row.id);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -191,6 +232,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
         return;
       }
       setRows((current) => current.filter((row) => row.id !== rowId));
+      onRowsChange?.();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -211,11 +253,12 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
           return;
         }
         setRows((current) => current.map((row) => (row.id === rowId ? body.row! : row)));
+        onRowsChange?.();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
     },
-    [table.id],
+    [table.id, onRowsChange],
   );
 
   const saveColumns = useCallback(
@@ -344,6 +387,14 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
     setColumnModal(null);
   };
 
+  useEffect(() => {
+    // A parent's shortcut button asked for a new row (signal bumped): add it and open it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (addSignal) void addRow(addDefaults ?? {}, true);
+    // Only the signal counts; addRow/addDefaults are recreated every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addSignal]);
+
   const openRow = openRowId ? (rows.find((row) => row.id === openRowId) ?? null) : null;
 
   return (
@@ -359,14 +410,16 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
 
       <TableToolbar
         columns={table.columns}
-        rows={rows}
+        rows={lockedRows}
         clientById={clientById}
         filter={filter}
         onFilterChange={setFilter}
-        mode={prefs.mode}
-        onModeChange={(mode) => updatePrefs({ ...prefs, mode })}
+        mode={mode}
+        modes={allowedModes}
+        showFilters={mode !== 'calendar'}
+        onModeChange={(next) => updatePrefs({ ...prefs, mode: next })}
         shown={visibleRows.length}
-        total={rows.length}
+        total={lockedRows.length}
         dateColumns={dateColumns}
         dateKey={dateColumn?.key ?? null}
         onDateKeyChange={(dateKey) => updatePrefs({ ...prefs, dateKey })}
@@ -374,9 +427,9 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
 
       {loading ? (
         <p className="eve-dim">carregando...</p>
-      ) : prefs.mode === 'gallery' ? (
+      ) : mode === 'gallery' ? (
         <GalleryView env={env} rows={visibleRows} clientLabels={clientLabels} onOpen={setOpenRowId} onAdd={() => void addRow({}, true)} />
-      ) : prefs.mode === 'calendar' ? (
+      ) : mode === 'calendar' ? (
         dateColumn ? (
           <CalendarView
             key={dateColumn.key}
@@ -384,6 +437,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
             rows={visibleRows}
             dateColumn={dateColumn}
             clientLabels={clientLabels}
+            showClient={Boolean(clientKey) && !lockedClientId}
             onOpen={setOpenRowId}
             onAddOnDay={(date) => void addRow({ [dateColumn.key]: toIsoDate(date) }, true)}
           />
@@ -400,7 +454,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
           <table className="eve-table">
             <thead>
               <tr>
-                {table.columns.map((column) => (
+                {shownColumns.map((column) => (
                   <th
                     key={column.key}
                     onContextMenu={(event) =>
@@ -435,7 +489,7 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
                     ])
                   }
                 >
-                  {table.columns.map((column, index) => (
+                  {shownColumns.map((column, index) => (
                     <td key={column.key}>
                       <div className="eve-datatable__cellwrap">
                         <TableCell column={column} value={row.data[column.key]} rowId={row.id} env={env} variant="grid" />
@@ -451,13 +505,13 @@ export function DataTableGrid({ table, onTableChange }: DataTableGridProps): JSX
               ))}
               {visibleRows.length === 0 && rows.length > 0 && (
                 <tr>
-                  <td colSpan={table.columns.length} className="eve-dim">
+                  <td colSpan={shownColumns.length} className="eve-dim">
                     Nenhuma linha bate com os filtros.
                   </td>
                 </tr>
               )}
               <tr>
-                <td colSpan={table.columns.length} className="eve-datatable__addrow" onClick={() => void addRow()}>
+                <td colSpan={shownColumns.length} className="eve-datatable__addrow" onClick={() => void addRow()}>
                   + linha
                 </td>
               </tr>

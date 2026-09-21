@@ -546,11 +546,17 @@ model DataTable {
   /// Null = todo POST cria uma linha nova.
   webhookKeyColumn String?
 
+  /// Tabela de sistema (uma por workspace): "content" = Calendario de Conteudo,
+  /// "profiles" = Perfis sociais, "references" = Referencias. Nulo = tabela comum.
+  /// A pagina de cada cliente le essas tabelas, filtradas pela coluna Cliente.
+  kind String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   rows DataTableRow[]
 
+  @@unique([workspaceId, kind])
   @@index([workspaceId])
 }
 

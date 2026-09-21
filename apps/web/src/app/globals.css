@@ -1603,33 +1603,47 @@ body[data-rail='hidden'] {
   gap: 4px;
 }
 
+/* --- calendario (visual do Notion): grade com bordas finas, numero no canto
+   superior direito, hoje em circulo vermelho, cards brancos por item. ------- */
 .eve-month {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  overflow: hidden;
+  background: transparent;
 }
 
 .eve-month__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  gap: 4px;
+  padding: 2px 0 10px;
 }
 
 .eve-month__label {
-  font-family: var(--font-display);
-  text-transform: capitalize;
+  margin-right: auto;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: lowercase;
+}
+
+.eve-month__today {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 3px 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eve-month__today:hover {
+  background: var(--surface-2);
 }
 
 .eve-month__weekdays {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  padding: 8px 4px 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  padding: 0 0 6px;
+  font-size: 12px;
   color: var(--text-dim);
   text-align: center;
 }
@@ -1637,15 +1651,17 @@ body[data-rail='hidden'] {
 .eve-month__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  padding: 4px;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
 }
 
 .eve-month__day {
-  min-height: 84px;
-  padding: 6px;
-  border-radius: 8px;
-  background: var(--surface-2);
+  min-height: 112px;
+  min-width: 0;
+  padding: 4px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: transparent;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -1653,23 +1669,34 @@ body[data-rail='hidden'] {
   overflow: hidden;
 }
 
-.eve-month__day.is-today {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+.eve-month__day.is-weekend {
+  background: color-mix(in srgb, var(--surface-2) 60%, transparent);
 }
 
-.eve-month__day.is-adjacent {
-  background: transparent;
-  opacity: 0.45;
+.eve-month__day:hover {
+  background: var(--surface-2);
 }
 
-.eve-month__day.is-adjacent:hover {
-  opacity: 0.75;
+.eve-month__day.is-adjacent .eve-month__num {
+  opacity: 0.5;
 }
 
 .eve-month__num {
+  align-self: flex-end;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 11px;
   font-size: 12px;
+  line-height: 22px;
+  text-align: center;
   color: var(--text-dim);
+}
+
+.eve-month__day.is-today .eve-month__num {
+  background: #e03e3e;
+  color: #fff;
+  font-weight: 600;
 }
 
 .eve-month__chips {
@@ -1680,13 +1707,13 @@ body[data-rail='hidden'] {
 }
 
 .eve-month__chip {
-  border: 0;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
   padding: 2px 6px;
   font-size: 11px;
   text-align: left;
-  background: var(--accent-soft);
-  color: var(--accent);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -1694,18 +1721,15 @@ body[data-rail='hidden'] {
 }
 
 .eve-month__chip.is-published {
-  background: color-mix(in srgb, #2e9e5b 18%, transparent);
-  color: #2e9e5b;
+  border-left: 3px solid #2e9e5b;
 }
 
 .eve-month__chip.is-failed {
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
-  color: var(--danger);
+  border-left: 3px solid var(--danger);
 }
 
 .eve-month__chip.is-publishing {
-  background: var(--surface-2);
-  color: var(--text-dim);
+  border-left: 3px solid var(--text-dim);
 }
 
 /* --- scheduling: chips, filters and side panels --------------------------
@@ -1733,8 +1757,8 @@ body[data-rail='hidden'] {
   display: flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid transparent;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
   padding: 2px 6px;
   font-size: 11px;
   text-align: left;

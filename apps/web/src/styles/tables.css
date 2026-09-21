@@ -560,37 +560,73 @@
 .eve-calview {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
+/* "Sem data (n)" and "Nova", top right like Notion's calendar toolbar. */
 .eve-calview__bar {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.eve-calview__undated {
+  appearance: none;
+  border: none;
+  background: none;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eve-calview__undated:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.eve-calview__undated:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.eve-calview__new {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: #2383e2;
+  color: #fff;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.eve-calview__new:hover {
+  background: #1b6fc2;
 }
 
 .eve-calview__day {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 
-/* minmax(0, 1fr): a chip's nowrap title must not stretch its column and skew the week. */
+/* minmax(0, 1fr): a card's nowrap title must not stretch its column and skew the week. */
 .eve-calview .eve-month__grid,
 .eve-calview .eve-month__weekdays {
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
 .eve-calview .eve-month__day {
-  min-height: 110px;
-  min-width: 0;
+  min-height: 124px;
   overflow: visible;
   cursor: default;
-}
-
-.eve-calview__chip .eve-pills,
-.eve-calview__chip .eve-pill {
-  max-width: 100%;
 }
 
 .eve-calview__chip {
@@ -598,12 +634,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 3px;
+  gap: 4px;
   width: 100%;
-  padding: 4px 6px;
-  border-radius: 6px;
+  padding: 4px 6px 6px;
+  border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
   color: var(--text);
   font: inherit;
   font-size: 12px;
@@ -612,15 +649,47 @@
 }
 
 .eve-calview__chip:hover {
-  border-color: var(--accent);
+  background: var(--surface-2);
+}
+
+.eve-calview__head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.eve-calview__head svg {
+  flex: none;
+}
+
+.eve-calview__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-dim);
 }
 
 .eve-calview__title {
-  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
+}
+
+/* Notion's pills inside a card: small, squared, one per line. */
+.eve-calview__chip .eve-pill {
+  max-width: 100%;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 17px;
+}
+
+.eve-calview__chip .eve-pill--client {
+  border-radius: var(--radius-pill);
 }
 
 .eve-calview__add {
@@ -1078,6 +1147,142 @@
 .eve-clientpage__meta,
 .eve-clientpage__notes {
   margin: 0;
+}
+
+/* --- pagina do cliente (Notion: capa na cor da marca, botoes de atalho, menu) --- */
+
+.eve-clientbanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 170px;
+  border-radius: var(--radius-card);
+}
+
+.eve-clientbanner__initial {
+  font-family: var(--font-display);
+  font-size: 72px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+.eve-clientpage__identity {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  margin-top: -44px;
+  padding: 0 18px;
+  flex-wrap: wrap;
+}
+
+.eve-clientpage__badge {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+
+.eve-clientpage__heroinfo {
+  flex: 1;
+  min-width: 200px;
+  padding-bottom: 4px;
+}
+
+.eve-clientpage__identity .eve-btn {
+  margin-bottom: 6px;
+}
+
+.eve-clientpage__panels {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(300px, 2fr);
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .eve-clientpage__panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.eve-clientpage__panel {
+  padding: 12px 14px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.eve-clientpage__panelhead {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.eve-clientpage__shortcuts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.eve-shortcut {
+  appearance: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.eve-shortcut:hover {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.eve-clientpage__menu {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 12px;
+}
+
+.eve-clientpage__menulink {
+  appearance: none;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  padding: 6px 8px;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.eve-clientpage__menulink:hover {
+  background: var(--surface-2);
+}
+
+.eve-clientpage__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scroll-margin-top: 12px;
+}
+
+.eve-clientpage__hint {
+  font-size: 12px;
+}
+
+.eve-contentcal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.eve-contentcal__client {
+  width: auto;
+  min-width: 220px;
 }
 
 .eve-brand__group {

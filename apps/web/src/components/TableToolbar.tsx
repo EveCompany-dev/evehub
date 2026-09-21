@@ -16,6 +16,10 @@ export interface TableToolbarProps {
   filter: TableFilterState;
   onFilterChange: (next: TableFilterState) => void;
   mode: TableViewMode;
+  /** Views on offer; a single one hides the tabs. */
+  modes: TableViewMode[];
+  /** Search + tag filters. Off in the calendar, which always shows every entry. */
+  showFilters: boolean;
   onModeChange: (mode: TableViewMode) => void;
   shown: number;
   total: number;
@@ -41,6 +45,8 @@ export function TableToolbar({
   filter,
   onFilterChange,
   mode,
+  modes,
+  showFilters,
   onModeChange,
   shown,
   total,
@@ -61,8 +67,9 @@ export function TableToolbar({
   return (
     <div className="eve-toolbar">
       <div className="eve-toolbar__row">
+        {modes.length > 1 && (
         <div className="eve-viewtabs" role="tablist" aria-label="Visualização">
-          {(Object.keys(VIEW_LABEL) as TableViewMode[]).map((option) => (
+          {modes.map((option) => (
             <button
               key={option}
               type="button"
@@ -75,6 +82,7 @@ export function TableToolbar({
             </button>
           ))}
         </div>
+        )}
 
         {mode === 'calendar' && dateColumns.length > 1 && (
           <select className="eve-input eve-toolbar__datekey" value={dateKey ?? ''} aria-label="Coluna de data do calendário" onChange={(event) => onDateKeyChange(event.target.value)}>
@@ -86,6 +94,8 @@ export function TableToolbar({
           </select>
         )}
 
+        {showFilters && (
+          <>
         <input
           className="eve-input eve-toolbar__search"
           type="search"
@@ -112,9 +122,11 @@ export function TableToolbar({
         <span className="eve-dim eve-toolbar__count" aria-live="polite">
           {filtered ? `${shown} de ${total}` : `${total}`} linha{total === 1 ? '' : 's'}
         </span>
+          </>
+        )}
       </div>
 
-      {filter.filters.length > 0 && (
+      {showFilters && filter.filters.length > 0 && (
         <div className="eve-toolbar__chips">
           {filter.filters.map((item) => {
             const column = columns.find((candidate) => candidate.key === item.key);

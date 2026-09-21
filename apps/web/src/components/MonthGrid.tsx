@@ -2,7 +2,7 @@
 
 import type { JSX, ReactNode } from 'react';
 
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
@@ -62,10 +62,13 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
   return (
     <div className="eve-month">
       <div className="eve-month__head eve-no-drag">
+        <strong className="eve-month__label">{monthLabel}</strong>
         <button type="button" className="eve-btn eve-btn--icon" onClick={goToPrevious} aria-label="Mes anterior">
           ‹
         </button>
-        <strong className="eve-month__label">{monthLabel}</strong>
+        <button type="button" className="eve-month__today" onClick={() => onMonthChange(today.getFullYear(), today.getMonth())}>
+          Hoje
+        </button>
         <button type="button" className="eve-btn eve-btn--icon" onClick={goToNext} aria-label="Proximo mes">
           ›
         </button>
@@ -83,13 +86,16 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
           const classes = ['eve-month__day'];
           if (isToday) classes.push('is-today');
           if (adjacent) classes.push('is-adjacent');
+          if (index % 7 === 0 || index % 7 === 6) classes.push('is-weekend');
           return (
             <div
               key={index}
               className={classes.join(' ')}
               onClick={adjacent ? () => onMonthChange(date.getFullYear(), date.getMonth()) : onDayClick ? () => onDayClick(date) : undefined}
             >
-              <span className="eve-month__num">{date.getDate()}</span>
+              <span className="eve-month__num">
+                {date.getDate() === 1 ? `1 de ${date.toLocaleDateString('pt-BR', { month: 'short' })}` : date.getDate()}
+              </span>
               {!adjacent && renderDay?.(date)}
             </div>
           );

@@ -27,6 +27,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const groups = [];
     for (const table of tables) {
+      // Calendário de Conteúdo / Perfis / Referências have their own sections on the client page.
+      if (table.kind) continue;
       const columns = z.array(dataColumnSchema).catch([]).parse(table.columns) as DataColumn[];
       const clientKeys = columns.filter((column) => column.type === 'client').map((column) => column.key);
       if (clientKeys.length === 0) continue;

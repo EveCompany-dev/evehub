@@ -22,6 +22,8 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/', label: strings.dashboard.title, keywords: ['dashboard', 'board', 'canvas', 'inicio', 'home', 'modulos'] },
   { href: '/chat', label: strings.nav.chat, tab: 'chat', keywords: ['conversa', 'mensagem', 'equipe'] },
   { href: '/jobs', label: strings.nav.jobs, tab: 'jobs', keywords: ['tarefas', 'kanban', 'quadro', 'demandas'] },
+  { href: '/clients', label: 'Clientes', tab: 'tables', keywords: ['cliente', 'marca', 'cnpj', 'cadastro', 'calendario de conteudo', 'postagens', 'referencias'] },
+  { href: '/clients/calendar', label: 'Calendário de Conteúdo', tab: 'tables', keywords: ['conteudo', 'postagens', 'reels', 'carrossel', 'feed', 'publicacao', 'gravacao'] },
   { href: '/tables', label: strings.nav.tables, tab: 'tables', keywords: ['tabela', 'planilha', 'dados', 'base'] },
   { href: '/connectors', label: strings.nav.connectors, tab: 'connectors', keywords: ['conexoes', 'integracoes', 'api', 'credenciais'] },
   { href: '/automations', label: strings.nav.automations, tab: 'automations', keywords: ['webhook', 'n8n', 'automacao', 'gatilho'] },
