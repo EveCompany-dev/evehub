@@ -8,6 +8,7 @@ import '@eve/connector-meta';
 import '@eve/connector-notes';
 import '@eve/connector-notion';
 import '@eve/connector-overview';
+import '@eve/connector-timer';
 
 import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';

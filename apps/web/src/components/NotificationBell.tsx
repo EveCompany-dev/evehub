@@ -4,6 +4,7 @@ import { Bell, strings } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
+import { playAlertChime } from '../lib/alert-chime';
 import { formatDateTimePtBr } from './job-types';
 import type { NotificationSummary, NotificationType } from './notification-types';
 
@@ -15,36 +16,6 @@ const POLL_INTERVAL_MS = 45_000;
 // A failed post is time-critical in a way the others aren't — the publish
 // window is already gone, so it earns the popup too.
 const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed'];
-
-/**
- * A short two-tone chime via Web Audio, rather than bundling an audio file —
- * one less binary asset to ship and license. Browsers block audio (and, on
- * some, the desktop Notification popup) until the user has interacted with
- * the page at least once in the tab's lifetime; that's a browser autoplay
- * policy, not something this code can bypass.
- */
-function playAlertChime(): void {
-  try {
-    const ctx = new AudioContext();
-    const now = ctx.currentTime;
-    [880, 1320].forEach((freq, index) => {
-      const start = now + index * 0.12;
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.2, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.25);
-      oscillator.connect(gain).connect(ctx.destination);
-      oscillator.start(start);
-      oscillator.stop(start + 0.3);
-    });
-    setTimeout(() => void ctx.close(), 600);
-  } catch {
-    // Web Audio unsupported or blocked — a missed chime isn't worth surfacing an error for.
-  }
-}
 
 /**
  * Desktop notification while the tab is open — NOT a real Web Push

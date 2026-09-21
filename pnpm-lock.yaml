@@ -86,6 +86,9 @@ importers:
       '@eve/connector-sdk':
         specifier: workspace:*
         version: link:../../packages/connector-sdk
+      '@eve/connector-timer':
+        specifier: workspace:*
+        version: link:../../packages/connectors/timer
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -174,6 +177,9 @@ importers:
       '@eve/connector-sdk':
         specifier: workspace:*
         version: link:../../packages/connector-sdk
+      '@eve/connector-timer':
+        specifier: workspace:*
+        version: link:../../packages/connectors/timer
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -341,6 +347,19 @@ importers:
         version: 5.0.0(@types/node@22.20.2)(vite@8.3.0(@types/node@22.20.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.13))
 
   packages/connectors/overview:
+    dependencies:
+      '@eve/connector-sdk':
+        specifier: workspace:*
+        version: link:../../connector-sdk
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.2
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/connectors/timer:
     dependencies:
       '@eve/connector-sdk':
         specifier: workspace:*

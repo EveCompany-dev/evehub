@@ -13,5 +13,6 @@ import '@eve/connector-meta';
 import '@eve/connector-notes';
 import '@eve/connector-notion';
 import '@eve/connector-overview';
+import '@eve/connector-timer';
 
 export { listConnectors, requireConnector } from '@eve/connector-sdk';

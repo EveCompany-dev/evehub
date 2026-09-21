@@ -9,7 +9,7 @@
  *
  *   Navigation   House Bell MessageCircle SquareKanban Table2 Plug Zap CalendarDays
  *                CircleDollarSign Users IdCard Settings
- *   Actions      Plus Pencil Trash2 X Check Search Maximize2 EllipsisVertical Paperclip Smile
+ *   Actions      Plus Minus Pencil Trash2 X Check Search Maximize2 EllipsisVertical Paperclip Smile
  *   Direction    ChevronDown ChevronRight ChevronLeft ArrowUp ArrowDown
  *   Status       CircleCheck CircleX Lock Clock
  *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause
@@ -46,6 +46,7 @@ export {
   ListChecks,
   Lock,
   Maximize2,
+  Minus,
   MessageCircle,
   MessageSquareQuote,
   Paperclip,

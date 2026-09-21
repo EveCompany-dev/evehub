@@ -23,6 +23,7 @@
     "@eve/connector-notes": "workspace:*",
     "@eve/connector-notion": "workspace:*",
     "@eve/connector-overview": "workspace:*",
+    "@eve/connector-timer": "workspace:*",
     "@eve/connector-sdk": "workspace:*",
     "@eve/core": "workspace:*",
     "@eve/ui": "workspace:*",

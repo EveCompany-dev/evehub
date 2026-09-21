@@ -5,13 +5,15 @@ import { formatRelativeTime } from './relative-time';
 import { StatusPill, type ConnectorStatusValue } from './StatusPill';
 import { strings } from './strings';
 import { useNow } from './useNow';
-import { EllipsisVertical, Pencil, X } from './icons';
+import { Check, EllipsisVertical, Pencil, X } from './icons';
 
 export interface WidgetAction {
   label: string;
   onSelect: () => void;
   /** Rendered in the brick colour, for destructive actions. */
   danger?: boolean;
+  /** Turns the item into a toggle: true/false shows its state, undefined is a plain action. */
+  checked?: boolean;
 }
 
 export interface WidgetShellProps {
@@ -118,14 +120,16 @@ export function WidgetShell({
                   <button
                     key={action.label}
                     type="button"
-                    role="menuitem"
+                    role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+                    aria-checked={action.checked}
                     className={action.danger ? 'eve-menu__item eve-menu__item--danger' : 'eve-menu__item'}
                     onClick={() => {
                       setMenuOpen(false);
                       action.onSelect();
                     }}
                   >
-                    {action.label}
+                    <span className="eve-menu__label">{action.label}</span>
+                    {action.checked && <Check size={14} aria-hidden="true" />}
                   </button>
                 ))}
               </div>
