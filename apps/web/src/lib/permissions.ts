@@ -115,6 +115,15 @@ export function canManageTeam(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
+/**
+ * Apagar um cliente leva junto a pagina e os projetos dele, e tira o vinculo
+ * de jobs, posts e conexoes — so admin. Criar e editar continuam abertos a
+ * quem ve a aba.
+ */
+export function canDeleteClient(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
 /** O registro de atividades mostra o que cada pessoa fez — so os admins leem. */
 export function canViewActivityLog(user: PermissionSubject): boolean {
   return user.isOwner;

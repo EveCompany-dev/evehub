@@ -2,6 +2,7 @@ import { ADMIN_EMAILS, isAdminEmail } from '@eve/core/admins';
 import { describe, expect, it } from 'vitest';
 import {
   canCreateInstance,
+  canDeleteClient,
   canDeleteInstance,
   canManageTeam,
   canViewActivityLog,
@@ -42,6 +43,11 @@ describe('permissions', () => {
   it('keeps instance deletion (and its audit trail) owner-only', () => {
     expect(canDeleteInstance(member)).toBe(false);
     expect(canDeleteInstance(owner)).toBe(true);
+  });
+
+  it('keeps deleting a client admin-only', () => {
+    expect(canDeleteClient(owner)).toBe(true);
+    expect(canDeleteClient(member)).toBe(false);
   });
 
   it('keeps the activity log admin-only', () => {

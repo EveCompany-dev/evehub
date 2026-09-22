@@ -32,9 +32,10 @@ function fold(text: string): string {
  * replaces. A card opens the client's own page; the pencil edits its
  * identity (name, color, logo, emoji, notes). Notion-sourced clients show
  * up in scheduling's picker but not here — they aren't local rows this
- * screen can edit or delete.
+ * screen can edit or delete. Only admins get "Apagar cliente" (the API
+ * refuses everyone else too).
  */
-export function ClientsPanel(): JSX.Element {
+export function ClientsPanel({ canDelete }: { canDelete: boolean }): JSX.Element {
   const [clients, setClients] = useState<BrandClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,10 +148,14 @@ export function ClientsPanel(): JSX.Element {
         <ClientBrandEditor
           client={editing === 'new' ? undefined : editing}
           onSaved={saved}
-          onDeleted={(id) => {
-            setClients((current) => current.filter((client) => client.id !== id));
-            setEditing(null);
-          }}
+          onDeleted={
+            canDelete
+              ? (id) => {
+                  setClients((current) => current.filter((client) => client.id !== id));
+                  setEditing(null);
+                }
+              : undefined
+          }
           onClose={() => setEditing(null)}
         />
       )}

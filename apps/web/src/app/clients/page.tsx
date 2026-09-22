@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { ClientsPanel } from '../../components/ClientsPanel';
-import { canViewTab } from '../../lib/permissions';
+import { canDeleteClient, canViewTab } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,7 @@ export default async function ClientsPage(): Promise<JSX.Element> {
         <h1 className="eve-profile__title">Clientes</h1>
       </header>
       <div className="eve-wide-page__body">
-        <ClientsPanel />
+        <ClientsPanel canDelete={canDeleteClient(user)} />
       </div>
     </div>
   );
