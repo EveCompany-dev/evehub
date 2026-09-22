@@ -114,7 +114,12 @@ export function useContextMenu(): ContextMenuControls {
           className={className}
           disabled={item.disabled}
           onClick={() => {
-            if (hasSub || !item.onSelect) return;
+            // A tap opens the flyout too: touch screens never send the hover.
+            if (hasSub) {
+              setOpenSub(openSub === index ? null : index);
+              return;
+            }
+            if (!item.onSelect) return;
             item.onSelect();
             close();
           }}
@@ -163,7 +168,10 @@ export function useContextMenu(): ContextMenuControls {
                   close();
                 }}
               >
-                <span className="eve-menu__label">{sub.label}</span>
+                <span className="eve-menu__label">
+                  {sub.checked ? <Check size={14} aria-hidden="true" className="eve-menu__check" /> : null}
+                  {sub.label}
+                </span>
                 {sub.hint && <span className="eve-menu__hint">{sub.hint}</span>}
               </button>
             ))}
