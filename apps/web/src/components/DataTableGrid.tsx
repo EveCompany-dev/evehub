@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } from 'react';
 import { EMPTY_FILTERS, filterRows, type TableFilterState } from '../lib/table-filters';
 import { TAG_COLORS, TAG_COLOR_LABEL, guessTagColor, hashTagColor, tagColorFor } from '../lib/table-tags';
 import { dateColumns as pickDateColumns, type TableViewMode, type ViewPrefs } from '../lib/table-views';
@@ -34,6 +34,8 @@ export interface DataTableGridProps {
   onRowsChange?: () => void;
   /** Search + tag filters above the table. Off in the client page's sub-tables (and always off in the calendar). */
   showFilters?: boolean;
+  /** An extra button on each row's page ("Agendar post" on a content row). */
+  rowAction?: (row: DataTableRowValue) => ReactNode;
 }
 
 type ColumnModalState = { mode: 'add' } | { mode: 'edit'; column: DataColumn } | null;
@@ -97,6 +99,7 @@ export function DataTableGrid({
   addDefaults,
   onRowsChange,
   showFilters = true,
+  rowAction,
 }: DataTableGridProps): JSX.Element {
   const [rows, setRows] = useState<DataTableRowValue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -526,7 +529,14 @@ export function DataTableGrid({
       {columnMenu.render()}
 
       {openRow && (
-        <RowDetailModal env={env} row={openRow} clientLabels={clientLabels} onClose={() => setOpenRowId(null)} onDelete={(rowId) => void deleteRow(rowId)} />
+        <RowDetailModal
+          env={env}
+          row={openRow}
+          clientLabels={clientLabels}
+          onClose={() => setOpenRowId(null)}
+          onDelete={(rowId) => void deleteRow(rowId)}
+          action={rowAction?.(openRow)}
+        />
       )}
 
       {columnModal && (

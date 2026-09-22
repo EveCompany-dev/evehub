@@ -10,6 +10,7 @@ export {
   createInstagramReelContainer,
   createInstagramStoryContainer,
   deleteFacebookPost,
+  fetchPermalink,
   pollInstagramContainerReady,
   publishFacebookStory,
   publishInstagramContainer,

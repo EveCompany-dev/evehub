@@ -1,8 +1,9 @@
 'use client';
 
-import { type JSX } from 'react';
+import { type JSX, type ReactNode } from 'react';
 import type { TableViewMode } from '../lib/table-views';
 import { CollapsibleSection } from './CollapsibleSection';
+import type { DataTableRowValue } from './data-table-types';
 import { DataTableGrid } from './DataTableGrid';
 import { useSystemTable, type SystemTableKindName } from './useSystemTable';
 
@@ -22,6 +23,8 @@ export interface ClientSubTableProps {
   addDefaults?: Record<string, unknown>;
   /** Rows changed here — tells the page to refresh the other views of the same table. */
   onRowsChange?: () => void;
+  /** An extra button on each row's page ("Agendar post"). */
+  rowAction?: (row: DataTableRowValue) => ReactNode;
 }
 
 /**
@@ -30,7 +33,7 @@ export interface ClientSubTableProps {
  * table of that kind, narrowed to this client. New rows are stamped with the
  * client automatically, so nobody picks it by hand.
  */
-export function ClientSubTable({ id, kind, title, hint, clientId, modes, defaultMode, addSignal, addDefaults, onRowsChange }: ClientSubTableProps): JSX.Element {
+export function ClientSubTable({ id, kind, title, hint, clientId, modes, defaultMode, addSignal, addDefaults, onRowsChange, rowAction }: ClientSubTableProps): JSX.Element {
   const { table, setTable, error } = useSystemTable(kind);
 
   return (
@@ -54,6 +57,7 @@ export function ClientSubTable({ id, kind, title, hint, clientId, modes, default
           addSignal={addSignal}
           addDefaults={addDefaults}
           onRowsChange={onRowsChange}
+          rowAction={rowAction}
         />
       )}
     </CollapsibleSection>

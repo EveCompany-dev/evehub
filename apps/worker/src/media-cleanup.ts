@@ -28,26 +28,30 @@ function deletableUploadPath(url: string): string | null {
  * MEDIA_RETENTION_DAYS ago. Meta already downloaded and now hosts its own
  * copy the moment a post went `published` — our copy past that grace window
  * is only there so the calendar's own thumbnail for a recent post still
- * renders, not because anything still needs to fetch it. Best-effort: a
- * file already gone (deleted by a previous run, or never existed) is not an
- * error, same as deleteUpload().
+ * renders, not because anything still needs to fetch it. The one file kept
+ * is the one its Calendário de Conteúdo row shows as Imagem: that row is the
+ * content's history now. Best-effort: a file already gone (deleted by a
+ * previous run, or never existed) is not an error, same as deleteUpload().
  */
 export async function cleanupPublishedMedia(): Promise<number> {
   const cutoff = new Date(Date.now() - getEnv().MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
   const posts = await prisma.scheduledPost.findMany({
     where: { status: 'published', scheduledFor: { lt: cutoff } },
-    select: { mediaUrl: true, mediaUrls: true },
+    select: { mediaUrl: true, mediaUrls: true, contentRow: { select: { data: true } } },
   });
 
   let removed = 0;
   for (const post of posts) {
+    // Compared as files: the row may hold "/uploads/x.png" where the post has the full URL.
+    const rowImage = (post.contentRow?.data as { imagem?: unknown } | null)?.imagem;
+    const keep = typeof rowImage === 'string' ? deletableUploadPath(rowImage) : null;
     const urls = [post.mediaUrl, ...(Array.isArray(post.mediaUrls) ? (post.mediaUrls as unknown[]) : [])].filter(
       (value): value is string => typeof value === 'string',
     );
     for (const url of urls) {
       const filePath = deletableUploadPath(url);
-      if (!filePath) continue;
+      if (!filePath || filePath === keep) continue;
       try {
         await unlink(filePath);
         removed += 1;

@@ -1299,6 +1299,20 @@ body[data-rail='hidden'] {
   margin: 0;
 }
 
+.eve-composer__source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 16px;
+}
+
+.eve-composer__source-posts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
 .eve-composer__locked-media {
   width: 160px;
   height: 160px;

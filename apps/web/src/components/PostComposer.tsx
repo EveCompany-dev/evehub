@@ -13,11 +13,13 @@ import { X } from '@eve/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
+import { targetFromContent } from '../lib/content-targets';
+import { parseLooseDate } from '../lib/table-dates';
 import { CarouselDropZone, uploadMedia } from './CarouselDropZone';
 import { MediaThumb } from './MediaThumb';
 import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
-import { POST_TYPE_LABEL, type ClientOption, type MetaAccount, type ScheduledPostRow } from './scheduling-types';
+import { POST_STATUS_LABEL, POST_TYPE_LABEL, type ClientOption, type ContentRowSummary, type MetaAccount, type ScheduledPostRow } from './scheduling-types';
 import { useEscapeToClose } from './useEscapeToClose';
 
 const UPLOAD_ENDPOINT = '/api/uploads/post-media';
@@ -37,6 +39,8 @@ interface PostDraft {
   carouselUrls: string[];
   /** datetime-local value. */
   scheduledFor: string;
+  /** The Calendário de Conteúdo row this post publishes; null = the API creates one. */
+  contentRowId: string | null;
   error: string | null;
 }
 
@@ -80,7 +84,32 @@ function emptyDraft(): PostDraft {
     carouselMode: false,
     carouselUrls: [],
     scheduledFor: inHalfAnHour(),
+    contentRowId: null,
     error: null,
+  };
+}
+
+/**
+ * "Agendar post" on a content row: its client, destination (Canal +
+ * Formato), script as the caption, image and day. A date-only row gets 10:00;
+ * a day already past falls back to half an hour from now.
+ */
+function draftFromRow(row: ContentRowSummary): PostDraft {
+  const text = (key: string) => (typeof row.data[key] === 'string' ? (row.data[key] as string) : '');
+  const { target, carousel } = targetFromContent(row.data.canal, row.data.formato);
+  const image = text('imagem') ? new URL(text('imagem'), window.location.origin).toString() : '';
+  const day = parseLooseDate(text('data'));
+  day?.setHours(10, 0, 0, 0);
+  return {
+    ...emptyDraft(),
+    clientId: text('cliente'),
+    targets: [targetKey(target)],
+    caption: text('texto'),
+    mediaUrl: image,
+    carouselMode: carousel,
+    carouselUrls: carousel && image ? [image] : [],
+    scheduledFor: day && day.getTime() > Date.now() + 10 * 60 * 1000 ? toLocalInputValue(day) : inHalfAnHour(),
+    contentRowId: row.id,
   };
 }
 
@@ -95,6 +124,7 @@ function draftFromPost(post: ScheduledPostRow): PostDraft {
     carouselMode: Boolean(post.mediaUrls && post.mediaUrls.length >= MIN_CAROUSEL_ITEMS),
     carouselUrls: post.mediaUrls ?? [],
     scheduledFor: toLocalInputValue(new Date(post.scheduledFor)),
+    contentRowId: post.contentRowId,
     error: null,
   };
 }
@@ -144,18 +174,22 @@ function problemWith(draft: PostDraft, info: ReturnType<typeof inspect>, isEditi
 }
 
 export interface PostComposerProps {
-  /** Edit this post (from the Agenda do Time) instead of writing new ones. */
+  /** Edit this post instead of writing new ones. */
   postId?: string;
+  /** Schedule this Calendário de Conteúdo row ("Agendar post" on the row). */
+  rowId?: string;
 }
 
 /**
  * Agendar Post: the post editor as a page of its own, away from any
- * calendar (posts show up on the Agenda do Time once scheduled). Several
- * files dropped at once ask whether they are one carousel or separate posts;
- * separate posts become sub-pages — one post each, each with its own date,
- * caption and destinations — scheduled together with one click.
+ * calendar. Every post lives on its client's Calendário de Conteúdo: opened
+ * from a row it publishes that row, written here it creates one — and the
+ * row's Status follows what Meta does with it. Several files dropped at once
+ * ask whether they are one carousel or separate posts; separate posts become
+ * sub-pages — one post each, with its own date, caption and destinations —
+ * scheduled together with one click.
  */
-export function PostComposer({ postId }: PostComposerProps): JSX.Element {
+export function PostComposer({ postId, rowId }: PostComposerProps): JSX.Element {
   const router = useRouter();
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
@@ -173,6 +207,10 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
   const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  /** The row being scheduled (`rowId`) and the posts it already has. */
+  const [source, setSource] = useState<{ row: ContentRowSummary; posts: ScheduledPostRow[] } | null>(null);
+  /** Where the last posts went, for the "see it on the client's calendar" link. */
+  const [sentTo, setSentTo] = useState<ClientOption | null>(null);
 
   const isEditing = editing !== null;
   const active = drafts.find((draft) => draft.key === activeKey) ?? drafts[0]!;
@@ -186,7 +224,7 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
       const response = await fetch('/api/scheduling/posts?status=failed', { cache: 'no-store' });
       if (response.ok) setFailed(((await response.json()) as { posts: ScheduledPostRow[] }).posts);
     } catch {
-      // The list is a courtesy; the Agenda do Time marks failed posts too.
+      // The list is a courtesy; the client's content calendar says Falhou too.
     }
   }, []);
 
@@ -230,6 +268,25 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
       void loadFailed();
     }
   }, [postId, loadFailed]);
+
+  useEffect(() => {
+    if (!rowId || postId) return;
+    void (async () => {
+      try {
+        const response = await fetch(`/api/scheduling/content/${encodeURIComponent(rowId)}`, { cache: 'no-store' });
+        const body = (await response.json().catch(() => ({}))) as { row?: ContentRowSummary; posts?: ScheduledPostRow[]; error?: string };
+        if (!response.ok || !body.row) {
+          setLoadError(body.error ?? `HTTP ${response.status}`);
+          return;
+        }
+        setSource({ row: body.row, posts: body.posts ?? [] });
+        setDrafts([draftFromRow(body.row)]);
+        setActiveKey(null);
+      } catch (cause) {
+        setLoadError(cause instanceof Error ? cause.message : String(cause));
+      }
+    })();
+  }, [rowId, postId]);
 
   const patchDraft = (key: string, patch: Partial<PostDraft>) => {
     // "3 posts agendados" is about the last batch, not the one being written now.
@@ -284,13 +341,15 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
       carouselMode: false,
       carouselUrls: [],
       targets: fitTargets(base.targets, url),
+      // Only the first publishes the row this came from; the others get rows of their own.
+      contentRowId: index === 0 ? base.contentRowId : null,
       error: index === 0 ? error : null,
     }));
     setDrafts((current) => current.flatMap((draft) => (draft.key === base.key ? split : [draft])));
     setActiveKey(base.key);
   };
 
-  const send = async (draft: PostDraft, scheduledFor: string): Promise<{ error: string | null; targets?: string[] }> => {
+  const send = async (draft: PostDraft, scheduledFor: string): Promise<{ error: string | null; targets?: string[]; contentRowId?: string | null }> => {
     const details = inspect(draft, clients, accounts, isEditing);
     const client = { id: details.client!.id, label: details.client!.label };
     const response = editing
@@ -310,15 +369,17 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
             mediaUrl: draft.mediaUrl,
             ...(details.carousel ? { mediaUrls: draft.carouselUrls } : {}),
             scheduledFor,
+            ...(draft.contentRowId ? { contentRowId: draft.contentRowId } : {}),
           }),
         });
-    const body = (await response.json().catch(() => ({}))) as { error?: string; errors?: string[]; posts?: ScheduledPostRow[] };
+    const body = (await response.json().catch(() => ({}))) as { error?: string; errors?: string[]; posts?: ScheduledPostRow[]; contentRowId?: string | null };
     if (!response.ok) return { error: body.error ?? `HTTP ${response.status}` };
-    // Partial success: the rows that worked exist now and must not be created
-    // twice, so only the targets that failed stay on the draft for a retry.
+    // Partial success: the posts that worked exist now and must not be
+    // created twice, so only the targets that failed stay on the draft — and
+    // the retry joins the content row the first half already created.
     if (body.errors && body.errors.length > 0) {
       const created = (body.posts ?? []).map(targetKey);
-      return { error: body.errors.join(' '), targets: draft.targets.filter((key) => !created.includes(key)) };
+      return { error: body.errors.join(' '), targets: draft.targets.filter((key) => !created.includes(key)), contentRowId: body.contentRowId ?? null };
     }
     return { error: null };
   };
@@ -347,25 +408,31 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
       try {
         const result = await send(draft, (now ? new Date() : new Date(draft.scheduledFor)).toISOString());
         if (result.error === null) sent += 1;
-        else left.push({ ...draft, error: result.error, targets: result.targets ?? draft.targets });
+        else left.push({ ...draft, error: result.error, targets: result.targets ?? draft.targets, contentRowId: result.contentRowId ?? draft.contentRowId });
       } catch (cause) {
         left.push({ ...draft, error: cause instanceof Error ? cause.message : String(cause) });
       }
     }
     setBusy(false);
 
+    const client = inspect(drafts[drafts.length - 1]!, clients, accounts, isEditing).client;
     if (left.length === 0) {
       if (editing) {
-        router.push('/agenda');
+        router.push(client ? `/clients/${client.id}` : '/');
         return;
       }
       setDrafts([emptyDraft()]);
       setActiveKey(null);
+      setSource(null);
+      setSentTo(client);
       setNotice(now ? (sent === 1 ? 'Post enviado para publicação.' : `${sent} posts enviados para publicação.`) : sent === 1 ? 'Post agendado.' : `${sent} posts agendados.`);
     } else {
       setDrafts(left);
       setActiveKey(left[0]!.key);
-      if (sent > 0) setNotice(`${sent} de ${drafts.length} foram. Os que faltam continuam abertos, com o motivo.`);
+      if (sent > 0) {
+        setSentTo(client);
+        setNotice(`${sent} de ${drafts.length} foram. Os que faltam continuam abertos, com o motivo.`);
+      }
     }
     void loadFailed();
   };
@@ -375,7 +442,7 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
     setBusy(true);
     try {
       const response = await fetch(`/api/scheduling/posts/${editing.id}`, { method: 'DELETE' });
-      if (response.ok) router.push('/agenda');
+      if (response.ok) router.push(editing.clientId ? `/clients/${editing.clientId}` : '/');
       else patchDraft(active.key, { error: ((await response.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${response.status}` });
     } finally {
       setBusy(false);
@@ -398,7 +465,7 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
   if (postId && !editing && !reused) {
     return loadError ? (
       <p className="eve-alert eve-alert--error">
-        {loadError} <Link href="/agenda">Voltar para a Agenda do Time</Link>
+        {loadError} <Link href="/scheduling">Agendar outro post</Link>
       </p>
     ) : (
       <p className="eve-dim">carregando...</p>
@@ -449,8 +516,26 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
 
       {notice && (
         <p className="eve-alert">
-          {notice} <Link href="/agenda">Ver na Agenda do Time</Link>
+          {notice}{' '}
+          {sentTo && <Link href={`/clients/${sentTo.id}`}>Ver no Calendário de Conteúdo de {sentTo.label}</Link>}
         </p>
+      )}
+
+      {source && (
+        <div className="eve-card eve-composer__source">
+          <span className="eve-dim">Agendando do Calendário de Conteúdo</span>
+          <strong>{typeof source.row.data.titulo === 'string' && source.row.data.titulo ? source.row.data.titulo : 'Conteúdo sem título'}</strong>
+          {source.posts.length > 0 && (
+            <span className="eve-composer__source-posts">
+              Já tem post:{' '}
+              {source.posts.map((post) => (
+                <Link key={post.id} href={`/scheduling?post=${post.id}`}>
+                  {targetLabel(post)} · {POST_STATUS_LABEL[post.status]}
+                </Link>
+              ))}
+            </span>
+          )}
+        </div>
       )}
 
       {batch && (
@@ -606,7 +691,7 @@ export function PostComposer({ postId }: PostComposerProps): JSX.Element {
               </>
             )}
             {isEditing && (
-              <Link href="/agenda" className="eve-btn">
+              <Link href={editing?.clientId ? `/clients/${editing.clientId}` : '/'} className="eve-btn">
                 Voltar
               </Link>
             )}

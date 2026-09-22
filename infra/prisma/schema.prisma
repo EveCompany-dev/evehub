@@ -542,6 +542,14 @@ model ScheduledPost {
   metaCreationId String?
   /// Id do post/media ja publicado no Meta, quando existe.
   metaPostId     String?
+  /// Link publico depois de publicado (permalink do Instagram, permalink_url do Facebook).
+  permalink      String?
+
+  /// A linha do Calendario de Conteudo que este post publica. O post e a
+  /// execucao da linha: agendar, publicar, falhar ou cancelar muda o Status
+  /// dela (ver packages/core/src/content-posts.ts). Nulo = post avulso antigo.
+  contentRowId String?
+  contentRow   DataTableRow? @relation(fields: [contentRowId], references: [id], onDelete: SetNull)
 
   createdBy     String
   createdByUser User   @relation(fields: [createdBy], references: [id])
@@ -551,6 +559,7 @@ model ScheduledPost {
 
   @@index([workspaceId, scheduledFor])
   @@index([status, scheduledFor])
+  @@index([contentRowId])
 }
 
 // ---------------------------------------------------------------------------
@@ -599,6 +608,9 @@ model DataTableRow {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Posts agendados a partir desta linha (so linhas do Calendario de Conteudo tem).
+  scheduledPosts ScheduledPost[]
 
   @@index([tableId])
 }

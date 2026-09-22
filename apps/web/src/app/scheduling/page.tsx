@@ -8,14 +8,18 @@ import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
-/** Agendar Post — the post editor as its own page; ?post=<id> opens one already scheduled (from the Agenda do Time). */
-export default async function SchedulingPage({ searchParams }: { searchParams: Promise<{ post?: string }> }): Promise<JSX.Element> {
+/**
+ * Agendar Post — the post editor as its own page. ?row=<id> schedules a
+ * Calendário de Conteúdo row ("Agendar post" on the row); ?post=<id> opens
+ * a post already scheduled.
+ */
+export default async function SchedulingPage({ searchParams }: { searchParams: Promise<{ post?: string; row?: string }> }): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
   // getSessionUser() already reflects a fresh DB read (see auth.ts's session
   // callback) — no need for a second prisma.user.findUnique just for this check.
   if (!canViewScheduling(user)) redirect('/');
-  const { post } = await searchParams;
+  const { post, row } = await searchParams;
 
   return (
     <div className="eve-wide-page">
@@ -27,7 +31,7 @@ export default async function SchedulingPage({ searchParams }: { searchParams: P
       </header>
 
       <div className="eve-wide-page__body">
-        <PostComposer key={post ?? 'new'} postId={post} />
+        <PostComposer key={post ?? row ?? 'new'} postId={post} rowId={row} />
       </div>
     </div>
   );

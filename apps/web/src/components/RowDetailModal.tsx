@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type JSX } from 'react';
+import { useState, type JSX, type ReactNode } from 'react';
 import { rowTitle, titleColumn } from '../lib/table-views';
 import type { DataTableRowValue, TableEnv } from './data-table-types';
 import { ColumnTypeIcon } from './table-column-meta';
@@ -15,6 +15,8 @@ export interface RowDetailModalProps {
   clientLabels: Record<string, string>;
   onClose: () => void;
   onDelete: (rowId: string) => void;
+  /** Extra button for this kind of row, next to "Remover linha" ("Agendar post" on a content row). */
+  action?: ReactNode;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface RowDetailModalProps {
  * editable field. This is where long text — a post's script, a caption —
  * gets room to breathe, instead of being squeezed into a grid cell.
  */
-export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: RowDetailModalProps): JSX.Element {
+export function RowDetailModal({ env, row, clientLabels, onClose, onDelete, action }: RowDetailModalProps): JSX.Element {
   useEscapeToClose(onClose);
   const [teleprompterFor, setTeleprompterFor] = useState<string | null>(null);
   const columns = env.table.columns;
@@ -50,6 +52,7 @@ export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: Ro
         <div className="eve-rowpage__bar">
           <span className="eve-dim">{env.table.name}</span>
           <span className="eve-rowpage__bar-actions">
+            {action}
             <button
               type="button"
               className="eve-btn eve-btn--danger"

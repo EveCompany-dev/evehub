@@ -1,4 +1,4 @@
-import { loadConnectorContext, prisma } from '@eve/core';
+import { loadConnectorContext, prisma, refreshContentRow } from '@eve/core';
 import { deleteFacebookPost, scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
@@ -22,6 +22,16 @@ const patchSchema = z.object({
   scheduledFor: z.string().datetime().optional(),
   client: z.object({ id: z.string().min(1), label: z.string().min(1) }).optional(),
 });
+
+/** The post's Calendário de Conteúdo row catches up (date, Status) — never the reason a request fails. */
+async function syncContentRow(rowId: string | null): Promise<void> {
+  if (!rowId) return;
+  try {
+    await refreshContentRow(rowId);
+  } catch (error) {
+    console.error('[scheduling] falha ao atualizar o Calendário de Conteúdo:', error);
+  }
+}
 
 async function requirePost(id: string, workspaceId: string) {
   const post = await prisma.scheduledPost.findUnique({ where: { id }, include: { connectorInstance: true } });
@@ -114,6 +124,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             statusMessage: `O post anterior foi cancelado, mas o reagendamento falhou: ${message}`.slice(0, 500),
           },
         });
+        await syncContentRow(post.contentRowId);
         return fail(502, message);
       }
     }
@@ -122,6 +133,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       where: { id },
       data: { caption, mediaUrl, scheduledFor, metaPostId, ...clientFields },
     });
+    await syncContentRow(updated.contentRowId);
 
     await logActivity(user, {
       action: 'post.update',
@@ -158,6 +170,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     }
 
     await prisma.scheduledPost.delete({ where: { id } });
+    await syncContentRow(post.contentRowId);
     await logActivity(user, {
       action: 'post.delete',
       summary: `cancelou o post agendado (${postLabel(post)}) de ${whenLabel(post.scheduledFor)}`,

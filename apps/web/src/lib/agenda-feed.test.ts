@@ -39,6 +39,8 @@ function post(id: string, scheduledFor: string, overrides: Partial<ScheduledPost
     status: 'scheduled',
     statusMessage: null,
     metaPostId: null,
+    permalink: null,
+    contentRowId: null,
     createdBy: 'bia',
     ...overrides,
   };

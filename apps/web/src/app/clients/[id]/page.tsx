@@ -3,12 +3,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { ClientDetailWorkspace } from '../../../components/ClientDetailWorkspace';
-import { canViewTab } from '../../../lib/permissions';
+import { canViewScheduling, canViewTab } from '../../../lib/permissions';
 import { getSessionUser } from '../../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
-/** Open to any authenticated workspace member — same as Jobs, which is where this page is linked from. */
+/** Behind the Tabelas tab, like Clientes; "Agendar post" on its content rows needs the Agenda tab too. */
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
@@ -24,7 +24,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <h1 className="eve-profile__title">Cliente</h1>
       </header>
       <div className="eve-wide-page__body">
-        <ClientDetailWorkspace clientId={id} />
+        <ClientDetailWorkspace clientId={id} canSchedule={canViewScheduling(user)} />
       </div>
     </div>
   );

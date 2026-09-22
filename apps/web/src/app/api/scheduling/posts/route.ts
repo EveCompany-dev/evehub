@@ -15,6 +15,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted, whenLabel } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
+import { findContentRow, linkPostsToContent } from '../../../../lib/content-rows';
 import { canViewScheduling } from '../../../../lib/permissions';
 import { HttpError, requireInstance, requireUser } from '../../../../lib/session';
 
@@ -58,9 +59,15 @@ const createSchema = z.object({
   /** Instagram feed carousel — see the validation below for why this is Instagram-feed-only. */
   mediaUrls: z.array(z.string().url()).min(MIN_CAROUSEL_ITEMS).max(MAX_CAROUSEL_ITEMS).optional(),
   scheduledFor: z.string().datetime(),
+  /**
+   * The Calendário de Conteúdo row this post publishes ("Agendar post" on a
+   * row). Without one, a new row is created for it — every post lives on
+   * its client's content calendar either way.
+   */
+  contentRowId: z.string().min(1).optional(),
 });
 
-/** Lists scheduled posts for the calendar, filterable by date range/client/platform/status. */
+/** Lists scheduled posts, filterable by date range/client/platform/status/content row. */
 export async function GET(request: Request): Promise<Response> {
   return handle(async () => {
     const user = await requireUser();
@@ -73,6 +80,7 @@ export async function GET(request: Request): Promise<Response> {
     const platform = url.searchParams.get('platform');
     const status = url.searchParams.get('status');
     const createdBy = url.searchParams.get('createdBy');
+    const contentRowId = url.searchParams.get('contentRow');
 
     const statusFilter = status && POST_STATUSES.includes(status as PostStatus) ? (status as PostStatus) : null;
 
@@ -86,6 +94,7 @@ export async function GET(request: Request): Promise<Response> {
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(clientId ? { clientId } : {}),
         ...(createdBy ? { createdBy } : {}),
+        ...(contentRowId ? { contentRowId } : {}),
       },
       orderBy: { scheduledFor: 'asc' },
     });
@@ -108,6 +117,10 @@ export async function POST(request: Request): Promise<Response> {
 
     const body = createSchema.safeParse(await request.json());
     if (!body.success) return fail(400, body.error.issues.map((issue) => issue.message).join('; '));
+
+    if (body.data.contentRowId && !(await findContentRow(user.workspaceId, body.data.contentRowId))) {
+      return fail(404, 'Esse conteúdo não existe mais no Calendário de Conteúdo.');
+    }
 
     const instance = await requireInstance(body.data.connectorInstanceId, user);
     if (instance.connectorId !== 'meta') return fail(400, 'A instância informada não é uma conexão do Meta.');
@@ -252,6 +265,26 @@ export async function POST(request: Request): Promise<Response> {
     // Nothing got through: this is a plain failure, not a partial success.
     if (created.length === 0) return fail(400, errors.join(' '));
 
+    // The posts exist either way; a hiccup linking them to the calendar must
+    // not turn a scheduled post into an error the user would retry (and
+    // double-post).
+    let contentRowId: string | null = null;
+    try {
+      contentRowId = await linkPostsToContent({
+        workspaceId: user.workspaceId,
+        ...(body.data.contentRowId ? { rowId: body.data.contentRowId } : {}),
+        postIds: created.map((post) => post.id),
+        client: body.data.client,
+        target: { platform: created[0]!.platform, postType: created[0]!.postType },
+        carousel: Boolean(body.data.mediaUrls),
+        caption: body.data.caption,
+        mediaUrl: body.data.mediaUrl,
+      });
+      for (const post of created) post.contentRowId = contentRowId;
+    } catch (error) {
+      console.error('[scheduling] falha ao ligar o post ao Calendário de Conteúdo:', error);
+    }
+
     // Some did: the rows that exist are real and must not be rolled back, so
     // the caller gets both halves and decides what to say about it.
     for (const post of created) {
@@ -263,6 +296,6 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    return ok({ posts: created, errors }, 201);
+    return ok({ posts: created, errors, contentRowId }, 201);
   });
 }

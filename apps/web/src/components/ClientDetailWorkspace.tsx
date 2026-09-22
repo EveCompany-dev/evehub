@@ -10,6 +10,7 @@ import { ClientBrandEditor } from './ClientBrandEditor';
 import { ClientConnectors } from './ClientConnectors';
 import { ClientSubTable } from './ClientSubTable';
 import { CollapsibleSection, openSection } from './CollapsibleSection';
+import type { DataTableRowValue } from './data-table-types';
 import type { ClientDetail } from './project-types';
 import { ClientAvatar, TagPill } from './TagPill';
 
@@ -21,6 +22,17 @@ interface LinkedRowGroup {
 
 export interface ClientDetailWorkspaceProps {
   clientId: string;
+  /** Can open Agendar Post (the Agenda tab) — adds "Agendar post" to each content row. */
+  canSchedule: boolean;
+}
+
+/** A content row becomes a post from its own page: Agendar Post opens pre-filled from the row. */
+function scheduleButton(row: DataTableRowValue): ReactNode {
+  return (
+    <Link href={`/scheduling?row=${row.id}`} className="eve-btn eve-btn--primary">
+      Agendar post
+    </Link>
+  );
 }
 
 const IDEA_DEFAULTS = { status: 'Ideia' };
@@ -49,7 +61,8 @@ function jumpTo(id: string): void {
  * references, posts and the content calendar (sub-tables filtered by this
  * client), plus its jobs, files and mentions (see ClientActivity).
  */
-export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps): JSX.Element {
+export function ClientDetailWorkspace({ clientId, canSchedule }: ClientDetailWorkspaceProps): JSX.Element {
+  const rowAction = canSchedule ? scheduleButton : undefined;
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [linkedRows, setLinkedRows] = useState<LinkedRowGroup[]>([]);
   const [editingBrand, setEditingBrand] = useState(false);
@@ -222,6 +235,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         addSignal={contentSignal}
         addDefaults={IDEA_DEFAULTS}
         onRowsChange={onPostsChange}
+        rowAction={rowAction}
       />
       <ClientSubTable
         key={`cal-${contentVersion.calendar}`}
@@ -232,6 +246,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         modes={['calendar']}
         defaultMode="calendar"
         onRowsChange={onCalendarChange}
+        rowAction={rowAction}
       />
 
       <ClientActivity clientId={clientId} />
