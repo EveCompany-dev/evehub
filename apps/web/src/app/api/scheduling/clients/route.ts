@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canViewScheduling } from '../../../../lib/permissions';
 import { clientProfileOut, parseClientProfile } from '../../../../lib/client-fields';
@@ -77,6 +78,8 @@ export async function POST(request: Request): Promise<Response> {
         ...profile.data,
       },
     });
+
+    await logActivity(user, { action: 'client.create', summary: `cadastrou o cliente ${quoted(client.name)}`, entityType: 'client', entityId: client.id });
 
     return ok({ client: { ...client, ...clientProfileOut(client) } }, 201);
   });

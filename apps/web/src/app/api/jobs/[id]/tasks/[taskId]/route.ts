@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, personLabel, quoted } from '../../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../../lib/api';
 import { requireJob, requireTask, TASK_INCLUDE } from '../../../../../../lib/jobs';
 import { notify } from '../../../../../../lib/notifications';
@@ -49,11 +50,13 @@ export async function PATCH(
       if (reorderError) return fail(400, reorderError);
     }
 
+    let assigneeLabel: string | null = null;
     if (body.data.assigneeId) {
       const assignee = await prisma.user.findUnique({ where: { id: body.data.assigneeId } });
       if (!assignee || assignee.workspaceId !== user.workspaceId) {
         return fail(400, 'Esse responsável não pertence a este workspace.');
       }
+      assigneeLabel = personLabel(assignee);
     }
 
     const { title, description, dueDate, assigneeId, done, important } = body.data;
@@ -76,6 +79,26 @@ export async function PATCH(
           ...(important !== undefined ? { important } : {}),
         },
       });
+
+      const taskName = quoted(existingTask.title);
+      const where = `no job ${quoted(job.title)}`;
+      const changes: { action: string; summary: string }[] = [];
+      if (done !== undefined && done !== existingTask.done) {
+        changes.push({ action: 'job.task.done', summary: done ? `concluiu a tarefa ${taskName} ${where}` : `reabriu a tarefa ${taskName} ${where}` });
+      }
+      if (assigneeId !== undefined && assigneeId !== existingTask.assigneeId) {
+        changes.push({
+          action: 'job.task.update',
+          summary: assigneeId ? `passou a tarefa ${taskName} ${where} para ${assigneeLabel ?? 'alguém'}` : `tirou o responsável da tarefa ${taskName} ${where}`,
+        });
+      }
+      const edited: string[] = [];
+      if (title !== undefined && title !== existingTask.title) edited.push(`título para ${quoted(title)}`);
+      if (description !== undefined && (description ?? null) !== existingTask.description) edited.push('descrição');
+      if (dueDate !== undefined && (dueDate ? new Date(dueDate).getTime() : null) !== (existingTask.dueDate?.getTime() ?? null)) edited.push('prazo');
+      if (important !== undefined && important !== existingTask.important) edited.push(important ? 'marcada como importante' : 'importante (desmarcado)');
+      if (edited.length > 0) changes.push({ action: 'job.task.update', summary: `editou a tarefa ${taskName} ${where}: ${edited.join(', ')}` });
+      for (const change of changes) await logActivity(user, { ...change, entityType: 'job', entityId: id });
 
       // Marking a task done stops the clock on it, whoever left it running.
       if (done === true) {
@@ -123,10 +146,16 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId } = await context.params;
-    await requireJob(id, user.workspaceId);
-    await requireTask(id, taskId);
+    const job = await requireJob(id, user.workspaceId);
+    const task = await requireTask(id, taskId);
 
     await prisma.jobTask.delete({ where: { id: taskId } });
+    await logActivity(user, {
+      action: 'job.task.delete',
+      summary: `apagou a tarefa ${quoted(task.title)} do job ${quoted(job.title)}`,
+      entityType: 'job',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

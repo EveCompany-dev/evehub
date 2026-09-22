@@ -1,6 +1,7 @@
 import { performUndo } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { requireInstance, requireUser } from '../../../../../lib/session';
 
@@ -19,7 +20,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireInstance(id, user);
+    const instance = await requireInstance(id, user);
 
     const body = undoSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -30,6 +31,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return ok({ ok: false, conflict: true, message: result.message }, 409);
     }
     if (!result.ok) return fail(400, result.message);
+
+    await logActivity(user, {
+      action: 'connector.undo',
+      summary: `desfez uma edição no conector ${quoted(instance.label)}`,
+      entityType: 'connectorInstance',
+      entityId: id,
+    });
 
     return ok({ ok: true, editLogId: result.editLogId, newVersion: result.newVersion });
   });

@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { requireJob, TASK_INCLUDE } from '../../../../../lib/jobs';
 import { requireUser } from '../../../../../lib/session';
@@ -34,7 +35,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user.workspaceId);
 
     const body = createSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -59,6 +60,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         assigneeId: body.data.assigneeId || null,
       },
       include: TASK_INCLUDE,
+    });
+
+    await logActivity(user, {
+      action: 'job.task.create',
+      summary: `criou a tarefa ${quoted(task.title)} no job ${quoted(job.title)}`,
+      entityType: 'job',
+      entityId: id,
     });
 
     return ok({ task }, 201);

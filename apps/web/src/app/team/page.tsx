@@ -9,8 +9,8 @@ import { TeamSection } from '../perfil/TeamSection';
 export const dynamic = 'force-dynamic';
 
 /**
- * Owner gets full management; a Role granting the 'team' tab gets a
- * read-only roster (see canManageTeam — mutations stay owner-only always).
+ * Admins (the fixed e-mail list) get full management; everyone else gets the
+ * read-only roster, since 'team' is a default tab (see canManageTeam).
  */
 export default async function TeamPage(): Promise<JSX.Element> {
   const user = await getSessionUser();

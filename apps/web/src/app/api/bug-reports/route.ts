@@ -1,5 +1,6 @@
 import { prisma } from '@eve/core';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
 import { sendBugReportEmail } from '../../../lib/bug-report-email';
 import { requireUser } from '../../../lib/session';
@@ -43,6 +44,13 @@ export async function POST(request: Request): Promise<Response> {
       createdAt: report.createdAt,
     });
     if (sent) await prisma.bugReport.update({ where: { id: report.id }, data: { emailedAt: new Date() } });
+
+    await logActivity(user, {
+      action: 'bug.report',
+      summary: `enviou um relato de bug/feedback: ${quoted(report.message, 120)}`,
+      entityType: 'bugReport',
+      entityId: report.id,
+    });
 
     return ok({ ok: true }, 201);
   });

@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, ChevronLeft, Wrench, ChevronRight, ChevronDown, CircleDollarSign, IdCard, MessageCircle, SquareKanban, strings, Table2, Users } from '@eve/ui';
+import { CalendarDays, ChevronLeft, Wrench, ChevronRight, ChevronDown, CircleDollarSign, History, IdCard, MessageCircle, SquareKanban, strings, Table2, Users } from '@eve/ui';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, type JSX, type ReactNode } from 'react';
@@ -159,6 +159,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     '/agenda': <SchedulingIcon />,
     '/financial': <FinancialIcon />,
     '/team': <TeamIcon />,
+    '/activity': <History size={18} aria-hidden="true" />,
   };
 
   // The rail shows only the tab-gated workspaces, not every indexed route:

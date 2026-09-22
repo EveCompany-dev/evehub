@@ -54,6 +54,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const body = createSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
 
+    // The history stays readable, but a disabled or removed account can't
+    // receive anything new — nobody would ever read it.
+    const recipientId = conversation.userAId === user.id ? conversation.userBId : conversation.userAId;
+    const recipient = await prisma.user.findUnique({ where: { id: recipientId }, select: { disabledAt: true } });
+    if (!recipient || recipient.disabledAt) return fail(409, 'Esta pessoa não tem mais acesso ao Eve Hub.');
+
     const message = await prisma.directMessage.create({
       data: {
         conversationId: id,
@@ -64,7 +70,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       include: DIRECT_MESSAGE_INCLUDE,
     });
 
-    const recipientId = conversation.userAId === user.id ? conversation.userBId : conversation.userAId;
     await notify({
       workspaceId: user.workspaceId,
       userId: recipientId,

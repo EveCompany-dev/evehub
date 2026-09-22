@@ -1,6 +1,7 @@
 import { dataColumnSchema, Prisma, prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { describeRow, logActivity, quoted } from '../../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../../lib/api';
 import { HttpError, requireUser } from '../../../../../../lib/session';
 
@@ -41,6 +42,19 @@ export async function PATCH(
       data: { data: { ...(row.data as Record<string, unknown>), ...body.data.data } as Prisma.InputJsonValue },
     });
 
+    const before = (row.data ?? {}) as Record<string, unknown>;
+    const changedKeys = Object.keys(body.data.data).filter((key) => JSON.stringify(before[key]) !== JSON.stringify(body.data.data[key]));
+    if (changedKeys.length > 0) {
+      const described = describeRow(table.columns, updated.data, changedKeys);
+      await logActivity(user, {
+        action: 'table.row.update',
+        summary: `editou ${described.fields} na linha ${described.title} da tabela ${quoted(table.name)}`,
+        entityType: 'table',
+        entityId: id,
+        details: { rowId, fields: changedKeys },
+      });
+    }
+
     return ok({ row: updated });
   });
 }
@@ -52,9 +66,16 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, rowId } = await context.params;
-    await requireRow(id, rowId, user.workspaceId);
+    const { table, row } = await requireRow(id, rowId, user.workspaceId);
 
     await prisma.dataTableRow.delete({ where: { id: rowId } });
+    await logActivity(user, {
+      action: 'table.row.delete',
+      summary: `apagou a linha ${describeRow(table.columns, row.data).title} da tabela ${quoted(table.name)}`,
+      entityType: 'table',
+      entityId: id,
+      details: { rowId },
+    });
     return ok({ ok: true });
   });
 }

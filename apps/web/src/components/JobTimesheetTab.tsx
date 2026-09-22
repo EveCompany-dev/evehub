@@ -13,6 +13,8 @@ import {
 
 export interface JobTimesheetTabProps {
   jobId: string;
+  /** Edit/delete show only on your own entries — the API enforces the same (admins excepted). */
+  currentUserId: string;
 }
 
 interface EntriesResponse {
@@ -35,7 +37,7 @@ function formatMinutes(minutes: number): string {
  * stopping a timer happens from the job's main panel (or the floating popup)
  * now — this tab is purely "what got logged, and can I fix the number."
  */
-export function JobTimesheetTab({ jobId }: JobTimesheetTabProps): JSX.Element {
+export function JobTimesheetTab({ jobId, currentUserId }: JobTimesheetTabProps): JSX.Element {
   const [entries, setEntries] = useState<TimeEntrySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +158,7 @@ export function JobTimesheetTab({ jobId }: JobTimesheetTabProps): JSX.Element {
                     {strings.edit.cancel}
                   </button>
                 </span>
-              ) : (
+              ) : entry.userId === currentUserId ? (
                 <button
                   type="button"
                   className="eve-jobs__timesheet-duration"
@@ -165,16 +167,21 @@ export function JobTimesheetTab({ jobId }: JobTimesheetTabProps): JSX.Element {
                 >
                   {formatDuration(entry.startedAt, entry.endedAt)}
                 </button>
+              ) : (
+                // Someone else's hours: visible to everyone, editable only by them.
+                <span className="eve-jobs__timesheet-duration">{formatDuration(entry.startedAt, entry.endedAt)}</span>
               )}
 
-              <button
-                type="button"
-                className="eve-btn eve-btn--icon"
-                title={strings.jobs.deleteEntry}
-                onClick={() => void removeEntry(entry.id)}
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
+              {entry.userId === currentUserId && (
+                <button
+                  type="button"
+                  className="eve-btn eve-btn--icon"
+                  title={strings.jobs.deleteEntry}
+                  onClick={() => void removeEntry(entry.id)}
+                >
+                  <X size={14} aria-hidden="true" />
+                </button>
+              )}
             </li>
           ))}
         </ul>

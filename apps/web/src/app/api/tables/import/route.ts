@@ -1,6 +1,7 @@
 import { coerceColumnValue, dataColumnTypeSchema, prisma, slugifyColumnKey, type DataColumn, type Prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canViewScheduling } from '../../../../lib/permissions';
 import { HttpError, requireUser } from '../../../../lib/session';
@@ -123,6 +124,13 @@ export async function POST(request: Request): Promise<Response> {
       },
       { timeout: 60_000, maxWait: 10_000 },
     );
+
+    await logActivity(user, {
+      action: 'table.import',
+      summary: `importou a tabela ${quoted(result.table.name)} com ${result.rowCount} linha(s)${toCreate.length > 0 ? ` e cadastrou ${toCreate.length} cliente(s) novo(s)` : ''}`,
+      entityType: 'table',
+      entityId: result.table.id,
+    });
 
     return ok({ ...result, createdClients: toCreate.length }, 201);
   });

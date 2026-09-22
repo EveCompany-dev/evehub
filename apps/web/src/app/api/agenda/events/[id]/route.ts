@@ -2,6 +2,7 @@ import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { AGENDA_EVENT_INCLUDE } from '../route';
+import { logActivity, quoted, whenLabel } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { canViewScheduling } from '../../../../../lib/permissions';
 import { HttpError, requireUser } from '../../../../../lib/session';
@@ -65,6 +66,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       include: AGENDA_EVENT_INCLUDE,
     });
 
+    const moved = updated.startAt.getTime() !== event.startAt.getTime();
+    await logActivity(user, {
+      action: 'agenda.update',
+      summary: moved
+        ? `remarcou o evento ${quoted(updated.title)} para ${whenLabel(updated.startAt, !updated.allDay)}`
+        : `editou o evento ${quoted(updated.title)} da agenda`,
+      entityType: 'agendaEvent',
+      entityId: id,
+    });
+
     return ok({ event: updated });
   });
 }
@@ -79,6 +90,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (event.createdBy !== user.id) return fail(403, strings.errors.notCommentAuthor);
 
     await prisma.agendaEvent.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'agenda.delete',
+      summary: `apagou o evento ${quoted(event.title)} (${whenLabel(event.startAt, !event.allDay)}) da agenda`,
+      entityType: 'agendaEvent',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

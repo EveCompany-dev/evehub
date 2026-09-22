@@ -1,18 +1,20 @@
+import { ADMIN_EMAILS, isAdminEmail } from '@eve/core/admins';
 import { describe, expect, it } from 'vitest';
 import {
   canCreateInstance,
   canDeleteInstance,
   canManageTeam,
+  canViewActivityLog,
   canViewFinancial,
   canViewScheduling,
   canViewTeamTab,
   canWriteCredentials,
   getVisibleTabs,
   parseRoleTabs,
+  ROLE_GRANTABLE_TABS,
   validateDelete,
   validateDisable,
-  validateOwnerChange,
-  validateOwnerGrant,
+  validateEmailChange,
 } from './permissions';
 
 const owner = { isOwner: true };
@@ -41,64 +43,101 @@ describe('permissions', () => {
     expect(canDeleteInstance(member)).toBe(false);
     expect(canDeleteInstance(owner)).toBe(true);
   });
+
+  it('keeps the activity log admin-only', () => {
+    expect(canViewActivityLog(owner)).toBe(true);
+    expect(canViewActivityLog(member)).toBe(false);
+  });
+});
+
+describe('admin list', () => {
+  it('is exactly the two EveCompany admin accounts', () => {
+    expect([...ADMIN_EMAILS].sort()).toEqual(['financeiro@evecompany.com.br', 'jose@evecompany.com.br']);
+  });
+
+  it('matches regardless of case and stray whitespace', () => {
+    expect(isAdminEmail('Jose@EveCompany.com.br')).toBe(true);
+    expect(isAdminEmail(' financeiro@evecompany.com.br ')).toBe(true);
+  });
+
+  it('rejects everyone else, including lookalikes', () => {
+    expect(isAdminEmail('marketing@evecompany.com.br')).toBe(false);
+    expect(isAdminEmail('jose@evecompany.com.br.evil.com')).toBe(false);
+    expect(isAdminEmail('xjose@evecompany.com.br')).toBe(false);
+    expect(isAdminEmail('')).toBe(false);
+    expect(isAdminEmail(null)).toBe(false);
+  });
 });
 
 describe('team guards', () => {
-  it('scopes team management to owners', () => {
+  it('scopes team management to admins', () => {
     expect(canManageTeam(owner)).toBe(true);
     expect(canManageTeam(member)).toBe(false);
   });
 
-  it('refuses to remove the last owner, which would lock everyone out', () => {
-    const result = validateOwnerChange({ targetIsOwner: true, nextIsOwner: false, ownerCount: 1 });
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/único owner/);
-  });
-
-  it('allows demoting an owner while another one remains', () => {
-    expect(validateOwnerChange({ targetIsOwner: true, nextIsOwner: false, ownerCount: 2 }).ok).toBe(true);
-  });
-
-  it('always allows promoting someone', () => {
-    expect(validateOwnerChange({ targetIsOwner: false, nextIsOwner: true, ownerCount: 1 }).ok).toBe(true);
-  });
-
   it('never lets you disable your own account', () => {
-    const result = validateDisable({
-      actorId: 'u1',
-      targetId: 'u1',
-      targetIsOwner: true,
-      ownerCount: 2,
-      nextDisabled: true,
-    });
+    const result = validateDisable({ actorId: 'u1', targetId: 'u1', targetIsAdmin: false, nextDisabled: true });
     expect(result.ok).toBe(false);
     expect(result.reason).toMatch(/própria conta/);
   });
 
-  it('refuses to disable the last owner', () => {
-    expect(
-      validateDisable({ actorId: 'u1', targetId: 'u2', targetIsOwner: true, ownerCount: 1, nextDisabled: true }).ok,
-    ).toBe(false);
+  it('refuses to disable an admin account', () => {
+    const result = validateDisable({ actorId: 'u1', targetId: 'u2', targetIsAdmin: true, nextDisabled: true });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/administrador/);
+  });
+
+  it('disables a member', () => {
+    expect(validateDisable({ actorId: 'u1', targetId: 'u2', targetIsAdmin: false, nextDisabled: true }).ok).toBe(true);
   });
 
   it('re-enabling is never blocked', () => {
-    expect(
-      validateDisable({ actorId: 'u1', targetId: 'u1', targetIsOwner: true, ownerCount: 1, nextDisabled: false }).ok,
-    ).toBe(true);
+    expect(validateDisable({ actorId: 'u1', targetId: 'u1', targetIsAdmin: true, nextDisabled: false }).ok).toBe(true);
+  });
+
+  it('validateDelete requires the account to be deactivated first', () => {
+    const guard = validateDelete({ actorId: 'a', targetId: 'b', targetIsAdmin: false, targetDisabled: false });
+    expect(guard.ok).toBe(false);
+    expect(guard.reason).toMatch(/Desative a conta antes/);
+  });
+
+  it('validateDelete refuses self-deletion even when disabled', () => {
+    expect(validateDelete({ actorId: 'a', targetId: 'a', targetIsAdmin: false, targetDisabled: true }).ok).toBe(false);
+  });
+
+  it('validateDelete refuses an admin account, and allows a disabled member', () => {
+    expect(validateDelete({ actorId: 'a', targetId: 'b', targetIsAdmin: true, targetDisabled: true }).ok).toBe(false);
+    expect(validateDelete({ actorId: 'a', targetId: 'b', targetIsAdmin: false, targetDisabled: true }).ok).toBe(true);
+  });
+
+  it('only an admin changes an e-mail', () => {
+    const guard = validateEmailChange({ actorIsAdmin: false, currentIsAdminEmail: false, nextIsAdminEmail: false });
+    expect(guard.ok).toBe(false);
+    expect(validateEmailChange({ actorIsAdmin: true, currentIsAdminEmail: false, nextIsAdminEmail: false }).ok).toBe(true);
+  });
+
+  it('never renames an account to, or away from, an admin e-mail', () => {
+    // The escalation this blocks: rename yourself to an admin address nobody has claimed yet.
+    expect(validateEmailChange({ actorIsAdmin: true, currentIsAdminEmail: false, nextIsAdminEmail: true }).ok).toBe(false);
+    expect(validateEmailChange({ actorIsAdmin: true, currentIsAdminEmail: true, nextIsAdminEmail: false }).ok).toBe(false);
+    expect(validateEmailChange({ actorIsAdmin: false, currentIsAdminEmail: false, nextIsAdminEmail: true }).ok).toBe(false);
   });
 });
 
 describe('tab visibility (roles)', () => {
-  it('gives an owner every tab, role or not', () => {
+  it('gives an admin every tab, role or not, including the activity log', () => {
     const tabs = getVisibleTabs({ isOwner: true, isSocialMedia: false, roleTabs: null });
     expect(tabs.has('financial')).toBe(true);
     expect(tabs.has('team')).toBe(true);
     expect(tabs.has('scheduling')).toBe(true);
+    expect(tabs.has('activity')).toBe(true);
   });
 
-  it('gives a plain non-owner only the default tabs', () => {
+  it('gives a plain member the default tabs, which now include the read-only team roster', () => {
     const tabs = getVisibleTabs(noRole);
-    expect([...tabs].sort()).toEqual(['automations', 'chat', 'connectors', 'jobs', 'tables']);
+    expect([...tabs].sort()).toEqual(['automations', 'chat', 'connectors', 'jobs', 'tables', 'team']);
+    expect(canViewTeamTab(noRole)).toBe(true);
+    expect(canManageTeam(noRole)).toBe(false);
   });
 
   it('isSocialMedia adds scheduling on top of the default tabs, nothing else', () => {
@@ -107,12 +146,17 @@ describe('tab visibility (roles)', () => {
     expect(tabs.has('financial')).toBe(false);
   });
 
-  it('a Role is the only way a non-owner reaches financial or team', () => {
-    const withRole = { isOwner: false, isSocialMedia: false, roleTabs: ['financial', 'team'] };
+  it('a Role is the only way a member reaches financial', () => {
+    const withRole = { isOwner: false, isSocialMedia: false, roleTabs: ['financial'] };
     expect(canViewFinancial(withRole)).toBe(true);
-    expect(canViewTeamTab(withRole)).toBe(true);
     expect(canViewFinancial(noRole)).toBe(false);
-    expect(canViewTeamTab(noRole)).toBe(false);
+  });
+
+  it('a Role can never reach the activity log, even if its JSON says so', () => {
+    const tabs = getVisibleTabs({ isOwner: false, isSocialMedia: false, roleTabs: ['activity', 'financial'] });
+    expect(tabs.has('activity')).toBe(false);
+    expect(tabs.has('financial')).toBe(true);
+    expect(ROLE_GRANTABLE_TABS).not.toContain('activity');
   });
 
   it('a Role cannot take away the default tabs or the isSocialMedia shortcut', () => {
@@ -138,42 +182,5 @@ describe('tab visibility (roles)', () => {
     expect(parseRoleTabs('garbage')).toEqual([]);
     expect(parseRoleTabs(['financial', 42])).toEqual([]);
     expect(parseRoleTabs(['financial', 'team'])).toEqual(['financial', 'team']);
-  });
-
-  it('validateOwnerGrant refuses to hand out admin after the account exists', () => {
-    expect(validateOwnerGrant({ targetIsOwner: false, nextIsOwner: true }).ok).toBe(false);
-  });
-
-  it('validateOwnerGrant still allows taking admin away, and no-ops', () => {
-    expect(validateOwnerGrant({ targetIsOwner: true, nextIsOwner: false }).ok).toBe(true);
-    expect(validateOwnerGrant({ targetIsOwner: true, nextIsOwner: true }).ok).toBe(true);
-    expect(validateOwnerGrant({ targetIsOwner: false, nextIsOwner: false }).ok).toBe(true);
-  });
-
-  it('validateDelete requires the account to be deactivated first', () => {
-    const guard = validateDelete({
-      actorId: 'a',
-      targetId: 'b',
-      targetIsOwner: false,
-      targetDisabled: false,
-      ownerCount: 2,
-    });
-    expect(guard.ok).toBe(false);
-    expect(guard.reason).toMatch(/Desative a conta antes/);
-  });
-
-  it('validateDelete refuses self-deletion even when disabled', () => {
-    expect(
-      validateDelete({ actorId: 'a', targetId: 'a', targetIsOwner: false, targetDisabled: true, ownerCount: 2 }).ok,
-    ).toBe(false);
-  });
-
-  it('validateDelete refuses the last owner, and allows a disabled member', () => {
-    expect(
-      validateDelete({ actorId: 'a', targetId: 'b', targetIsOwner: true, targetDisabled: true, ownerCount: 1 }).ok,
-    ).toBe(false);
-    expect(
-      validateDelete({ actorId: 'a', targetId: 'b', targetIsOwner: false, targetDisabled: true, ownerCount: 1 }).ok,
-    ).toBe(true);
   });
 });

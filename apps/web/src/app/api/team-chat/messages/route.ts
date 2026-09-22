@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { notify } from '../../../../lib/notifications';
 import { TEAM_MESSAGE_INCLUDE } from '../../../../lib/team-chat';
@@ -69,6 +70,18 @@ export async function POST(request: Request): Promise<Response> {
         }),
       ),
     );
+
+    // The team chat is the whole team's channel (unlike DMs, never logged).
+    const extras = [
+      message.attachments.length > 0 ? `${message.attachments.length} anexo(s)` : null,
+      mentionedUserIds.length > 0 ? `${mentionedUserIds.length} menção(ões)` : null,
+    ].filter(Boolean);
+    await logActivity(user, {
+      action: 'chat.message',
+      summary: `escreveu no chat da equipe: ${quoted(message.body, 140)}${extras.length > 0 ? ` (${extras.join(', ')})` : ''}`,
+      entityType: 'teamMessage',
+      entityId: message.id,
+    });
 
     return ok({ message }, 201);
   });

@@ -13,9 +13,17 @@ import {
 } from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted, whenLabel } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canViewScheduling } from '../../../../lib/permissions';
 import { HttpError, requireInstance, requireUser } from '../../../../lib/session';
+
+const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
+const TYPE_LABEL: Record<string, string> = { feed: 'feed', story: 'story', reel: 'reel' };
+
+function postLabel(post: { platform: string; postType: string; clientLabel: string }): string {
+  return `${PLATFORM_LABEL[post.platform] ?? post.platform} ${TYPE_LABEL[post.postType] ?? post.postType} de ${quoted(post.clientLabel)}`;
+}
 
 export const runtime = 'nodejs';
 
@@ -246,6 +254,15 @@ export async function POST(request: Request): Promise<Response> {
 
     // Some did: the rows that exist are real and must not be rolled back, so
     // the caller gets both halves and decides what to say about it.
+    for (const post of created) {
+      await logActivity(user, {
+        action: 'post.create',
+        summary: `agendou um post (${postLabel(post)}) para ${whenLabel(post.scheduledFor)}`,
+        entityType: 'scheduledPost',
+        entityId: post.id,
+      });
+    }
+
     return ok({ posts: created, errors }, 201);
   });
 }

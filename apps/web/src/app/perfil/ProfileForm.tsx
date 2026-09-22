@@ -170,13 +170,9 @@ export function ProfileForm({ initial }: { initial: ProfileData }): JSX.Element 
 
             <label className="eve-field">
               <span className="eve-field__label">{strings.profile.email}</span>
-              <input
-                className="eve-input"
-                type="email"
-                value={draft.email}
-                required
-                onChange={(event) => setDraft({ ...draft, email: event.target.value })}
-              />
+              {/* O e-mail e o login: so um admin troca, pela tela de Equipe (ver validateEmailChange). */}
+              <input className="eve-input" type="email" value={draft.email} readOnly disabled />
+              <span className="eve-setup__hint">Para trocar o e-mail da conta, peça a um administrador.</span>
             </label>
 
             <label className="eve-field">

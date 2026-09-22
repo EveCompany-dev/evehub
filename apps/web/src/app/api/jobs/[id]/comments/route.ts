@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { JOB_MEMBER_SELECT, requireJob } from '../../../../../lib/jobs';
 import { requireUser } from '../../../../../lib/session';
@@ -29,7 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user.workspaceId);
 
     const body = createSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -37,6 +38,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const comment = await prisma.jobComment.create({
       data: { jobId: id, authorId: user.id, body: body.data.body },
       include: { author: { select: JOB_MEMBER_SELECT } },
+    });
+
+    await logActivity(user, {
+      action: 'job.comment',
+      summary: `comentou no job ${quoted(job.title)}: ${quoted(body.data.body, 120)}`,
+      entityType: 'job',
+      entityId: id,
     });
 
     return ok({ comment }, 201);

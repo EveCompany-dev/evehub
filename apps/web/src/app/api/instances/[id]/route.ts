@@ -2,6 +2,7 @@ import { encryptJson, prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { requireConnector } from '../../../../connectors';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canDeleteInstance, canWriteCredentials } from '../../../../lib/permissions';
 import { HttpError, requireInstance, requireUser } from '../../../../lib/session';
@@ -63,6 +64,20 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       select: { id: true, connectorId: true, label: true, status: true, lastSyncedAt: true },
     });
 
+    const what = [
+      data.label !== undefined && data.label !== instance.label ? `nome para ${quoted(updated.label)}` : null,
+      data.config !== undefined ? 'configuração' : null,
+      data.credentialsEnc !== undefined ? 'credenciais' : null,
+    ].filter(Boolean);
+    if (what.length > 0) {
+      await logActivity(user, {
+        action: data.credentialsEnc !== undefined ? 'connector.credentials' : 'connector.update',
+        summary: `alterou o conector ${quoted(instance.label)}: ${what.join(', ')}`,
+        entityType: 'connectorInstance',
+        entityId: id,
+      });
+    }
+
     return ok({ instance: updated });
   });
 }
@@ -71,12 +86,18 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireInstance(id, user);
+    const instance = await requireInstance(id, user);
 
     if (!canDeleteInstance(user)) throw new HttpError(403, strings.errors.notOwner);
 
     // Cascades to snapshots, records and the edit log.
     await prisma.connectorInstance.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'connector.delete',
+      summary: `apagou o conector ${quoted(instance.label)} (${instance.connectorId}) e o histórico de sincronização dele`,
+      entityType: 'connectorInstance',
+      entityId: id,
+    });
 
     return ok({ ok: true });
   });

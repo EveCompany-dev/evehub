@@ -1,9 +1,10 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { canViewFinancial } from '../../../../lib/permissions';
-import { HttpError, requireUser } from '../../../../lib/session';
+import { HttpError, requireUser, type SessionUser } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +17,11 @@ const createSchema = z.object({
   jobId: z.string().min(1).nullable().optional(),
 });
 
-async function requireOwnerWorkspace(): Promise<{ id: string; workspaceId: string }> {
+function brl(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+async function requireOwnerWorkspace(): Promise<SessionUser> {
   const user = await requireUser();
   // requireUser() already reflects a fresh DB read (see auth.ts's session
   // callback) — no need for a second prisma.user.findUnique just for this check.
@@ -65,6 +70,13 @@ export async function POST(request: Request): Promise<Response> {
         createdBy: user.id,
       },
       include: { client: { select: { id: true, name: true } }, job: { select: { id: true, title: true } } },
+    });
+
+    await logActivity(user, {
+      action: 'financial.create',
+      summary: `lançou ${entry.type === 'income' ? 'uma entrada' : 'uma saída'} de ${brl(entry.amountCents)} no financeiro: ${quoted(entry.description)}`,
+      entityType: 'financialEntry',
+      entityId: entry.id,
     });
 
     return ok({ entry }, 201);

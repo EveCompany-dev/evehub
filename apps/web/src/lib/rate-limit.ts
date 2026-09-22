@@ -37,6 +37,31 @@ export async function consumeLoginAttempt(identifier: string): Promise<RateLimit
   }
 }
 
+/**
+ * Same fail-open, timeout-bounded counter as consumeLoginAttempt, for any
+ * other public endpoint (today: "esqueci minha senha"). `bucket` keeps each
+ * endpoint's counters apart from the login ones.
+ */
+export async function consumeRateLimit(
+  bucket: string,
+  identifier: string,
+  max: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const redisKey = `eve:rl:${bucket}:${identifier.toLowerCase()}`;
+  try {
+    const redis = getRedis();
+    const attempts = await withRedisTimeout(redis.incr(redisKey));
+    if (attempts === 1) {
+      await withRedisTimeout(redis.pexpire(redisKey, windowMs));
+    }
+    return { allowed: attempts <= max, remaining: Math.max(0, max - attempts) };
+  } catch (error) {
+    console.error(`[rate-limit] Redis indisponivel (${bucket}), permitindo:`, error instanceof Error ? error.message : error);
+    return { allowed: true, remaining: max };
+  }
+}
+
 export async function clearLoginAttempts(identifier: string): Promise<void> {
   try {
     await withRedisTimeout(getRedis().del(key(identifier)));

@@ -6,15 +6,22 @@ export interface PermissionSubject {
 }
 
 /**
- * Every nav section a Role can grant/withhold. 'chat' through 'automations'
- * are the DEFAULT_TABS every authenticated non-owner already gets — listing
- * them here too means a future role could theoretically be *more*
- * restrictive than default, even though nothing does that today.
+ * Every nav section. 'chat' through 'automations', plus 'team', are the
+ * DEFAULT_TABS every authenticated non-admin already gets. 'activity' (the
+ * registro de atividades) is admin-only and outside what a Role can grant —
+ * see ROLE_GRANTABLE_TABS.
  */
-export const TAB_KEYS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team'] as const;
+export const TAB_KEYS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team', 'activity'] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
-const DEFAULT_TABS: readonly TabKey[] = ['chat', 'jobs', 'tables', 'connectors', 'automations'];
+/** What the Role editor offers. A Role never reaches the activity log, whatever its JSON says. */
+export const ROLE_GRANTABLE_TABS: readonly TabKey[] = TAB_KEYS.filter((tab) => tab !== 'activity');
+
+/**
+ * 'team' is here since admin became a fixed list: everyone sees who is on the
+ * team (read-only), and only the admins can change anything about it.
+ */
+const DEFAULT_TABS: readonly TabKey[] = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'team'];
 
 const roleTabsSchema = z.array(z.string()).catch([]);
 
@@ -37,9 +44,9 @@ export interface TabSubject {
  * roles existed, and a Role can never take that away. Everyone else gets
  * DEFAULT_TABS, plus 'scheduling' if tagged isSocialMedia (a legacy shortcut
  * kept for backward compat), plus whatever their assigned Role's `tabs`
- * array adds — that's the only way a non-owner ever reaches 'financial' or
- * 'team'. A Role only ever *adds* visibility; it can't take away a default
- * tab or the isSocialMedia shortcut.
+ * array adds — that's the only way a non-owner ever reaches 'financial'.
+ * A Role only ever *adds* visibility; it can't take away a default tab or the
+ * isSocialMedia shortcut, and it can never add 'activity'.
  */
 export function getVisibleTabs(user: TabSubject): Set<TabKey> {
   if (user.isOwner) return new Set(TAB_KEYS);
@@ -47,7 +54,7 @@ export function getVisibleTabs(user: TabSubject): Set<TabKey> {
   const tabs = new Set<TabKey>(DEFAULT_TABS);
   if (user.isSocialMedia) tabs.add('scheduling');
   for (const tab of user.roleTabs ?? []) {
-    if ((TAB_KEYS as readonly string[]).includes(tab)) tabs.add(tab as TabKey);
+    if ((ROLE_GRANTABLE_TABS as readonly string[]).includes(tab)) tabs.add(tab as TabKey);
   }
   return tabs;
 }
@@ -88,13 +95,17 @@ export function canDeleteInstance(user: PermissionSubject): boolean {
 }
 
 /**
- * Mutating the team — adding people, promoting/demoting, disabling, and
- * managing Roles themselves — stays owner-only no matter what, since a
- * misconfigured Role could otherwise let someone hand themselves admin
- * access. A Role granting the 'team' *tab* only ever gets a read-only
- * roster view — see canViewTab(user, 'team') for that.
+ * Mutating the team — adding people, disabling, deleting, resetting a
+ * password, and managing Roles themselves — is admin-only no matter what.
+ * Everyone else gets the read-only roster (the 'team' tab is a default one):
+ * they see each other, they cannot act on each other.
  */
 export function canManageTeam(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
+/** O registro de atividades mostra o que cada pessoa fez — so os admins leem. */
+export function canViewActivityLog(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
@@ -118,7 +129,7 @@ export function canManageJobColumnColors(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
-/** Read-only roster access via the 'team' tab — see canManageTeam for the (always owner-only) mutation gate. */
+/** Read-only roster: 'team' is a default tab now, so this is true for every signed-in account. See canManageTeam for the (admin-only) mutation gate. */
 export function canViewTeamTab(user: TabSubject): boolean {
   return user.isOwner || canViewTab(user, 'team');
 }
@@ -128,76 +139,38 @@ export interface GuardResult {
   reason?: string;
 }
 
-/**
- * Impede o workspace de ficar sem nenhum owner.
- *
- * Sem esta trava da para se trancar do lado de fora com dois cliques: o unico
- * owner remove o proprio acesso de admin e ninguem mais consegue promover
- * alguem — so mexendo direto no banco.
- */
-export function validateOwnerChange(input: {
-  targetIsOwner: boolean;
-  nextIsOwner: boolean;
-  ownerCount: number;
-}): GuardResult {
-  const removingOwner = input.targetIsOwner && !input.nextIsOwner;
-  if (removingOwner && input.ownerCount <= 1) {
-    return { ok: false, reason: 'Este é o único owner do workspace. Promova outra pessoa antes de remover o acesso de admin.' };
-  }
-  return { ok: true };
-}
-
-/**
- * Conceder admin so acontece na criacao da conta.
- *
- * O botao da lista virou um caminho unico — tirar admin de alguem, nunca dar.
- * Promover depois era o jeito facil de um owner distraido espalhar acesso a
- * credencial de cliente pela equipe inteira; nascer admin e uma decisao
- * consciente, tomada uma vez, com o nome e o e-mail da pessoa na frente.
- */
-export function validateOwnerGrant(input: { targetIsOwner: boolean; nextIsOwner: boolean }): GuardResult {
-  if (!input.targetIsOwner && input.nextIsOwner) {
-    return {
-      ok: false,
-      reason: 'Acesso de admin só pode ser dado na criação da conta. Crie a conta já como admin, ou peça para a pessoa ser recriada.',
-    };
-  }
-  return { ok: true };
-}
+const ADMIN_LOCKED = 'Contas de administrador são definidas no código do Eve Hub e não podem ser desativadas nem apagadas por aqui.';
 
 /**
  * Apagar de vez, e nao so desativar.
  *
- * Tres travas, nesta ordem: a conta precisa ja estar desativada (desativar e o
- * passo reversivel; apagar nao e), ninguem apaga a si mesmo, e o ultimo owner
- * nunca sai. O conteudo de workspace e verificado separado, na rota — depende
- * de contagem no banco, nao de regra pura.
+ * Tres travas, nesta ordem: ninguem apaga a si mesmo, conta de admin nunca
+ * sai por aqui (a lista e fixa no codigo — ver @eve/core/admins), e a conta
+ * precisa ja estar desativada (desativar e o passo reversivel; apagar nao e).
+ * Conteudo no workspace (jobs, chat) NAO trava mais: a rota tira os dados da
+ * pessoa e deixa o trabalho dela, assinado so com o nome.
  */
 export function validateDelete(input: {
   actorId: string;
   targetId: string;
-  targetIsOwner: boolean;
+  targetIsAdmin: boolean;
   targetDisabled: boolean;
-  ownerCount: number;
 }): GuardResult {
   if (input.actorId === input.targetId) {
     return { ok: false, reason: 'Você não pode apagar a própria conta.' };
   }
+  if (input.targetIsAdmin) return { ok: false, reason: ADMIN_LOCKED };
   if (!input.targetDisabled) {
     return { ok: false, reason: 'Desative a conta antes de apagar. Assim ninguém apaga alguém por engano num clique só.' };
-  }
-  if (input.targetIsOwner && input.ownerCount <= 1) {
-    return { ok: false, reason: 'Este é o único owner do workspace.' };
   }
   return { ok: true };
 }
 
-/** Mesma logica para desativar: desativar o ultimo owner tambem tranca todo mundo. */
+/** Mesma logica para desativar: ninguem se tranca do lado de fora, e admin nao sai por um clique. */
 export function validateDisable(input: {
   actorId: string;
   targetId: string;
-  targetIsOwner: boolean;
-  ownerCount: number;
+  targetIsAdmin: boolean;
   nextDisabled: boolean;
 }): GuardResult {
   if (!input.nextDisabled) return { ok: true };
@@ -205,8 +178,28 @@ export function validateDisable(input: {
   if (input.actorId === input.targetId) {
     return { ok: false, reason: 'Você não pode desativar a própria conta.' };
   }
-  if (input.targetIsOwner && input.ownerCount <= 1) {
-    return { ok: false, reason: 'Este é o único owner do workspace.' };
+  if (input.targetIsAdmin) return { ok: false, reason: ADMIN_LOCKED };
+  return { ok: true };
+}
+
+/**
+ * Trocar o e-mail de alguem (e o login da pessoa).
+ *
+ * So admin troca, e nunca para ou a partir de um e-mail de admin: se desse,
+ * bastava renomear a propria conta para "financeiro@..." antes da conta real
+ * existir para virar admin. Pelo mesmo motivo ninguem troca o proprio e-mail
+ * no perfil — ver /api/profile.
+ */
+export function validateEmailChange(input: {
+  actorIsAdmin: boolean;
+  currentIsAdminEmail: boolean;
+  nextIsAdminEmail: boolean;
+}): GuardResult {
+  if (!input.actorIsAdmin) {
+    return { ok: false, reason: 'Só um administrador pode trocar o e-mail de uma conta.' };
+  }
+  if (input.currentIsAdminEmail || input.nextIsAdminEmail) {
+    return { ok: false, reason: 'E-mails de administrador são fixos e não podem ser atribuídos nem trocados.' };
   }
   return { ok: true };
 }

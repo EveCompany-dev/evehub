@@ -1,7 +1,9 @@
-import { prisma } from '@eve/core';
+import { isAdminEmail, prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
+import { validateEmailChange } from '../../../lib/permissions';
 import { requireUser } from '../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -61,22 +63,44 @@ export async function PATCH(request: Request): Promise<Response> {
 
     const email = body.data.email.toLowerCase();
 
-    // E-mail is the login identity, so a collision has to be a clear error
-    // rather than a raw unique-constraint failure.
+    // E-mail is the login identity — and, with admin tied to a fixed list of
+    // e-mails, changing your own used to be a way to *become* admin (rename
+    // yourself to an admin address nobody had claimed yet). Nobody changes
+    // their own any more; an admin changes other people's from the team page.
     if (email !== user.email.toLowerCase()) {
-      const taken = await prisma.user.findUnique({ where: { email }, select: { id: true } });
-      if (taken && taken.id !== user.id) return fail(409, 'Esse e-mail já está em uso por outra conta.');
+      const guard = validateEmailChange({
+        actorIsAdmin: user.isOwner,
+        currentIsAdminEmail: isAdminEmail(user.email),
+        nextIsAdminEmail: isAdminEmail(email),
+      });
+      return fail(403, guard.ok ? 'Troque o e-mail pela tela de Equipe.' : (guard.reason ?? 'Mudança não permitida.'));
     }
+
+    const before = await prisma.user.findUnique({ where: { id: user.id }, select: { name: true, image: true } });
+    const nextImage = body.data.image ? body.data.image : null;
 
     const updated = await prisma.user.update({
       where: { id: user.id },
-      data: {
-        name: body.data.name,
-        email,
-        image: body.data.image ? body.data.image : null,
-      },
+      data: { name: body.data.name, image: nextImage },
       select: { id: true, name: true, email: true, image: true, isOwner: true },
     });
+
+    if (before && before.name !== updated.name) {
+      await logActivity(user, {
+        action: 'profile.update',
+        summary: `mudou o próprio nome de ${quoted(before.name ?? user.email)} para ${quoted(updated.name)}`,
+        entityType: 'user',
+        entityId: user.id,
+      });
+    }
+    if (before && before.image !== nextImage) {
+      await logActivity(user, {
+        action: 'profile.update',
+        summary: nextImage ? 'trocou a foto do perfil' : 'removeu a foto do perfil',
+        entityType: 'user',
+        entityId: user.id,
+      });
+    }
 
     return ok({ profile: updated });
   });

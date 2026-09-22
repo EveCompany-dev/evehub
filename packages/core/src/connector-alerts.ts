@@ -35,7 +35,11 @@ export async function raiseConnectorAlert(params: {
   alert: ConnectorAlert;
   detail?: string;
 }): Promise<number> {
-  const owners = await prisma.user.findMany({ where: { workspaceId: params.workspaceId, isOwner: true }, select: { id: true } });
+  // Only active admins: a disabled or removed account would pile up alerts nobody can read.
+  const owners = await prisma.user.findMany({
+    where: { workspaceId: params.workspaceId, isOwner: true, disabledAt: null },
+    select: { id: true },
+  });
   if (owners.length === 0) return 0;
 
   const message = connectorAlertMessage(params.alert, params.label, params.detail).slice(0, 500);

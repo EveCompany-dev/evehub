@@ -1,10 +1,11 @@
 import { PrismaAdapter } from '@auth/prisma-adapter';
-import { equalizeVerifyTiming, prisma, verifyPassword } from '@eve/core';
+import { equalizeVerifyTiming, isAdminEmail, prisma, verifyPassword } from '@eve/core';
 import NextAuth, { CredentialsSignin, type NextAuthConfig } from 'next-auth';
 import type { Adapter, AdapterUser } from 'next-auth/adapters';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import { z } from 'zod';
+import { logActivity } from './lib/activity';
 import { clearLoginAttempts, consumeLoginAttempt } from './lib/rate-limit';
 import { parseRoleTabs } from './lib/permissions';
 
@@ -41,8 +42,9 @@ async function defaultWorkspaceId(): Promise<string> {
 
 /**
  * The stock Prisma adapter creates users without a workspace, which our schema
- * requires. Wrapping just `createUser` keeps auto-provisioning (first Google
- * login joins the workspace) without forking the whole adapter.
+ * requires. Wrapping just `createUser` fills it in without forking the whole
+ * adapter. Only the admins ever reach this: the signIn callback turns away a
+ * Google login for an e-mail nobody registered (see there).
  */
 function eveAdapter(): Adapter {
   const base = PrismaAdapter(prisma);
@@ -52,7 +54,7 @@ function eveAdapter(): Adapter {
     async createUser(data) {
       const { id: _ignored, ...rest } = data as AdapterUser & { id?: string };
       const user = await prisma.user.create({
-        data: { ...rest, workspaceId: await defaultWorkspaceId(), isOwner: false },
+        data: { ...rest, workspaceId: await defaultWorkspaceId(), isOwner: isAdminEmail(rest.email) },
       });
       return user as AdapterUser;
     },
@@ -120,8 +122,9 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     async signIn({ user, account, profile }) {
       // Vale para qualquer provider: acesso revogado e revogado.
+      let existing: { disabledAt: Date | null } | null = null;
       if (user.email) {
-        const existing = await prisma.user.findUnique({
+        existing = await prisma.user.findUnique({
           where: { email: user.email.toLowerCase() },
           select: { disabledAt: true },
         });
@@ -132,11 +135,19 @@ export const authConfig: NextAuthConfig = {
 
       if (profile && profile.email_verified === false) return false;
 
-      const domain = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase();
-      if (!domain) return true;
-
       const email = (user.email ?? profile?.email ?? '').toLowerCase();
-      return email.endsWith(`@${domain}`) ? true : '/login?error=AccessDenied';
+
+      const domain = process.env.ALLOWED_EMAIL_DOMAIN?.trim().toLowerCase();
+      if (domain && !email.endsWith(`@${domain}`)) return '/login?error=AccessDenied';
+
+      // Quem entra e decisao dos admins: um Google do dominio sem conta
+      // cadastrada nao cria conta sozinho. Sem isto, apagar alguem nao
+      // adiantava nada — a pessoa voltava no clique seguinte com o Google da
+      // empresa ainda ativo. As contas de admin sao a excecao, para que nenhum
+      // banco novo ou restaurado tranque os dois do lado de fora.
+      if (!existing && !isAdminEmail(email)) return '/login?error=NotRegistered';
+
+      return true;
     },
 
     async jwt({ token, user }) {
@@ -171,13 +182,21 @@ export const authConfig: NextAuthConfig = {
       // precisar esperar o JWT expirar. getSessionUser trata isto como deslogado.
       if (!user || user.disabledAt) return session;
 
+      // Admin vem da lista fixa, nunca da coluna. Se a coluna divergir (banco
+      // restaurado, edicao manual), a sessao ja usa o valor certo e corrige o
+      // espelho, que o worker e algumas paginas leem.
+      const isAdmin = isAdminEmail(user.email);
+      if (user.isOwner !== isAdmin) {
+        await prisma.user.update({ where: { id: user.id }, data: { isOwner: isAdmin } }).catch(() => undefined);
+      }
+
       session.user = {
         ...session.user,
         id: user.id,
         email: user.email,
         name: user.name,
         image: user.image,
-        isOwner: user.isOwner,
+        isOwner: isAdmin,
         isSocialMedia: user.isSocialMedia,
         roleTabs: user.role ? parseRoleTabs(user.role.tabs) : null,
         workspaceId: user.workspaceId,
@@ -188,10 +207,24 @@ export const authConfig: NextAuthConfig = {
   },
 
   events: {
-    async signIn({ user }) {
+    async signIn({ user, account }) {
       if (!user.id) return;
       // Feeds the "delta desde a ultima visita" of the daily AI feed (v0.0.6).
-      await prisma.user.update({ where: { id: user.id }, data: { lastSeenAt: new Date() } }).catch(() => undefined);
+      const row = await prisma.user
+        .update({
+          where: { id: user.id },
+          data: { lastSeenAt: new Date() },
+          select: { id: true, name: true, email: true, workspaceId: true },
+        })
+        .catch(() => null);
+      if (!row) return;
+
+      await logActivity(row, {
+        action: 'auth.signIn',
+        summary: account?.provider === 'google' ? 'entrou no Eve Hub (Google)' : 'entrou no Eve Hub (e-mail e senha)',
+        entityType: 'user',
+        entityId: row.id,
+      });
     },
   },
 };
