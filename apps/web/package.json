@@ -19,6 +19,7 @@
     "@eve/connector-calendar": "workspace:*",
     "@eve/connector-chat": "workspace:*",
     "@eve/connector-demo": "workspace:*",
+    "@eve/connector-google-ads": "workspace:*",
     "@eve/connector-meta": "workspace:*",
     "@eve/connector-notes": "workspace:*",
     "@eve/connector-notion": "workspace:*",

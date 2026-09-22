@@ -68,6 +68,23 @@ o botao do Google. Para ligar, crie um OAuth client Web no Google Cloud com o
 redirect `http://localhost:3000/api/auth/callback/google`. Só entram e-mails do
 dominio em `ALLOWED_EMAIL_DOMAIN`.
 
+### Google Ads (opcional)
+
+Nada vai pro `.env`: as credenciais sao por conta conectada, cifradas no banco
+como as dos outros connectors. Antes de conectar, junte quatro coisas:
+
+| O que | Onde |
+|---|---|
+| Developer token | API Center da conta de gerenciamento (MCC) do Google Ads. Enquanto o acesso for *test*, ele so le contas de teste. |
+| OAuth client ID + secret | Google Cloud > APIs e servicos > Credenciais, no mesmo projeto. |
+| Refresh token | OAuth Playground com o escopo `https://www.googleapis.com/auth/adwords`, usando o seu proprio client ID/secret. |
+| ID da conta | Os 10 digitos no topo da conta (com ou sem tracos). Se voce entra por uma MCC, informe tambem o ID dela. |
+
+O connector e **somente leitura** de proposito: mexer em campanha ativa a
+partir de uma dashboard e mais arriscado do que ler uma. A versao da API fica
+fixada em `GOOGLE_ADS_API_VERSION` (`packages/connectors/google-ads/src/shared.ts`);
+quando o Google aposentar a versao, a sync passa a dizer exatamente isso.
+
 ## Scripts
 
 | Comando | O que faz |
@@ -106,8 +123,19 @@ infra/
    `src/shared.ts` (constantes seguras para o browser).
 2. Implemente `EveConnector` e chame `registerConnector()`. O registry cobra no
    import: declarou `write`, tem que ter `write()` **e** `readVersion()`.
-3. Registre o widget em `apps/web/src/widgets/registry.tsx`.
-4. Importe o pacote em `apps/web/src/connectors.ts` e em `apps/worker/src/index.ts`.
+3. Registre o widget em `apps/web/src/widgets/registry.tsx` — **opcional**: sem
+   entrada la, o connector ja renderiza pelo widget generico, guiado pelo
+   `describeFields()`.
+4. Importe o pacote em `apps/web/src/connectors.ts` e em `apps/worker/src/index.ts`,
+   e declare a dependencia `workspace:*` nos `package.json` das duas apps.
+5. Se ele pede credencial, descreva os campos em `SETUP_FIELDS`
+   (`apps/web/src/components/ConnectorSetup.tsx`) com os textos em
+   `packages/ui/src/strings.ts`.
+6. Adicione o `COPY` do `package.json` do pacote em `infra/Dockerfile.web` e
+   `infra/Dockerfile.worker` — o build de producao instala a partir dessa lista.
+
+`apps/web/src/connectors.test.ts` cobra os passos 4 e 6 na hora: esquecer um
+deles quebra o teste em vez de sumir com o connector em silencio.
 
 Nada no `core` muda. Use `packages/connectors/demo` como referencia — ele
 implementa o contrato inteiro, incluindo conflito e undo.

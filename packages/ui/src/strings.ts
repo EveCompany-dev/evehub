@@ -87,6 +87,24 @@ export const strings = {
       'Gere um token de longa duração (idealmente via um System User no Business Suite) com as permissões pages_show_list, pages_read_engagement, pages_manage_posts, instagram_basic e instagram_content_publish.',
   },
 
+  googleAds: {
+    customerId: 'ID da conta do Google Ads',
+    customerIdHint: 'Os 10 dígitos que aparecem no topo da conta, com ou sem traços (123-456-7890).',
+    loginCustomerId: 'ID da conta de gerenciamento (opcional)',
+    loginCustomerIdHint: 'Só quando a conta é acessada por uma conta MCC. Deixe vazio se você entra direto nela.',
+    dateRange: 'Período',
+    dateRangeHint: 'Intervalo que as métricas cobrem. Pode mudar depois.',
+    developerToken: 'Developer token',
+    developerTokenHint: 'Fica no API Center do Google Ads, na conta de gerenciamento. Precisa de acesso aprovado para ler contas reais.',
+    clientId: 'OAuth client ID',
+    clientIdHint: 'Do projeto no Google Cloud, em APIs e serviços > Credenciais.',
+    clientSecret: 'OAuth client secret',
+    clientSecretHint: 'Vem junto com o client ID, no mesmo cliente OAuth.',
+    refreshToken: 'Refresh token',
+    refreshTokenHint:
+      'Gere com o OAuth Playground usando o escopo https://www.googleapis.com/auth/adwords e o seu próprio client ID/secret.',
+  },
+
   profile: {
     title: 'Perfil',
     back: 'Voltar para a dashboard',
