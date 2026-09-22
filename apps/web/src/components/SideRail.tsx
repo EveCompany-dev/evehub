@@ -40,12 +40,6 @@ interface RailGroupItem {
 }
 
 const GROUPS: Record<string, { items: RailGroupItem[] }> = {
-  '/agenda': {
-    items: [
-      { href: '/agenda', label: 'Agenda do Time' },
-      { href: '/clients/calendar', label: 'Calendário de Conteúdo' },
-    ],
-  },
   // Not a page of its own: a drawer for the working tools that used to sit loose in the rail.
   '/tools': {
     items: [
@@ -59,9 +53,6 @@ const GROUPS: Record<string, { items: RailGroupItem[] }> = {
 function isUnder(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
-
-/** Pages that sit in a dropdown while their path is under another rail entry — Clientes must not light up for them. */
-const LIVES_IN_GROUP = GROUPS['/agenda']!.items.map((entry) => entry.href).filter((href) => href !== '/agenda');
 
 function TeamIcon(): JSX.Element {
   return <Users size={18} aria-hidden="true" />;
@@ -151,8 +142,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     '/clients': <ClientsIcon />,
     '/tables': <TablesIcon />,
     '/tools': <Wrench size={18} aria-hidden="true" />,
-    // Not '/scheduling' nor '/clients/calendar': the post scheduler sits in
-    // the Tools dropdown and the content calendar in the Agenda one.
+    // Not '/scheduling': the post scheduler sits in the Tools dropdown.
     '/agenda': <SchedulingIcon />,
     '/financial': <FinancialIcon />,
     '/team': <TeamIcon />,
@@ -206,7 +196,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
         const group = GROUPS[item.href];
         const active = group
           ? group.items.some((entry) => isUnder(pathname, entry.href))
-          : isUnder(pathname, item.href) && !LIVES_IN_GROUP.some((href) => isUnder(pathname, href));
+          : isUnder(pathname, item.href);
         if (group) {
           const visibleEntries = group.items.filter((entry) => !entry.tab || visibleTabs.includes(entry.tab));
           const isOpen = openGroup === item.href;

@@ -22,13 +22,11 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/', label: strings.dashboard.title, keywords: ['dashboard', 'board', 'grade', 'inicio', 'home', 'modulos', 'widgets'] },
   { href: '/chat', label: strings.nav.chat, tab: 'chat', keywords: ['conversa', 'mensagem', 'equipe'] },
   { href: '/jobs', label: strings.nav.jobs, tab: 'jobs', keywords: ['tarefas', 'kanban', 'quadro', 'demandas'] },
-  { href: '/clients', label: 'Clientes', tab: 'tables', keywords: ['cliente', 'marca', 'cnpj', 'cadastro', 'postagens', 'referencias'] },
+  { href: '/clients', label: 'Clientes', tab: 'tables', keywords: ['cliente', 'marca', 'cnpj', 'cadastro', 'postagens', 'referencias', 'calendario de conteudo'] },
   { href: '/tables', label: strings.nav.tables, tab: 'tables', keywords: ['tabela', 'planilha', 'dados', 'base'] },
   { href: '/connectors', label: strings.nav.connectors, tab: 'connectors', keywords: ['conexoes', 'integracoes', 'api', 'credenciais'] },
   { href: '/automations', label: strings.nav.automations, tab: 'automations', keywords: ['webhook', 'n8n', 'automacao', 'gatilho'] },
   { href: '/agenda', label: strings.nav.scheduling, tab: 'scheduling', keywords: ['agenda do time', 'calendario', 'reuniao', 'compromisso', 'evento', 'time', 'equipe'] },
-  // Lives in the Agenda dropdown of the rail, so it is gated by the same tab.
-  { href: '/clients/calendar', label: 'Calendário de Conteúdo', tab: 'scheduling', keywords: ['conteudo', 'postagens', 'reels', 'carrossel', 'feed', 'publicacao', 'gravacao', 'programado'] },
   { href: '/scheduling', label: 'Agendar post', tab: 'scheduling', keywords: ['posts', 'publicacao', 'instagram', 'facebook', 'meta', 'agendar', 'carrossel', 'lote'] },
   { href: '/financial', label: strings.nav.financial, tab: 'financial', keywords: ['financeiro', 'verba', 'custo', 'receita'] },
   { href: '/team', label: strings.nav.team, tab: 'team', keywords: ['equipe', 'pessoas', 'membros', 'permissoes', 'senha'] },
@@ -44,9 +42,10 @@ const NOT_LANDING = new Set(['/notifications', '/perfil', '/settings']);
 /**
  * Default pages that no longer exist, mapped to where they went. "Minha
  * Agenda" was a saved filter of /agenda until the agenda became the team's
- * only view (2026-09-22).
+ * only view, and the all-clients content calendar gave way to each client's
+ * own (both 2026-09-22).
  */
-const RETIRED_LANDING: Record<string, string> = { '/agenda?mine=1': '/agenda' };
+const RETIRED_LANDING: Record<string, string> = { '/agenda?mine=1': '/agenda', '/clients/calendar': '/clients' };
 
 /** Every page a user may pick as their default, in rail order: the routes they can see. */
 export function landingOptions(visibleTabs: readonly string[]): NavRoute[] {

@@ -15,7 +15,7 @@ export interface CalendarViewProps {
   rows: DataTableRowValue[];
   dateColumn: DataColumn;
   clientLabels: Record<string, string>;
-  /** Draw the client on each entry (the all-clients calendar needs it; a client's own page doesn't). */
+  /** Draw the client on each entry (off on a client's own page, where it would only repeat the page). */
   showClient: boolean;
   onOpen: (rowId: string) => void;
 }
