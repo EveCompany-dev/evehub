@@ -48,7 +48,7 @@ async function resolveSession(): Promise<LayoutSession> {
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { dashboardConfig: true, isOwner: true, isSocialMedia: true, role: { select: { tabs: true } } },
+    select: { dashboardConfig: true, isOwner: true, role: { select: { tabs: true } } },
   });
   if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), railFullHide: false, cursorFollower: true };
 

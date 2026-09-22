@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
-import { toIsoDate } from '../lib/table-dates';
 import { EMPTY_FILTERS, filterRows, type TableFilterState } from '../lib/table-filters';
 import { TAG_COLORS, TAG_COLOR_LABEL, guessTagColor, hashTagColor, tagColorFor } from '../lib/table-tags';
 import { dateColumns as pickDateColumns, type TableViewMode, type ViewPrefs } from '../lib/table-views';
@@ -443,7 +442,6 @@ export function DataTableGrid({
             clientLabels={clientLabels}
             showClient={Boolean(clientKey) && !lockedClientId}
             onOpen={setOpenRowId}
-            onAddOnDay={(date) => void addRow({ [dateColumn.key]: toIsoDate(date) }, true)}
           />
         ) : (
           <div className="eve-empty">

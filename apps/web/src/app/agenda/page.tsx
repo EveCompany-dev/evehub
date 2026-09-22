@@ -2,16 +2,15 @@ import { EveArch, strings } from '@eve/ui';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
-import { AgendaPageBody } from '../../components/AgendaPageBody';
+import { AgendaWorkspace } from '../../components/AgendaWorkspace';
 import { canViewScheduling } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * The real agenda (meetings, deadlines — see AgendaWorkspace), gated by the
- * same tab as /scheduling: they're the same feature area, and the post
- * scheduler is reachable from in here rather than being its own tab.
+ * The Agenda do Time (see AgendaWorkspace) — gated by the same tab as the
+ * Calendário de Conteúdo and Agendar Post: they're the same feature area.
  */
 export default async function AgendaPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
@@ -24,11 +23,11 @@ export default async function AgendaPage(): Promise<JSX.Element> {
         <Link href="/" className="eve-btn eve-btn--icon" title={strings.profile.back}>
           <EveArch size={18} />
         </Link>
-        <h1 className="eve-profile__title">Agenda</h1>
+        <h1 className="eve-profile__title">Agenda do Time</h1>
       </header>
 
       <div className="eve-wide-page__body">
-        <AgendaPageBody currentUserId={user.id} />
+        <AgendaWorkspace currentUserId={user.id} />
       </div>
     </div>
   );

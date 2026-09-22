@@ -12,8 +12,10 @@ interface ClientOption {
 /**
  * Calendário de Conteúdo across every client: who is posting what, on which
  * channel and format, and whether it is an idea, in production or scheduled.
- * Pick a client to see only theirs; leave it on "Todos" to plan the whole
- * agency. Entries open as a page with channel, status, format, date and link.
+ * Pick a client to see only theirs; leave it on "Todos" to see the whole
+ * agency. A quick look at what is already planned — just the calendar, no
+ * "Nova": entries are added in the table (Tabelas, or Postagens on the client
+ * page) and open here as a page with channel, status, format, date and link.
  */
 export function ContentCalendarWorkspace(): JSX.Element {
   const { table, setTable, error } = useSystemTable('content');
@@ -53,7 +55,7 @@ export function ContentCalendarWorkspace(): JSX.Element {
         table={table}
         onTableChange={setTable}
         lockedClientId={clientId || undefined}
-        modes={['calendar', 'table']}
+        modes={['calendar']}
         defaultMode="calendar"
         persistView={false}
       />

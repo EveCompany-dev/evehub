@@ -29,6 +29,19 @@ async function requirePost(id: string, workspaceId: string) {
   return post;
 }
 
+/** One post, for Agendar Post's edit view (/scheduling?post=<id>) — the row only, never its connector's credentials. */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
+  return handle(async () => {
+    const user = await requireUser();
+    if (!canViewScheduling(user)) throw new HttpError(403, strings.errors.notAllowedScheduling);
+
+    const { id } = await context.params;
+    const post = await prisma.scheduledPost.findUnique({ where: { id } });
+    if (!post || post.workspaceId !== user.workspaceId) throw new HttpError(404, strings.errors.notFound);
+    return ok({ post });
+  });
+}
+
 /**
  * Only while a post hasn't gone live. Facebook has already submitted to Meta
  * by this point (native scheduling), so an edit there means delete-and-

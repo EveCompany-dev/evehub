@@ -101,8 +101,9 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     if (workspaceId) await prisma.workspace.delete({ where: { id: workspaceId } }).catch(() => undefined);
   });
 
+  /** Not allowed = a member whose cargo leaves the Agenda tab out (with no cargo, every tab is on). */
   const asMember = (allowed: boolean) => {
-    session.user = { ...session.user!, isOwner: allowed };
+    session.user = { ...session.user!, isOwner: allowed, roleTabs: allowed ? null : ['tables'] };
   };
 
   async function importPlan(csv: string, name = 'Postagens 0123456789abcdef0123456789abcdef.csv', mutate?: (plan: ReturnType<typeof buildImportPlan>) => ReturnType<typeof buildImportPlan>) {

@@ -119,7 +119,7 @@ export function TodayWidget({ title, onRemove }: WidgetProps): JSX.Element {
                 <ul className="eve-overview__list">
                   {posts.map((post) => (
                     <li key={post.id} className="eve-overview__item">
-                      <Link href="/scheduling" className="eve-overview__item-link eve-overview__agenda-row">
+                      <Link href={`/scheduling?post=${post.id}`} className="eve-overview__item-link eve-overview__agenda-row">
                         <PlatformIcon platform={post.platform} size={16} />
                         <span className="eve-overview__item-text">
                           {targetLabel({ platform: post.platform, postType: post.postType })} · {post.clientLabel}

@@ -599,7 +599,7 @@
   gap: 4px;
 }
 
-/* "Sem data (n)" and "Nova", top right like Notion's calendar toolbar. */
+/* "Sem data (n)", top right like Notion's calendar toolbar. */
 .eve-calview__bar {
   display: flex;
   align-items: center;
@@ -627,23 +627,6 @@
 .eve-calview__undated:disabled {
   cursor: default;
   opacity: 0.6;
-}
-
-.eve-calview__new {
-  appearance: none;
-  border: none;
-  border-radius: 6px;
-  background: #2383e2;
-  color: #fff;
-  padding: 5px 14px;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.eve-calview__new:hover {
-  background: #1b6fc2;
 }
 
 .eve-calview__day {
@@ -726,30 +709,6 @@
 
 .eve-calview__chip .eve-pill--client {
   border-radius: var(--radius-pill);
-}
-
-.eve-calview__add {
-  appearance: none;
-  align-self: flex-start;
-  border: none;
-  border-radius: 4px;
-  background: none;
-  color: var(--text-dim);
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 5px;
-  cursor: pointer;
-  opacity: 0;
-}
-
-.eve-month__day:hover .eve-calview__add,
-.eve-calview__add:focus-visible {
-  opacity: 1;
-}
-
-.eve-calview__add:hover {
-  background: var(--surface);
-  color: var(--accent);
 }
 
 /* --- pagina da linha --------------------------------------------------------------------- */

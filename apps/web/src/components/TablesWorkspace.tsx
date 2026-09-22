@@ -213,10 +213,14 @@ export function TablesWorkspace({ initialTableId }: TablesWorkspaceProps = {}): 
           )}
 
           {selected && (
+            // Just the table: no gallery/calendar tabs, search, filters or row count on this page.
             <DataTableGrid
               key={selected.id}
               table={selected}
               onTableChange={(table) => setTables((current) => current.map((item) => (item.id === table.id ? table : item)))}
+              modes={['table']}
+              persistView={false}
+              showFilters={false}
             />
           )}
 

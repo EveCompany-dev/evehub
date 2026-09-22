@@ -28,3 +28,17 @@ export interface ScheduledPostRow {
   metaPostId: string | null;
   createdBy: string;
 }
+
+export const POST_TYPE_LABEL: Record<ScheduledPostRow['postType'], string> = {
+  feed: 'post',
+  story: 'story',
+  reel: 'reel',
+};
+
+export const POST_STATUS_LABEL: Record<ScheduledPostRow['status'], string> = {
+  draft: 'rascunho',
+  scheduled: 'agendado',
+  publishing: 'publicando',
+  published: 'publicado',
+  failed: 'falhou',
+};

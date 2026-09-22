@@ -18,8 +18,6 @@ export interface CalendarViewProps {
   /** Draw the client on each entry (the all-clients calendar needs it; a client's own page doesn't). */
   showClient: boolean;
   onOpen: (rowId: string) => void;
-  /** Creates a row already dated to this day. */
-  onAddOnDay: (date: Date) => void;
 }
 
 /** The channel's mark: Instagram/Facebook get their glyph, anything else a neutral dot. */
@@ -36,8 +34,10 @@ function ChannelMark({ name }: { name: string }): JSX.Element {
  * format and status pills underneath. Dates are read whichever way they were
  * written; entries with no readable date wait under "Sem data" instead of
  * disappearing. Nothing is filtered here: what you see is everything scheduled.
+ * It only shows what is already planned — new entries are added from the
+ * table (Tabelas, or Postagens on the client page), not from here.
  */
-export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, onOpen, onAddOnDay }: CalendarViewProps): JSX.Element {
+export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, onOpen }: CalendarViewProps): JSX.Element {
   const columns = env.table.columns;
   const buckets = useMemo(() => bucketByDay(rows, dateColumn.key), [rows, dateColumn.key]);
   const start = useMemo(() => initialMonth(rows, dateColumn.key), [rows, dateColumn.key]);
@@ -58,9 +58,6 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
       <div className="eve-calview__bar">
         <button type="button" className="eve-calview__undated" onClick={(event) => setUndatedAnchor(event.currentTarget.getBoundingClientRect())} disabled={buckets.undated.length === 0}>
           Sem data ({buckets.undated.length})
-        </button>
-        <button type="button" className="eve-calview__new" onClick={() => onAddOnDay(new Date())}>
-          Nova
         </button>
       </div>
 
@@ -99,17 +96,6 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
                   </button>
                 );
               })}
-              <button
-                type="button"
-                className="eve-calview__add"
-                aria-label={`Nova linha em ${date.toLocaleDateString('pt-BR')}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAddOnDay(date);
-                }}
-              >
-                +
-              </button>
             </div>
           );
         }}

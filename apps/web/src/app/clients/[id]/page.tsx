@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { ClientDetailWorkspace } from '../../../components/ClientDetailWorkspace';
+import { canViewTab } from '../../../lib/permissions';
 import { getSessionUser } from '../../../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -11,6 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
+  if (!canViewTab(user, 'tables')) redirect('/');
   const { id } = await params;
 
   return (

@@ -22,6 +22,18 @@ encontra os mesmos modulos na grade — `parseDashboardConfig` os traz uma vez.
 comportamento). O que vale para o time todo, como as **cores dos status** dos
 Jobs, fica na pagina **Equipe**, so para admins.
 
+## Agenda e posts
+
+- **Agenda do Time** (`/agenda`): a unica visao da agenda. Eventos de todo mundo
+  e os posts agendados no mesmo calendario, com filtros de tag (cliente,
+  membro, tipo). Clicar num post abre ele no Agendar Post.
+- **Calendario de Conteudo** (`/clients/calendar`, no menu da Agenda): so para
+  ver o que ja esta planejado. Linha nova entra pela tabela (Tabelas, ou
+  Postagens na pagina do cliente).
+- **Agendar Post** (`/scheduling`, em Tools): o editor numa pagina propria, sem
+  calendario. Varios arquivos de uma vez perguntam "carrossel ou posts
+  separados?"; posts separados viram subpaginas, um post cada, agendadas juntas.
+
 ## Documentos
 
 | Arquivo | Conteudo |
@@ -160,6 +172,12 @@ implementa o contrato inteiro, incluindo conflito e undo.
   resto do time ve a equipe (somente leitura) e nao mexe em ninguem. Mudar a
   lista = editar `ADMIN_EMAILS` **e** criar uma migration com o mesmo UPDATE da
   `admin_controls_audit_log`. Toda a regra vive em `apps/web/src/lib/permissions.ts`.
+- **Todas as abas vem ligadas; cargo so tira.** Sem cargo, a pessoa ve todas as
+  abas (menos o registro de atividades, que e so de admin). Um cargo e a lista
+  do que fica liberado: a aba desmarcada some do menu e a pagina redireciona.
+  Ate 2026-09-22 o cargo *somava* abas a um conjunto padrao; a migration
+  `role_tabs_allow_list` reescreveu os cargos existentes sem mudar o que
+  ninguem via. A tag Social Media nao libera mais nada sozinha.
 - **So entra quem foi cadastrado.** O Google do dominio nao cria conta sozinho
   (exceto para os e-mails de admin); um admin cadastra a pessoa na tela de Equipe.
 - **Apagar conta funciona mesmo com trabalho no workspace.** Depois de desativar,

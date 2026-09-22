@@ -31,6 +31,24 @@ export interface CarouselDropZoneProps {
   dropHint: string;
   uploadingHint: string;
   limitHint: (max: number) => string;
+  /**
+   * Called instead of uploading when several files arrive but only one fits
+   * (max 1) — lets the post composer ask "carrossel ou posts separados?"
+   * rather than silently keeping the first file.
+   */
+  onManyFiles?: (files: File[]) => void;
+  /** Shown in place of the drop hint while the parent uploads on this zone's behalf. */
+  busyHint?: string | null;
+}
+
+/** Uploads one file to an upload endpoint and returns its public URL; throws with the server's message. */
+export async function uploadMedia(endpoint: string, file: File): Promise<string> {
+  const form = new FormData();
+  form.append('file', file);
+  const response = await fetch(endpoint, { method: 'POST', body: form });
+  const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+  if (!response.ok || !body.url) throw new Error(body.error ?? `HTTP ${response.status}`);
+  return body.url;
 }
 
 interface SlideProps {
@@ -90,6 +108,8 @@ export function CarouselDropZone({
   dropHint,
   uploadingHint,
   limitHint,
+  onManyFiles,
+  busyHint,
 }: CarouselDropZoneProps): JSX.Element {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,19 +123,21 @@ export function CarouselDropZone({
   const remaining = max - value.length;
 
   const uploadOne = async (file: File): Promise<string | null> => {
-    const form = new FormData();
-    form.append('file', file);
-    const response = await fetch(endpoint, { method: 'POST', body: form });
-    const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
-    if (!response.ok || !body.url) {
-      setError(body.error ?? `HTTP ${response.status}`);
+    try {
+      return await uploadMedia(endpoint, file);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
       return null;
     }
-    return body.url;
   };
 
   const uploadMany = async (files: File[]) => {
     if (files.length === 0) return;
+    if (onManyFiles && max === 1 && files.length > 1) {
+      setError(null);
+      onManyFiles(files);
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
@@ -183,7 +205,7 @@ export function CarouselDropZone({
           onDragLeave={() => setDragOver(false)}
           onDrop={handleDrop}
         >
-          <span className="eve-dim">{uploading ? uploadingHint : dropHint}</span>
+          <span className="eve-dim">{busyHint ?? (uploading ? uploadingHint : dropHint)}</span>
         </div>
       )}
 
