@@ -9,7 +9,7 @@ export type TimerConfig = z.infer<typeof configSchema>;
 /**
  * No upstream, no data, no write — same shape as the calculator. The countdown
  * lives entirely in the widget; registering it as a connector is only what
- * puts it in the "+ add widget" catalog and on the grid/canvas.
+ * puts it in the "+ add widget" catalog and on the grid.
  */
 export const timerConnector: EveConnector<TimerConfig> = registerConnector<TimerConfig, undefined>({
   id: 'timer',

@@ -166,7 +166,11 @@ async function countOwnedContent(userId: string): Promise<Record<string, number>
   return { jobs, comments, financial, messages, attachments, posts };
 }
 
-/** Arquivos que so existem por causa da pessoa: foto de perfil, fundo e imagens do board dela. */
+/**
+ * Arquivos que so existem por causa da pessoa: foto de perfil, fundo da
+ * dashboard e as imagens que ela soltava no antigo board livre (canvas,
+ * removido em 2026-09-22 — os arquivos antigos ainda podem estar no disco).
+ */
 const PERSONAL_UPLOAD = /^\/uploads\/(avatars|backgrounds|canvas)\/[^/?#]+$/;
 
 function personalUploads(image: string | null, dashboardConfig: unknown): string[] {

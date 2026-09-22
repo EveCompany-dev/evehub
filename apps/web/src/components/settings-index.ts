@@ -22,12 +22,6 @@ export interface SettingsOption {
 
 export const SETTINGS_OPTIONS: SettingsOption[] = [
   {
-    id: 'mode',
-    label: strings.canvas.modeTitle,
-    category: 'layout',
-    keywords: ['canvas', 'board', 'grade', 'grid', 'layout', 'dashboard', 'modo', 'livre', 'colunas'],
-  },
-  {
     id: 'backgroundImage',
     label: strings.dashboardSettings.backgroundImage,
     category: 'appearance',
@@ -38,12 +32,6 @@ export const SETTINGS_OPTIONS: SettingsOption[] = [
     label: strings.dashboardSettings.backgroundColor,
     category: 'appearance',
     keywords: ['cor', 'fundo', 'background', 'hex'],
-  },
-  {
-    id: 'density',
-    label: strings.dashboardSettings.density,
-    category: 'layout',
-    keywords: ['densidade', 'compacto', 'espacamento', 'grade', 'linhas'],
   },
   {
     id: 'railFullHide',

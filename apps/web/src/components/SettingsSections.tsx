@@ -4,7 +4,6 @@ import type { GeneralSettings } from '@eve/core/dashboard';
 import { strings } from '@eve/ui';
 import { useRef, useState, type DragEvent, type JSX } from 'react';
 import { landingOptions } from '../lib/navigation';
-import { JobColumnsSection } from './JobColumnsSection';
 
 export interface SettingsSectionProps {
   settings: GeneralSettings;
@@ -111,42 +110,6 @@ export function AppearanceSection({ settings, onChange }: SettingsSectionProps):
   );
 }
 
-export function LayoutSection({ settings, onChange }: SettingsSectionProps): JSX.Element {
-  return (
-    <section className="eve-settings__section">
-      <h4 className="eve-settings__section-title">{strings.dashboardSettings.layoutTitle}</h4>
-
-      {/* The board is the default dashboard; the 12-column grid lives on as a
-          choice here. Each mode keeps its own arrangement, so switching is
-          never destructive — see dashboardConfigSchema's `mode`. */}
-      <label className="eve-field" data-setting-id="mode">
-        <span className="eve-field__label">{strings.canvas.modeTitle}</span>
-        <select
-          className="eve-input"
-          value={settings.mode}
-          onChange={(event) => onChange({ mode: event.target.value as GeneralSettings['mode'] })}
-        >
-          <option value="grid">{strings.canvas.modeGrid}</option>
-          <option value="canvas">{strings.canvas.modeCanvas}</option>
-        </select>
-        <span className="eve-setup__hint">{strings.canvas.modeHint}</span>
-      </label>
-
-      <label className="eve-field" data-setting-id="density">
-        <span className="eve-field__label">{strings.dashboardSettings.density}</span>
-        <select
-          className="eve-input"
-          value={settings.density}
-          onChange={(event) => onChange({ density: event.target.value as GeneralSettings['density'] })}
-        >
-          <option value="comfortable">{strings.dashboardSettings.densityComfortable}</option>
-          <option value="compact">{strings.dashboardSettings.densityCompact}</option>
-        </select>
-      </label>
-    </section>
-  );
-}
-
 /**
  * Applies the UI scale live. Writes into the same `<style id="eve-ui-scale">`
  * tag that layout.tsx server-renders on first paint, instead of setting
@@ -240,19 +203,19 @@ export function BehaviorSection({ settings, onChange, visibleTabs = [] }: Settin
   );
 }
 
+/**
+ * Personal preferences only. Anything that applies to the whole team (the
+ * Jobs status colors) lives on the Equipe page instead.
+ */
 export interface SettingsCategory {
   id: string;
   label: string;
   Section: (props: SettingsSectionProps) => JSX.Element;
-  /** Hidden from the side nav unless the viewer is a workspace owner — see SettingsWorkspace's filter. */
-  ownerOnly?: boolean;
 }
 
 /** Drives the /settings page's category side nav. */
 export const SETTINGS_CATEGORIES: SettingsCategory[] = [
   { id: 'appearance', label: strings.dashboardSettings.backgroundTitle, Section: AppearanceSection },
   { id: 'interface', label: strings.dashboardSettings.interfaceTitle, Section: InterfaceSection },
-  { id: 'layout', label: strings.dashboardSettings.layoutTitle, Section: LayoutSection },
   { id: 'behavior', label: strings.dashboardSettings.behaviorTitle, Section: BehaviorSection },
-  { id: 'jobColumnColors', label: strings.jobs.columnColorsTitle, Section: JobColumnsSection, ownerOnly: true },
 ];

@@ -14,10 +14,7 @@ import { WidgetErrorBoundary } from '../widgets/WidgetErrorBoundary';
 /** Below this width a 12-column grid stops being usable, so widgets stack. */
 const NARROW_BREAKPOINT = 720;
 
-const GRID_SPACING: Record<DashboardConfig['density'], { rowHeight: number; margin: [number, number] }> = {
-  comfortable: { rowHeight: 40, margin: [16, 16] },
-  compact: { rowHeight: 28, margin: [8, 8] },
-};
+const GRID_SPACING: { rowHeight: number; margin: [number, number] } = { rowHeight: 40, margin: [16, 16] };
 
 export interface InstanceSummary {
   id: string;
@@ -78,8 +75,8 @@ export function DashboardGrid({
     );
   };
 
-  // Same catalog Ctrl+K's "add module" section and Canvas's own right-click
-  // menu build from — right-click parity with Canvas, not a separate list.
+  // Same catalog Ctrl+K's "add module" section builds from — one catalog,
+  // not a separate list.
   const addModuleItems = available
     .filter((connector) => connector.canCreate)
     .map((connector) => ({ label: connector.label, onSelect: () => onAddModule(connector) }));
@@ -112,14 +109,8 @@ export function DashboardGrid({
     );
   }
 
-  const spacing = GRID_SPACING[config.density];
-  const containerClassName = [
-    'eve-grid-container',
-    config.locked ? 'is-locked' : null,
-    config.density === 'compact' ? 'is-compact' : null,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const spacing = GRID_SPACING;
+  const containerClassName = config.locked ? 'eve-grid-container is-locked' : 'eve-grid-container';
 
   return (
     <div ref={containerRef} className={containerClassName} onContextMenu={openBackgroundMenu}>
