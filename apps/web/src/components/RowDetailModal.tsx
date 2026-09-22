@@ -1,12 +1,13 @@
 'use client';
 
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 import { rowTitle, titleColumn } from '../lib/table-views';
 import type { DataTableRowValue, TableEnv } from './data-table-types';
 import { ColumnTypeIcon } from './table-column-meta';
 import { TableCell } from './TableCell';
+import { TeleprompterModal } from './TeleprompterModal';
 import { useEscapeToClose } from './useEscapeToClose';
-import { X } from '@eve/ui';
+import { Maximize2, X } from '@eve/ui';
 
 export interface RowDetailModalProps {
   env: TableEnv;
@@ -23,16 +24,29 @@ export interface RowDetailModalProps {
  */
 export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: RowDetailModalProps): JSX.Element {
   useEscapeToClose(onClose);
+  const [teleprompterFor, setTeleprompterFor] = useState<string | null>(null);
   const columns = env.table.columns;
   const title = titleColumn(columns);
   const others = columns.filter((column) => column.key !== title?.key);
   // Long text goes below the short properties, full width.
   const shortProps = others.filter((column) => column.type !== 'text');
   const longProps = others.filter((column) => column.type === 'text');
+  const pageTitle = rowTitle(columns, row, clientLabels);
+  const teleprompterColumn = longProps.find((column) => column.key === teleprompterFor);
+
+  if (teleprompterColumn) {
+    return (
+      <TeleprompterModal
+        title={`${pageTitle} — ${teleprompterColumn.label}`}
+        text={String(row.data[teleprompterColumn.key] ?? '')}
+        onClose={() => setTeleprompterFor(null)}
+      />
+    );
+  }
 
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>
-      <div className="eve-modal eve-rowpage" role="dialog" aria-label={rowTitle(columns, row, clientLabels)} onClick={(event) => event.stopPropagation()}>
+      <div className="eve-modal eve-rowpage" role="dialog" aria-label={pageTitle} onClick={(event) => event.stopPropagation()}>
         <div className="eve-rowpage__bar">
           <span className="eve-dim">{env.table.name}</span>
           <span className="eve-rowpage__bar-actions">
@@ -57,7 +71,7 @@ export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: Ro
             <TableCell column={title} value={row.data[title.key]} rowId={row.id} env={env} variant="form" single />
           </div>
         ) : (
-          <h2 className="eve-card__title">{rowTitle(columns, row, clientLabels)}</h2>
+          <h2 className="eve-card__title">{pageTitle}</h2>
         )}
 
         <div className="eve-rowpage__props">
@@ -75,7 +89,18 @@ export function RowDetailModal({ env, row, clientLabels, onClose, onDelete }: Ro
 
         {longProps.map((column) => (
           <div key={column.key} className="eve-rowpage__long">
-            <h3 className="eve-rowpage__long-label">{column.label}</h3>
+            <div className="eve-rowpage__long-bar">
+              <h3 className="eve-rowpage__long-label">{column.label}</h3>
+              <button
+                type="button"
+                className="eve-btn eve-btn--icon"
+                aria-label={`Abrir "${column.label}" no teleprompter`}
+                title="Abrir no teleprompter"
+                onClick={() => setTeleprompterFor(column.key)}
+              >
+                <Maximize2 size={14} aria-hidden="true" />
+              </button>
+            </div>
             <TableCell column={column} value={row.data[column.key]} rowId={row.id} env={env} variant="form" />
           </div>
         ))}
