@@ -68,6 +68,9 @@ enum NotificationType {
   /// Alguem clicou em "Esqueci minha senha". Vai so para os admins, que sao
   /// quem gera o link de redefinicao (ver PasswordResetRequest).
   passwordResetRequested
+  /// Alguem mandou um relato de bug/feedback. Vai para jose@evecompany.com.br,
+  /// que tambem recebe o e-mail quando o SMTP esta configurado.
+  bugReport
 }
 
 enum FinancialEntryType {
@@ -966,10 +969,9 @@ model DirectMessageAttachment {
 }
 
 /// A pilula "Reportar bug/feedback" fixa no canto da tela — qualquer usuario
-/// autenticado pode abrir. `emailedAt` fica nulo ate o envio de e-mail ser
-/// ligado (ver lib/bug-report-email.ts); a linha existe e fica visivel para
-/// quem tem acesso ao banco mesmo antes disso, o e-mail e so uma notificacao
-/// a mais por cima do registro.
+/// autenticado pode abrir. Cada relato avisa jose@evecompany.com.br no sino e,
+/// com SMTP_URL configurado, por e-mail (ver lib/bug-report-email.ts);
+/// `emailedAt` fica nulo enquanto o e-mail nao sai.
 model BugReport {
   id          String    @id @default(cuid())
   workspaceId String
