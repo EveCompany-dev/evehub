@@ -4,7 +4,7 @@ import { strings } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { formatDateTimePtBr } from './job-types';
-import type { NotificationSummary } from './notification-types';
+import { notificationHref, type NotificationSummary } from './notification-types';
 
 const LIMIT = 150;
 
@@ -89,11 +89,7 @@ export function NotificationsWorkspace(): JSX.Element {
                 <span className="eve-dim">{formatDateTimePtBr(notification.createdAt)}</span>
               </>
             );
-            const href = notification.jobId
-              ? `/jobs?job=${notification.jobId}`
-              : notification.type === 'teamMessageMention'
-                ? '/chat'
-                : null;
+            const href = notificationHref(notification);
             const itemClass = notification.readAt ? 'eve-notifications-page__item' : 'eve-notifications-page__item is-unread';
             const onOpen = () => {
               if (!notification.readAt) void markRead(notification.id);

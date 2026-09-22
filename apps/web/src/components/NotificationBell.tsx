@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from 'react';
 import { createPortal } from 'react-dom';
 import { playAlertChime } from '../lib/alert-chime';
 import { formatDateTimePtBr } from './job-types';
-import type { NotificationSummary, NotificationType } from './notification-types';
+import { notificationHref, type NotificationSummary, type NotificationType } from './notification-types';
 
 const POLL_INTERVAL_MS = 45_000;
 
@@ -15,7 +15,7 @@ const POLL_INTERVAL_MS = 45_000;
 // everything else just raises the badge count (plus the chime) quietly.
 // A failed post is time-critical in a way the others aren't — the publish
 // window is already gone, so it earns the popup too.
-const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed'];
+const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed', 'connectorSyncFailed'];
 
 /**
  * Desktop notification while the tab is open — NOT a real Web Push
@@ -199,11 +199,12 @@ export function NotificationBell({ expanded }: NotificationBellProps): JSX.Eleme
                       <span className="eve-dim">{formatDateTimePtBr(notification.createdAt)}</span>
                     </>
                   );
+                  const href = notificationHref(notification);
                   return (
                     <li key={notification.id} className={notification.readAt ? 'eve-notif__item' : 'eve-notif__item is-unread'}>
-                      {notification.jobId || notification.type === 'teamMessageMention' ? (
+                      {href ? (
                         <Link
-                          href={notification.jobId ? `/jobs?job=${notification.jobId}` : '/chat'}
+                          href={href}
                           className="eve-notif__link"
                           onClick={() => {
                             setOpen(false);

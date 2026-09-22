@@ -59,6 +59,7 @@ export {
 export { equalizeVerifyTiming, hashPassword, verifyPassword } from './password';
 export { errorMessage, loadConnectorContext, type LoadedConnector } from './connector-context';
 export { pruneSnapshots, runSync, type SyncOutcome } from './sync';
+export { connectorAlertFor, connectorAlertMessage, raiseConnectorAlert, type ConnectorAlert } from './connector-alerts';
 export {
   listUndoableEdits,
   performUndo,

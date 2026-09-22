@@ -58,6 +58,13 @@ enum NotificationType {
   /// Nova mensagem numa conversa privada (DirectMessage) — ver o chat's
   /// tab "Privado".
   directMessage
+  /// Uma integracao parou de sincronizar (token revogado, conta sem
+  /// permissao). Vai so para os owners, que sao quem pode mexer em
+  /// credencial. Criado na transicao, nunca a cada tick que falha.
+  connectorSyncFailed
+  /// A mesma integracao voltou a sincronizar — fecha o aviso acima em vez de
+  /// deixar todo mundo perseguindo um alerta velho.
+  connectorSyncRecovered
 }
 
 enum FinancialEntryType {

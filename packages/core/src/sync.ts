@@ -1,4 +1,5 @@
 import type { SyncResult } from '@eve/connector-sdk';
+import { connectorAlertFor, raiseConnectorAlert } from './connector-alerts';
 import { errorMessage, loadConnectorContext } from './connector-context';
 import { publishConnectorEvent } from './events';
 import { Prisma, prisma } from './prisma';
@@ -11,6 +12,33 @@ export interface SyncOutcome {
 
 function toJsonInput(value: unknown): Prisma.InputJsonValue {
   return (value === undefined || value === null ? Prisma.JsonNull : value) as Prisma.InputJsonValue;
+}
+
+/**
+ * Tells the owners when an integration breaks, and again when it comes back.
+ * `instance` is the row as it was *before* this run, so the status on it is
+ * the one to compare against.
+ */
+async function alertOnStatusChange(
+  instance: { id: string; workspaceId: string; label: string; status: string },
+  syncSucceeded: boolean,
+  detail?: string,
+): Promise<void> {
+  const alert = connectorAlertFor(instance.status, syncSucceeded);
+  if (!alert) return;
+
+  try {
+    await raiseConnectorAlert({
+      workspaceId: instance.workspaceId,
+      label: instance.label,
+      alert,
+      ...(detail ? { detail } : {}),
+    });
+  } catch (error) {
+    // The sync's own result is what must survive; a missed notification is not
+    // worth turning a good sync into a failed one.
+    console.error(`[sync] falha ao avisar sobre o conector ${instance.id}:`, errorMessage(error));
+  }
 }
 
 /**
@@ -54,6 +82,7 @@ export async function runSync(instanceId: string): Promise<SyncOutcome> {
       status: 'error',
       syncedAt: new Date().toISOString(),
     });
+    await alertOnStatusChange(instance, false, message);
     return { ok: false, error: message };
   }
 
@@ -105,6 +134,8 @@ export async function runSync(instanceId: string): Promise<SyncOutcome> {
     status: 'ok',
     syncedAt: syncedAt.toISOString(),
   });
+
+  await alertOnStatusChange(instance, true);
 
   return { ok: true, recordCount: records.length };
 }
