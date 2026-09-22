@@ -1,4 +1,5 @@
 import { prisma } from '@eve/core';
+import { logActivity, quoted } from '../../../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../../../lib/api';
 import { JOB_MEMBER_SELECT, requireJob, requireTask } from '../../../../../../../lib/jobs';
 import { requireUser } from '../../../../../../../lib/session';
@@ -15,8 +16,8 @@ export async function POST(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId } = await context.params;
-    await requireJob(id, user.workspaceId);
-    await requireTask(id, taskId);
+    const job = await requireJob(id, user.workspaceId);
+    const task = await requireTask(id, taskId);
 
     const form = await request.formData();
     const file = form.get('file');
@@ -27,6 +28,12 @@ export async function POST(
       const attachment = await prisma.attachment.create({
         data: { taskId, uploadedBy: user.id, filename: file.name, url: saved.url, size: saved.size },
         include: { uploader: { select: JOB_MEMBER_SELECT } },
+      });
+      await logActivity(user, {
+        action: 'job.attachment',
+        summary: `anexou ${quoted(file.name)} na tarefa ${quoted(task.title)} do job ${quoted(job.title)}`,
+        entityType: 'job',
+        entityId: id,
       });
       return ok({ attachment }, 201);
     } catch (error) {

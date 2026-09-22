@@ -1,6 +1,7 @@
 import { performWrite } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { requireInstance, requireUser } from '../../../../../lib/session';
 
@@ -23,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireInstance(id, user);
+    const instance = await requireInstance(id, user);
 
     const body = writeSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -51,6 +52,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     if (!result.ok) return fail(400, result.message);
+
+    await logActivity(user, {
+      action: 'connector.write',
+      summary: `editou o campo ${quoted(body.data.field)} de um registro no conector ${quoted(instance.label)} (mudança enviada para a fonte)`,
+      entityType: 'connectorInstance',
+      entityId: id,
+      details: { remoteId: body.data.remoteId, field: body.data.field },
+    });
 
     return ok({ ok: true, editLogId: result.editLogId, newVersion: result.newVersion, data: result.data });
   });

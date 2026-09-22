@@ -8,10 +8,10 @@
  * a recognisable silhouette per concept, no decoration.
  *
  *   Navigation   House Bell MessageCircle SquareKanban Table2 Plug Zap CalendarDays
- *                CircleDollarSign Users IdCard Settings
- *   Actions      Plus Minus Pencil Trash2 X Check Search Maximize2 EllipsisVertical Paperclip Smile
+ *                CircleDollarSign Users IdCard Settings History
+ *   Actions      Plus Minus Pencil Trash2 X Check Search Maximize2 EllipsisVertical Paperclip Smile Copy
  *   Direction    ChevronDown ChevronRight ChevronLeft ArrowUp ArrowDown
- *   Status       CircleCheck CircleX Lock Clock
+ *   Status       CircleCheck CircleX Lock Clock KeyRound
  *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause RotateCcw
  *   Column types Type Hash SquareCheck CircleChevronDown List Contact
  */
@@ -32,13 +32,16 @@ export {
   CircleX,
   Clock,
   Contact,
+  Copy,
   EllipsisVertical,
   FileText,
   Files,
   Folder,
   Hash,
+  History,
   House,
   IdCard,
+  KeyRound,
   Image as ImageIcon,
   Lightbulb,
   Link2,

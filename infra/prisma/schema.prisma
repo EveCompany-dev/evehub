@@ -65,6 +65,9 @@ enum NotificationType {
   /// A mesma integracao voltou a sincronizar — fecha o aviso acima em vez de
   /// deixar todo mundo perseguindo um alerta velho.
   connectorSyncRecovered
+  /// Alguem clicou em "Esqueci minha senha". Vai so para os admins, que sao
+  /// quem gera o link de redefinicao (ver PasswordResetRequest).
+  passwordResetRequested
 }
 
 enum FinancialEntryType {
@@ -103,6 +106,8 @@ model Workspace {
   bugReports         BugReport[]
   agendaEvents       AgendaEvent[]
   roles              Role[]
+  activityLogs       ActivityLog[]
+  passwordResetRequests PasswordResetRequest[]
 }
 
 model User {
@@ -117,8 +122,10 @@ model User {
   /// null = usuario so entra por Google (nunca teve senha definida)
   passwordHash String?
 
-  /// Unica distincao de permissao do produto: quem pode gerenciar credenciais
-  /// de connector. Todo o resto e livre para qualquer usuario autenticado.
+  /// Admin. Espelho de ADMIN_EMAILS (packages/core/src/admins.ts): nenhuma
+  /// tela ou rota grava isto a partir de input, e a sessao corrige a coluna
+  /// se ela divergir da lista. Controla equipe, credenciais de connector,
+  /// cargos e o registro de atividades.
   isOwner Boolean @default(false)
 
   /// Tag de equipe: quem ve e mexe na aba de agendamento. Owner ve tambem,
@@ -136,9 +143,15 @@ model User {
   /// Base do delta do feed diario de IA (v0.0.6). Atualizado a cada sessao.
   lastSeenAt DateTime?
 
-  /// Acesso revogado. Nao apagamos usuario: EditLog aponta para ele e a trilha
-  /// de auditoria tem que sobreviver a saida de alguem da agencia.
+  /// Acesso revogado (reversivel). Ver deletedAt para o passo sem volta.
   disabledAt DateTime?
+
+  /// Conta apagada. A linha fica como lapide — so com o nome — porque jobs,
+  /// comentarios, mensagens do chat e o registro de atividades apontam para
+  /// ela e sao da agencia. Todo o resto sai no DELETE /api/users/[id]: e-mail
+  /// (trocado por um endereco .invalid, o que libera o original), senha,
+  /// contas Google, foto, notificacoes, cargos e participacoes.
+  deletedAt DateTime?
 
   /// Layout do grid + config por widget. Ver packages/core/src/dashboard-config.ts
   dashboardConfig Json @default("{}")
@@ -167,6 +180,9 @@ model User {
   bugReports           BugReport[]
   createdAgendaEvents  AgendaEvent[]          @relation("AgendaEventCreator")
   agendaEventAttendee  AgendaEventAttendee[]
+  activityLogs         ActivityLog[]
+  passwordResetRequests PasswordResetRequest[] @relation("PasswordResetRequester")
+  issuedPasswordResets  PasswordResetRequest[] @relation("PasswordResetIssuer")
 
   @@index([workspaceId])
 }
@@ -999,4 +1015,77 @@ model Role {
   users User[]
 
   @@unique([workspaceId, name])
+}
+
+// ---------------------------------------------------------------------------
+// Registro de atividades (so admins leem)
+// ---------------------------------------------------------------------------
+
+/// Uma linha por acao de alguem que mexe no que e do time: jobs, tabelas,
+/// clientes, financeiro, agenda, conectores, chat da equipe, a propria equipe.
+/// Conversa privada (DirectMessage) e o chat de IA do widget nunca entram.
+/// Gravado pelas rotas via lib/activity.ts — uma falha aqui nunca derruba a
+/// acao do usuario.
+model ActivityLog {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  /// Nulo so em acao sem sessao (ex.: pedido de senha feito na tela de login
+  /// por quem nao existe mais) — nunca por conta apagada, que vira lapide.
+  actorId    String?
+  actor      User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  /// Nome no momento da acao: sobrevive a renomear e a apagar a conta.
+  actorLabel String
+
+  /// Chave estavel "area.verbo" (ex.: "job.create", "user.delete") — e por
+  /// ela que o filtro de area funciona.
+  action     String
+  /// O que foi tocado. Sem FK: a coisa pode ter sido apagada logo depois.
+  entityType String?
+  entityId   String?
+  /// Frase pronta em pt-BR, sem o nome do autor ("criou o job “Post X”").
+  summary    String
+  details    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, action, createdAt])
+  @@index([actorId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Recuperacao de senha (sempre por um admin)
+// ---------------------------------------------------------------------------
+
+/// "Esqueci minha senha" nao manda e-mail nenhum: avisa os admins, e um deles
+/// gera um link de uso unico que entrega a pessoa por fora (WhatsApp etc.).
+/// Um pedido sem link ainda (issuedAt nulo) e o que aparece como pendente na
+/// tela de Equipe. O admin tambem pode gerar um link sem pedido nenhum.
+model PasswordResetRequest {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("PasswordResetRequester", fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 do token do link. O token em si so existe na resposta ao admin
+  /// que o gerou — quem le o banco nao consegue usar o link.
+  tokenHash      String?   @unique
+  tokenExpiresAt DateTime?
+
+  issuedById String?
+  issuedBy   User?     @relation("PasswordResetIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  issuedAt   DateTime?
+
+  usedAt      DateTime?
+  /// Admin descartou o pedido sem gerar link (ex.: nao reconheceu o pedido).
+  dismissedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+  @@index([userId])
 }

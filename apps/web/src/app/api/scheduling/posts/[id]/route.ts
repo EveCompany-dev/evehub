@@ -2,9 +2,17 @@ import { loadConnectorContext, prisma } from '@eve/core';
 import { deleteFacebookPost, scheduleFacebookPost, type MetaConfig, type MetaCredentials } from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted, whenLabel } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { canViewScheduling } from '../../../../../lib/permissions';
 import { HttpError, requireUser } from '../../../../../lib/session';
+
+const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
+const TYPE_LABEL: Record<string, string> = { feed: 'feed', story: 'story', reel: 'reel' };
+
+function postLabel(post: { platform: string; postType: string; clientLabel: string }): string {
+  return `${PLATFORM_LABEL[post.platform] ?? post.platform} ${TYPE_LABEL[post.postType] ?? post.postType} de ${quoted(post.clientLabel)}`;
+}
 
 export const runtime = 'nodejs';
 
@@ -102,6 +110,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       data: { caption, mediaUrl, scheduledFor, metaPostId, ...clientFields },
     });
 
+    await logActivity(user, {
+      action: 'post.update',
+      summary:
+        updated.scheduledFor.getTime() !== post.scheduledFor.getTime()
+          ? `remarcou o post (${postLabel(updated)}) para ${whenLabel(updated.scheduledFor)}`
+          : `editou o post agendado (${postLabel(updated)})`,
+      entityType: 'scheduledPost',
+      entityId: id,
+    });
+
     return ok({ post: updated });
   });
 }
@@ -127,6 +145,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     }
 
     await prisma.scheduledPost.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'post.delete',
+      summary: `cancelou o post agendado (${postLabel(post)}) de ${whenLabel(post.scheduledFor)}`,
+      entityType: 'scheduledPost',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

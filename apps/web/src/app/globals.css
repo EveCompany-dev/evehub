@@ -4805,3 +4805,198 @@ video.eve-month__chip-thumb {
 .eve-grid-container.is-compact .eve-notes__alerts {
   padding-bottom: 8px;
 }
+
+/* --- registro de atividades (admins) -------------------------------------- */
+
+.eve-activity {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.eve-activity__hint {
+  margin: 0;
+  font-size: 12px;
+  max-width: 720px;
+}
+
+.eve-activity__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.eve-activity__filters .eve-input {
+  height: 32px;
+  width: auto;
+  font-size: 13px;
+}
+
+.eve-activity__filters .eve-activity__search {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.eve-activity__date {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.eve-activity__days {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.eve-activity__day-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--text-dim);
+}
+
+.eve-activity__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eve-activity__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 4px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.eve-activity__time {
+  flex: none;
+  width: 40px;
+  padding-top: 3px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.eve-activity__text {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.eve-activity__link {
+  color: var(--accent);
+}
+
+.eve-activity__area {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.eve-activity__more {
+  align-self: center;
+}
+
+@media (max-width: 640px) {
+  .eve-activity__area {
+    display: none;
+  }
+}
+
+/* --- equipe: pedidos de senha e link gerado ------------------------------- */
+
+.eve-team__resets {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.eve-team__resets-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.eve-team__reset-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.eve-team__link-box {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 13px;
+}
+
+.eve-team__link-row {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 6px;
+}
+
+.eve-team__link-row .eve-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.eve-team__edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  width: 100%;
+  padding: 10px 0 2px;
+}
+
+.eve-team__edit .eve-field {
+  margin: 0;
+  flex: 1 1 200px;
+}
+
+.eve-login__link {
+  display: block;
+  margin: 12px auto 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.eve-login__link:hover {
+  color: var(--text);
+}
+
+.eve-login__notice {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}

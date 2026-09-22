@@ -2,6 +2,7 @@ import { encryptJson, prisma, runSync } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { listConnectors, requireConnector } from '../../../connectors';
+import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
 import { canCreateInstance } from '../../../lib/permissions';
 import { HttpError, requireUser } from '../../../lib/session';
@@ -112,6 +113,13 @@ export async function POST(request: Request): Promise<Response> {
     // Primeira sincronizacao na hora: e o unico feedback honesto de que o token
     // e o ID estao certos. Se falhar, a instancia ja nasce mostrando o porque.
     const first = await runSync(instance.id);
+
+    await logActivity(user, {
+      action: 'connector.create',
+      summary: `conectou ${quoted(instance.label)} (${connector.id})${connector.auth !== 'none' ? ' com credenciais' : ''}${first.ok ? '' : ' — a primeira sincronização falhou'}`,
+      entityType: 'connectorInstance',
+      entityId: instance.id,
+    });
 
     return ok({ instance, firstSync: { ok: first.ok, error: first.error ?? null } }, 201);
   });

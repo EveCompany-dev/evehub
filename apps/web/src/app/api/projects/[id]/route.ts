@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { requireProject } from '../../../../lib/jobs';
 import { PROJECT_JOBS_INCLUDE } from '../../../../lib/projects';
@@ -38,7 +39,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireProject(id, user.workspaceId);
+    const existing = await requireProject(id, user.workspaceId);
 
     const body = patchSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -53,6 +54,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           ...(date !== undefined ? { date: date ? new Date(date) : null } : {}),
         },
       });
+      await logActivity(user, {
+        action: 'project.update',
+        summary:
+          title !== undefined && title !== existing.title
+            ? `renomeou o projeto ${quoted(existing.title)} para ${quoted(title)}`
+            : `editou o projeto ${quoted(existing.title)}`,
+        entityType: 'project',
+        entityId: id,
+      });
     }
 
     const project = await prisma.project.findUnique({ where: { id } });
@@ -65,9 +75,15 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireProject(id, user.workspaceId);
+    const project = await requireProject(id, user.workspaceId);
 
     await prisma.project.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'project.delete',
+      summary: `apagou o projeto ${quoted(project.title)} (os jobs dele continuam, sem projeto)`,
+      entityType: 'project',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

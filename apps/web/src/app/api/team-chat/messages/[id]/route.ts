@@ -1,5 +1,6 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { HttpError, requireUser } from '../../../../../lib/session';
 import { deleteUpload } from '../../../../../lib/uploads';
@@ -18,6 +19,12 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
     await prisma.teamMessage.delete({ where: { id } });
     await Promise.all(message.attachments.map((attachment) => deleteUpload(attachment.url)));
+    await logActivity(user, {
+      action: 'chat.delete',
+      summary: `apagou uma mensagem própria do chat da equipe: ${quoted(message.body, 140)}`,
+      entityType: 'teamMessage',
+      entityId: id,
+    });
 
     return ok({ ok: true });
   });

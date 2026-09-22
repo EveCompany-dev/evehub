@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted, whenLabel } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { JOB_MEMBER_SELECT } from '../../../../lib/jobs';
 import { canViewScheduling } from '../../../../lib/permissions';
@@ -85,6 +86,13 @@ export async function POST(request: Request): Promise<Response> {
         attendees: { create: attendeeIds.map((userId) => ({ userId })) },
       },
       include: AGENDA_EVENT_INCLUDE,
+    });
+
+    await logActivity(user, {
+      action: 'agenda.create',
+      summary: `criou o evento ${quoted(event.title)} na agenda para ${whenLabel(event.startAt, !event.allDay)}`,
+      entityType: 'agendaEvent',
+      entityId: event.id,
     });
 
     return ok({ event }, 201);

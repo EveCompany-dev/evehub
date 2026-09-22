@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
 import { requireUser } from '../../../lib/session';
 
@@ -39,6 +40,8 @@ export async function POST(request: Request): Promise<Response> {
       },
       select: { id: true, name: true, columns: true, webhookToken: true, webhookKeyColumn: true },
     });
+
+    await logActivity(user, { action: 'table.create', summary: `criou a tabela ${quoted(table.name)}`, entityType: 'table', entityId: table.id });
 
     return ok({ table }, 201);
   });

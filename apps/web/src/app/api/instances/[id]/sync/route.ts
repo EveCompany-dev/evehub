@@ -1,4 +1,5 @@
 import { runSync } from '@eve/core';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { requireInstance, requireUser } from '../../../../../lib/session';
 
@@ -14,9 +15,15 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireInstance(id, user);
+    const instance = await requireInstance(id, user);
 
     const result = await runSync(id);
+    await logActivity(user, {
+      action: 'connector.sync',
+      summary: `sincronizou o conector ${quoted(instance.label)} manualmente${result.ok ? '' : ' (falhou)'}`,
+      entityType: 'connectorInstance',
+      entityId: id,
+    });
     if (!result.ok) return fail(502, result.error ?? 'Sincronização falhou.');
 
     return ok({ ok: true, recordCount: result.recordCount ?? 0 });

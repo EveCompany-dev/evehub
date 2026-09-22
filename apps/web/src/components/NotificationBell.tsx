@@ -15,7 +15,7 @@ const POLL_INTERVAL_MS = 45_000;
 // everything else just raises the badge count (plus the chime) quietly.
 // A failed post is time-critical in a way the others aren't — the publish
 // window is already gone, so it earns the popup too.
-const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed', 'connectorSyncFailed'];
+const DESKTOP_ALERT_TYPES: NotificationType[] = ['markedImportant', 'teamMessageMention', 'scheduledPostFailed', 'connectorSyncFailed', 'passwordResetRequested'];
 
 /**
  * Desktop notification while the tab is open — NOT a real Web Push

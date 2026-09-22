@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { applyJobMove, JOB_INCLUDE, requireClient, requireJob, requireProject } from '../../../../lib/jobs';
 import { notify } from '../../../../lib/notifications';
@@ -46,6 +47,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (body.data.move) {
       const moveError = await applyJobMove(user, id, body.data.move);
       if (moveError) return fail(400, moveError);
+      // Reordering inside the same column is housekeeping; a column change is news.
+      if (body.data.move.columnId !== existing.columnId) {
+        const column = await prisma.jobColumn.findUnique({ where: { id: body.data.move.columnId }, select: { name: true } });
+        await logActivity(user, {
+          action: 'job.move',
+          summary: `moveu o job ${quoted(existing.title)} para ${quoted(column?.name)}`,
+          entityType: 'job',
+          entityId: id,
+        });
+      }
     }
 
     const { title, description, dueDate, clientId, projectId, important } = body.data;
@@ -87,6 +98,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         },
       });
 
+      const changed: string[] = [];
+      if (title !== undefined && title !== existing.title) changed.push(`título para ${quoted(title)}`);
+      if (description !== undefined && (description ?? null) !== existing.description) changed.push('descrição');
+      if (dueDate !== undefined && (dueDate ? new Date(dueDate).getTime() : null) !== (existing.dueDate?.getTime() ?? null)) {
+        changed.push(dueDate ? `prazo para ${new Date(dueDate).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}` : 'prazo (removido)');
+      }
+      if (nextClientId !== undefined && nextClientId !== existing.clientId) changed.push('cliente');
+      if (nextProjectId !== undefined && nextProjectId !== existing.projectId) changed.push('projeto');
+      if (important !== undefined && important !== existing.important) changed.push(important ? 'marcado como importante' : 'importante (desmarcado)');
+      if (changed.length > 0) {
+        await logActivity(user, {
+          action: 'job.update',
+          summary: `editou o job ${quoted(existing.title)}: ${changed.join(', ')}`,
+          entityType: 'job',
+          entityId: id,
+        });
+      }
+
       // Only on the false-to-true transition — resaving an already-important
       // job (e.g. editing its description) shouldn't re-notify everyone.
       if (important === true && !existing.important) {
@@ -115,9 +144,10 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user.workspaceId);
 
     await prisma.job.delete({ where: { id } });
+    await logActivity(user, { action: 'job.delete', summary: `apagou o job ${quoted(job.title)}`, entityType: 'job', entityId: id });
     return ok({ ok: true });
   });
 }

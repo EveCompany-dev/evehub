@@ -1,9 +1,10 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { canViewFinancial } from '../../../../../lib/permissions';
-import { HttpError, requireUser } from '../../../../../lib/session';
+import { HttpError, requireUser, type SessionUser } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
 
@@ -16,7 +17,11 @@ const patchSchema = z.object({
   jobId: z.string().min(1).nullable().optional(),
 });
 
-async function requireOwnerWorkspace(): Promise<{ id: string; workspaceId: string }> {
+function brl(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+async function requireOwnerWorkspace(): Promise<SessionUser> {
   const user = await requireUser();
   // requireUser() already reflects a fresh DB read (see auth.ts's session
   // callback) — no need for a second prisma.user.findUnique just for this check.
@@ -34,7 +39,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   return handle(async () => {
     const user = await requireOwnerWorkspace();
     const { id } = await context.params;
-    await requireEntry(id, user.workspaceId);
+    const before = await requireEntry(id, user.workspaceId);
 
     const body = patchSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);
@@ -62,6 +67,16 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       include: { client: { select: { id: true, name: true } }, job: { select: { id: true, title: true } } },
     });
 
+    const amountChanged = entry.amountCents !== before.amountCents;
+    await logActivity(user, {
+      action: 'financial.update',
+      summary: amountChanged
+        ? `mudou o lançamento ${quoted(before.description)} de ${brl(before.amountCents)} para ${brl(entry.amountCents)}`
+        : `editou o lançamento ${quoted(before.description)} (${brl(entry.amountCents)}) no financeiro`,
+      entityType: 'financialEntry',
+      entityId: id,
+    });
+
     return ok({ entry });
   });
 }
@@ -70,9 +85,15 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireOwnerWorkspace();
     const { id } = await context.params;
-    await requireEntry(id, user.workspaceId);
+    const entry = await requireEntry(id, user.workspaceId);
 
     await prisma.financialEntry.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'financial.delete',
+      summary: `apagou o lançamento ${quoted(entry.description)} de ${brl(entry.amountCents)} do financeiro`,
+      entityType: 'financialEntry',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

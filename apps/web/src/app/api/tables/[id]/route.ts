@@ -1,6 +1,7 @@
 import { dataColumnSchema, prisma, slugifyColumnKey, type DataColumn } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { HttpError, requireUser } from '../../../../lib/session';
 
@@ -77,6 +78,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       },
     });
 
+    const changes: string[] = [];
+    if (body.data.name && body.data.name !== existing.name) changes.push(`renomeou a tabela ${quoted(existing.name)} para ${quoted(table.name)}`);
+    if (columns) changes.push(`mudou as colunas da tabela ${quoted(table.name)}`);
+    if (body.data.webhookKeyColumn !== undefined && body.data.webhookKeyColumn !== existing.webhookKeyColumn) {
+      changes.push(`mudou a coluna-chave da automação da tabela ${quoted(table.name)}`);
+    }
+    for (const summary of changes) await logActivity(user, { action: 'table.update', summary, entityType: 'table', entityId: id });
+
     return ok({ table });
   });
 }
@@ -85,9 +94,16 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireTable(id, user.workspaceId);
+    const table = await requireTable(id, user.workspaceId);
+    const rowCount = await prisma.dataTableRow.count({ where: { tableId: id } });
 
     await prisma.dataTable.delete({ where: { id } });
+    await logActivity(user, {
+      action: 'table.delete',
+      summary: `apagou a tabela ${quoted(table.name)} (${rowCount} linha(s))`,
+      entityType: 'table',
+      entityId: id,
+    });
     return ok({ ok: true });
   });
 }

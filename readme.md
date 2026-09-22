@@ -155,8 +155,26 @@ implementa o contrato inteiro, incluindo conflito e undo.
 - **Undo rele a versao atual antes de reverter.** Sem isso ele mandaria a versao
   de antes da propria edicao e conflitaria 100% das vezes. Nao existe caminho
   "forcar escrita".
-- **Sem RBAC, com uma excecao:** `User.isOwner` controla credenciais de connector
-  e exclusao de instancia. Toda a regra vive em `apps/web/src/lib/permissions.ts`.
+- **Admin e uma lista fixa de e-mails**, no codigo:
+  `packages/core/src/admins.ts` (hoje `jose@` e `financeiro@evecompany.com.br`).
+  Nenhuma tela, rota ou cargo concede admin; `User.isOwner` so espelha a lista, e
+  a sessao corrige a coluna se ela divergir. Admin controla equipe, cargos,
+  credenciais de connector, exclusao de instancia e o registro de atividades. O
+  resto do time ve a equipe (somente leitura) e nao mexe em ninguem. Mudar a
+  lista = editar `ADMIN_EMAILS` **e** criar uma migration com o mesmo UPDATE da
+  `admin_controls_audit_log`. Toda a regra vive em `apps/web/src/lib/permissions.ts`.
+- **So entra quem foi cadastrado.** O Google do dominio nao cria conta sozinho
+  (exceto para os e-mails de admin); um admin cadastra a pessoa na tela de Equipe.
+- **Apagar conta funciona mesmo com trabalho no workspace.** Depois de desativar,
+  "Apagar conta" tira e-mail (libera o original), senha, Google vinculado, foto,
+  notificacoes, cargos e participacoes; jobs, comentarios e mensagens do chat
+  ficam, assinados so com o nome (a linha do `User` vira lapide com `deletedAt`).
+- **Esqueci minha senha** nao manda e-mail: avisa os admins, e um deles gera um
+  link de uso unico (24h) em Equipe e entrega por fora.
+- **Registro de atividades** (`/activity`, so admins): toda acao que mexe no que
+  e do time, via `logActivity()` em `apps/web/src/lib/activity.ts`. Conversa
+  privada, chat de IA e preferencia pessoal nunca sao gravados. Rota nova que
+  altera algo do time precisa chamar `logActivity`.
 - **pnpm fixado em 10.x** no campo `packageManager`. O 12.3.4 cria symlinks
   quebrados na raiz para pacotes com peer dependencies (`eslint`,
   `@prisma/client`). Nao atualize sem testar `node node_modules/eslint/bin/eslint.js -v`.

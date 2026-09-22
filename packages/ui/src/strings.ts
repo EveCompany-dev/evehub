@@ -26,6 +26,23 @@ export const strings = {
     domainNotAllowed: 'Esse e-mail não pertence ao domínio autorizado.',
     genericError: 'Não foi possível entrar. Tente de novo.',
     serviceUnavailable: 'Serviço indisponível. Verifique se o banco e o Redis estão rodando (pnpm services:up).',
+    notRegistered: 'Sua conta ainda não foi criada no Eve Hub. Peça a um administrador para cadastrar o seu e-mail.',
+    forgotPassword: 'Esqueci minha senha',
+    forgotTitle: 'Recuperar acesso',
+    forgotHint:
+      'Informe o seu e-mail. Os administradores recebem o pedido e mandam para você um link para criar uma senha nova.',
+    forgotSubmit: 'Pedir ajuda a um administrador',
+    forgotSending: 'Enviando...',
+    forgotSent:
+      'Pedido enviado. Se o e-mail estiver cadastrado, um administrador vai mandar para você um link para criar uma senha nova.',
+    backToSignIn: 'Voltar para o login',
+    resetTitle: 'Criar uma senha nova',
+    resetNewPassword: 'Senha nova',
+    resetConfirm: 'Repita a senha nova',
+    resetMismatch: 'As duas senhas não são iguais.',
+    resetSubmit: 'Salvar senha nova',
+    resetSaving: 'Salvando...',
+    resetDone: 'Senha nova salva. Já pode entrar com ela.',
   },
 
   dock: {
@@ -135,7 +152,8 @@ export const strings = {
 
   team: {
     title: 'Equipe',
-    hint: 'Quem tem e-mail do domínio autorizado já entra sozinho pelo Google. Cadastre aqui quem não tem conta Google da empresa, quem precisa de senha, ou quem já deve nascer admin.',
+    hint: 'Só entra quem foi cadastrado aqui. Sem senha, a pessoa entra com o Google da empresa; com senha, pelo formulário. Os administradores são fixos (jose@ e financeiro@).',
+    memberHint: 'Quem faz parte da equipe. Só os administradores podem mudar alguma coisa aqui.',
     add: 'Adicionar pessoa',
     confirmAdd: 'Criar conta',
     adding: 'Criando...',
@@ -145,7 +163,6 @@ export const strings = {
     email: 'E-mail',
     password: 'Senha inicial (opcional)',
     passwordHint: 'Deixe em branco se a pessoa vai entrar só pelo Google. Ela pode trocar depois no próprio perfil.',
-    makeOwner: 'Dar acesso de admin (owner)',
     owner: 'admin',
     member: 'membro',
     socialMedia: 'Social Media',
@@ -153,7 +170,6 @@ export const strings = {
     hasPassword: 'senha definida',
     googleOnly: 'só Google',
     disabled: 'desativado',
-    demote: 'Remover admin',
     disable: 'Desativar',
     enable: 'Reativar',
     remove: 'Apagar conta',

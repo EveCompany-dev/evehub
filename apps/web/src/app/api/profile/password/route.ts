@@ -1,5 +1,6 @@
 import { hashPassword, prisma, verifyPassword } from '@eve/core';
 import { z } from 'zod';
+import { logActivity } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { requireUser } from '../../../../lib/session';
 
@@ -42,6 +43,13 @@ export async function PUT(request: Request): Promise<Response> {
     await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash: await hashPassword(body.data.newPassword) },
+    });
+
+    await logActivity(user, {
+      action: 'profile.password',
+      summary: row.passwordHash ? 'trocou a própria senha' : 'definiu uma senha para entrar sem o Google',
+      entityType: 'user',
+      entityId: user.id,
     });
 
     return ok({ ok: true, hasPassword: true });

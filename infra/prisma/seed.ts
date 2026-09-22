@@ -1,5 +1,5 @@
 import './load-env';
-import { appendWidget, hashPassword, parseDashboardConfig, prisma } from '@eve/core';
+import { appendWidget, hashPassword, isAdminEmail, parseDashboardConfig, prisma } from '@eve/core';
 
 /**
  * Idempotent. Running it twice leaves the database in the same state, so it is
@@ -26,11 +26,12 @@ async function main(): Promise<void> {
       email: ownerEmail,
       name: ownerEmail.split('@')[0] ?? 'Owner',
       workspaceId: workspace.id,
-      isOwner: true,
+      // Admin is a fixed list (packages/core/src/admins.ts), not whoever seeds.
+      isOwner: isAdminEmail(ownerEmail),
       ...(passwordHash ? { passwordHash } : {}),
     },
     // Never silently reset an existing password on re-seed.
-    update: { isOwner: true },
+    update: { isOwner: isAdminEmail(ownerEmail) },
   });
 
   console.log(`owner: ${owner.email} (isOwner=${owner.isOwner}, senha=${owner.passwordHash ? 'definida' : 'so Google'})`);

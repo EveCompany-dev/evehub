@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { isUniqueConstraintError } from '../../../../lib/jobs';
 import { requireUser } from '../../../../lib/session';
@@ -35,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
       const column = await prisma.jobColumn.create({
         data: { workspaceId: user.workspaceId, name: body.data.name, position: nextPosition },
       });
+      await logActivity(user, { action: 'job.column', summary: `criou a coluna ${quoted(column.name)} no quadro de jobs`, entityType: 'jobColumn', entityId: column.id });
       return ok({ column }, 201);
     } catch (error) {
       if (isUniqueConstraintError(error)) return fail(409, 'Ja existe uma coluna com esse nome.');
@@ -63,6 +65,7 @@ export async function PATCH(request: Request): Promise<Response> {
     );
 
     const columns = await prisma.jobColumn.findMany({ where: { workspaceId: user.workspaceId }, orderBy: { position: 'asc' } });
+    await logActivity(user, { action: 'job.column', summary: `reordenou as colunas do quadro de jobs: ${columns.map((column) => column.name).join(' → ')}` });
     return ok({ columns });
   });
 }

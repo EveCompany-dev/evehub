@@ -57,6 +57,7 @@ export {
 } from './events';
 
 export { equalizeVerifyTiming, hashPassword, verifyPassword } from './password';
+export { ADMIN_EMAILS, isAdminEmail } from './admins';
 export { errorMessage, loadConnectorContext, type LoadedConnector } from './connector-context';
 export { pruneSnapshots, runSync, type SyncOutcome } from './sync';
 export { connectorAlertFor, connectorAlertMessage, raiseConnectorAlert, type ConnectorAlert } from './connector-alerts';

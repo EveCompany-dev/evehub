@@ -1,6 +1,7 @@
 import { dataColumnSchema, Prisma, prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { describeRow, logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
 import { HttpError, requireUser } from '../../../../../lib/session';
 
@@ -46,6 +47,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const row = await prisma.dataTableRow.create({
       data: { tableId: id, data: body.data.data as Prisma.InputJsonValue },
+    });
+    await logActivity(user, {
+      action: 'table.row.create',
+      summary: `criou a linha ${describeRow(table.columns, row.data).title} na tabela ${quoted(table.name)}`,
+      entityType: 'table',
+      entityId: id,
+      details: { rowId: row.id },
     });
     return ok({ row }, 201);
   });

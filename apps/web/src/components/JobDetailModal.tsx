@@ -713,7 +713,7 @@ export function JobDetailModal({
 
         {tab === 'timesheet' && (
           <div className="eve-jobs__tabpanel">
-            <JobTimesheetTab jobId={job.id} />
+            <JobTimesheetTab jobId={job.id} currentUserId={currentUserId} />
           </div>
         )}
 

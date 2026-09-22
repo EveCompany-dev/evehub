@@ -56,8 +56,9 @@ export async function POST(request: Request): Promise<Response> {
     if (!body.success) return fail(400, 'ID de usuário inválido.');
     if (body.data.userId === user.id) return fail(400, 'Não é possível iniciar uma conversa consigo mesmo.');
 
+    // Only active accounts: a disabled or removed colleague can't read anything sent to them.
     const other = await prisma.user.findFirst({
-      where: { id: body.data.userId, workspaceId: user.workspaceId },
+      where: { id: body.data.userId, workspaceId: user.workspaceId, disabledAt: null },
       select: JOB_MEMBER_SELECT,
     });
     if (!other) throw new HttpError(404, 'Usuário não encontrado.');

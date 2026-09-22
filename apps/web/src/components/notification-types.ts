@@ -6,7 +6,8 @@ export type NotificationType =
   | 'scheduledPostFailed'
   | 'directMessage'
   | 'connectorSyncFailed'
-  | 'connectorSyncRecovered';
+  | 'connectorSyncRecovered'
+  | 'passwordResetRequested';
 
 /**
  * Where clicking a notification goes, or null when there is nowhere useful to
@@ -18,6 +19,8 @@ export function notificationHref(notification: Pick<NotificationSummary, 'type' 
   if (notification.type === 'teamMessageMention') return '/chat';
   // Both sides of a connector alert lead to the page that can fix it.
   if (notification.type === 'connectorSyncFailed' || notification.type === 'connectorSyncRecovered') return '/connectors';
+  // Os admins geram o link de senha na tela de Equipe.
+  if (notification.type === 'passwordResetRequested') return '/team';
   return null;
 }
 

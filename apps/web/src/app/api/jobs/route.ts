@@ -1,6 +1,7 @@
 import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
 import { JOB_INCLUDE } from '../../../lib/jobs';
 import { HttpError, requireUser } from '../../../lib/session';
@@ -63,6 +64,13 @@ export async function POST(request: Request): Promise<Response> {
         collaborators: { create: collaboratorIds.map((userId) => ({ userId })) },
       },
       include: JOB_INCLUDE,
+    });
+
+    await logActivity(user, {
+      action: 'job.create',
+      summary: `criou o job ${quoted(job.title)} em ${quoted(column.name)}`,
+      entityType: 'job',
+      entityId: job.id,
     });
 
     return ok({ job }, 201);
