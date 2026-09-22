@@ -1,7 +1,9 @@
 'use client';
 
-import { Copy, KeyRound, strings } from '@eve/ui';
-import { useCallback, useEffect, useState, type FormEvent, type JSX } from 'react';
+import { Copy, EllipsisVertical, strings } from '@eve/ui';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type JSX, type MouseEvent as ReactMouseEvent } from 'react';
+import { useContextMenu, type ContextMenuItem } from '../../components/ContextMenu';
 import { ROLE_GRANTABLE_TABS } from '../../lib/permissions';
 import { Avatar } from './ProfileForm';
 
@@ -34,6 +36,8 @@ interface ResetRequest {
 }
 
 interface IssuedLink {
+  /** The row the box renders under — right where the admin asked for it. */
+  memberId: string;
   who: string;
   url: string;
   expiresAt: string;
@@ -100,6 +104,9 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
 
   const [roles, setRoles] = useState<RoleRow[]>([]);
   const [managingRoles, setManagingRoles] = useState(false);
+  const rolesRef = useRef<HTMLDivElement>(null);
+  const menu = useContextMenu();
+  const router = useRouter();
   const [roleBusy, setRoleBusy] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
   const [roleDraft, setRoleDraft] = useState<{ name: string; tabs: Set<string> }>({ name: '', tabs: new Set() });
@@ -248,8 +255,10 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
         setError(body.error ?? `HTTP ${response.status}`);
         return;
       }
-      setIssuedLink({ who: whoOf(user), url: `${window.location.origin}${body.path}`, expiresAt: body.expiresAt });
+      setIssuedLink({ memberId: user.id, who: whoOf(user), url: `${window.location.origin}${body.path}`, expiresAt: body.expiresAt });
       setResetRequests((current) => current.filter((request) => request.user.id !== user.id));
+      // Asked from the requests panel at the top, the box lands under a row that may be off-screen.
+      requestAnimationFrame(() => document.getElementById(`team-member-${user.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
     } finally {
       setBusy(false);
     }
@@ -275,6 +284,62 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
       // Clipboard bloqueado (http sem TLS, permissao): o campo ja esta selecionavel.
       setCopied(false);
     }
+  };
+
+  const openRoleManager = () => {
+    setManagingRoles(true);
+    resetRoleDraft();
+    requestAnimationFrame(() => rolesRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }));
+  };
+
+  /**
+   * Every admin action on one person, in one menu — the row itself only
+   * says who they are. The API re-checks each of these; an item missing or
+   * disabled here is a courtesy, not the lock.
+   */
+  const openMemberMenu = (event: ReactMouseEvent, member: TeamMember) => {
+    const isSelf = member.id === currentUserId;
+    const cargo: ContextMenuItem = member.isOwner
+      ? { label: 'Cargo', disabled: true, hint: 'admin vê tudo' }
+      : {
+          label: 'Cargo',
+          hint: member.roleName ?? 'sem cargo',
+          items: [
+            { label: 'Sem cargo', checked: !member.roleId, onSelect: () => void patch(member.id, { roleId: null }) },
+            ...roles.map((role) => ({
+              label: role.name,
+              checked: member.roleId === role.id,
+              onSelect: () => void patch(member.id, { roleId: role.id }),
+            })),
+            { label: 'Gerenciar cargos…', onSelect: openRoleManager },
+          ],
+        };
+    const password: ContextMenuItem = isSelf
+      ? { label: 'Trocar minha senha', onSelect: () => router.push('/perfil') }
+      : member.disabled
+        ? { label: 'Link de senha', disabled: true, hint: 'conta desativada' }
+        : { label: 'Link de senha', onSelect: () => void issueResetLink(member) };
+
+    const items: ContextMenuItem[] = [
+      { label: 'Editar dados', onSelect: () => startEdit(member) },
+      cargo,
+      password,
+      { label: '', separator: true },
+      // Admin is the fixed e-mail list (@eve/core/admins) — shown, never toggled.
+      { label: 'Administrador', checked: member.isOwner, disabled: true, hint: 'definido no código' },
+    ];
+
+    if (!member.isOwner && !isSelf) {
+      items.push(
+        { label: '', separator: true },
+        { label: member.disabled ? 'Reativar conta' : 'Desativar conta', onSelect: () => void patch(member.id, { disabled: !member.disabled }) },
+        member.disabled
+          ? { label: 'Apagar conta…', danger: true, onSelect: () => setConfirmingRemoveId(member.id) }
+          : { label: 'Apagar conta…', danger: true, disabled: true, hint: 'desative antes' },
+      );
+    }
+
+    menu.open(event, items);
   };
 
   const resetRoleDraft = () => {
@@ -361,8 +426,6 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
         )}
       </div>
 
-      <p className="eve-dim eve-profile__hint">{isOwner ? strings.team.hint : strings.team.memberHint}</p>
-
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
       {notice && <p className="eve-alert">{notice}</p>}
 
@@ -388,26 +451,6 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
               </span>
             </div>
           ))}
-        </div>
-      )}
-
-      {isOwner && issuedLink && (
-        <div className="eve-team__link-box">
-          <strong>Link de senha para {issuedLink.who}</strong>
-          <div className="eve-team__link-row">
-            <input className="eve-input" readOnly value={issuedLink.url} onFocus={(event) => event.currentTarget.select()} />
-            <button type="button" className="eve-btn" onClick={() => void copyLink()}>
-              <Copy size={14} aria-hidden="true" /> {copied ? 'Copiado' : 'Copiar'}
-            </button>
-          </div>
-          <span className="eve-dim">
-            Mande para a pessoa (WhatsApp, por exemplo). Vale uma vez, até{' '}
-            {new Date(issuedLink.expiresAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Este link
-            não aparece de novo depois que você fechar este aviso.{' '}
-          </span>
-          <button type="button" className="eve-login__link" onClick={() => setIssuedLink(null)}>
-            Fechar
-          </button>
         </div>
       )}
 
@@ -455,7 +498,7 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
           {members.map((member) => {
             const isSelf = member.id === currentUserId;
             return (
-              <li key={member.id} className={member.disabled ? 'eve-team__row is-disabled' : 'eve-team__row'}>
+              <li key={member.id} id={`team-member-${member.id}`} className={member.disabled ? 'eve-team__row is-disabled' : 'eve-team__row'}>
                 <Avatar name={member.name} email={member.email} image={member.image} size={36} />
 
                 <span className="eve-team__who">
@@ -474,61 +517,53 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                 </span>
 
                 {isOwner && (
-                  <span className="eve-team__actions">
-                    {!member.isOwner && (
-                      <select
-                        className="eve-input eve-team__role-select"
-                        value={member.roleId ?? ''}
-                        onChange={(event) => void patch(member.id, { roleId: event.target.value || null })}
-                      >
-                        <option value="">Sem cargo</option>
-                        {roles.map((role) => (
-                          <option key={role.id} value={role.id}>
-                            {role.name}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                    <button type="button" className="eve-btn" onClick={() => (editingId === member.id ? setEditingId(null) : startEdit(member))}>
-                      {editingId === member.id ? strings.team.cancel : 'Editar'}
-                    </button>
-                    {!isSelf && !member.disabled && (
-                      <button type="button" className="eve-btn" disabled={busy} onClick={() => void issueResetLink(member)} title="Gerar um link para a pessoa criar uma senha nova">
-                        <KeyRound size={14} aria-hidden="true" /> Link de senha
-                      </button>
-                    )}
-                    {/* Conta de admin e fixa no codigo: nao se desativa nem se apaga por aqui. */}
-                    {!member.isOwner && !isSelf && (
-                      <button type="button" className="eve-btn" onClick={() => void patch(member.id, { disabled: !member.disabled })}>
-                        {member.disabled ? strings.team.enable : strings.team.disable}
-                      </button>
-                    )}
-                    {/* Apagar so aparece depois de desativar: desativar e reversivel, apagar nao. */}
-                    {member.disabled &&
-                      !member.isOwner &&
-                      !isSelf &&
-                      (confirmingRemoveId === member.id ? (
-                        <>
-                          <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void removeMember(member)}>
-                            {strings.team.confirmRemoveYes}
-                          </button>
-                          <button type="button" className="eve-btn" onClick={() => setConfirmingRemoveId(null)}>
-                            {strings.team.cancel}
-                          </button>
-                        </>
-                      ) : (
-                        <button type="button" className="eve-btn eve-btn--danger" onClick={() => setConfirmingRemoveId(member.id)}>
-                          {strings.team.remove}
-                        </button>
-                      ))}
-                  </span>
+                  <button
+                    type="button"
+                    className="eve-btn eve-btn--icon eve-team__menu"
+                    aria-label={`Ações para ${whoOf(member)}`}
+                    title="Ações"
+                    onClick={(event) => openMemberMenu(event, member)}
+                  >
+                    <EllipsisVertical size={16} aria-hidden="true" />
+                  </button>
                 )}
 
+                {/* Apagar e o unico passo sem volta: o menu so arma, a confirmacao mora aqui. */}
                 {isOwner && confirmingRemoveId === member.id && (
-                  <p className="eve-dim eve-profile__hint" style={{ width: '100%', margin: 0 }}>
-                    Apagar tira o login, a senha, o Google vinculado, a foto, as notificações e o acesso de {whoOf(member)} para
-                    sempre. Jobs, comentários e mensagens no chat da equipe continuam, assinados só com o nome.
-                  </p>
+                  <div className="eve-team__panel eve-team__panel--danger">
+                    <p className="eve-team__panel-text">
+                      Apagar tira o login, a senha, o Google vinculado, a foto, as notificações e o acesso de {whoOf(member)} para
+                      sempre. Jobs, comentários e mensagens no chat da equipe continuam, assinados só com o nome.
+                    </p>
+                    <span className="eve-team__panel-actions">
+                      <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void removeMember(member)}>
+                        {strings.team.confirmRemoveYes}
+                      </button>
+                      <button type="button" className="eve-btn" onClick={() => setConfirmingRemoveId(null)}>
+                        {strings.team.cancel}
+                      </button>
+                    </span>
+                  </div>
+                )}
+
+                {isOwner && issuedLink?.memberId === member.id && (
+                  <div className="eve-team__panel">
+                    <strong>Link de senha para {issuedLink.who}</strong>
+                    <div className="eve-team__link-row">
+                      <input className="eve-input" readOnly value={issuedLink.url} onFocus={(event) => event.currentTarget.select()} />
+                      <button type="button" className="eve-btn" onClick={() => void copyLink()}>
+                        <Copy size={14} aria-hidden="true" /> {copied ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                    <span className="eve-dim">
+                      Mande para a pessoa (WhatsApp, por exemplo). Vale uma vez, até{' '}
+                      {new Date(issuedLink.expiresAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}. Este
+                      link não aparece de novo depois que você fechar este aviso.{' '}
+                    </span>
+                    <button type="button" className="eve-login__link" onClick={() => setIssuedLink(null)}>
+                      Fechar
+                    </button>
+                  </div>
                 )}
 
                 {isOwner && editingId === member.id && (
@@ -562,9 +597,14 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                       />
                       <span>{strings.team.socialMedia}</span>
                     </label>
-                    <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
-                      Salvar
-                    </button>
+                    <span className="eve-team__panel-actions">
+                      <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
+                        Salvar
+                      </button>
+                      <button type="button" className="eve-btn" onClick={() => setEditingId(null)}>
+                        {strings.team.cancel}
+                      </button>
+                    </span>
                   </form>
                 )}
               </li>
@@ -573,8 +613,10 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
         </ul>
       )}
 
+      {menu.render()}
+
       {isOwner && (
-        <div className="eve-team__roles">
+        <div className="eve-team__roles" ref={rolesRef}>
           <div className="eve-team__head">
             <h3 className="eve-card__title">Cargos</h3>
             <button

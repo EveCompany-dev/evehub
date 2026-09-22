@@ -16,7 +16,7 @@ import { currentUiZoom } from '../lib/ui-scale';
  * external-file drag (dragenter → drop/dragleave) sidesteps it without
  * touching the scale feature itself. `dataTransfer.types.includes('Files')`
  * keeps this from ever engaging for the app's *other* drag interactions
- * (Jobs board, canvas) — those use dnd-kit's pointer events, not native HTML5
+ * (Jobs board, dashboard grid) — those use their own pointer events, not native HTML5
  * drag-and-drop, so they never fire these listeners at all.
  */
 export function DragZoomGuard(): JSX.Element | null {

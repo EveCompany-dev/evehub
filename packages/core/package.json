@@ -9,8 +9,7 @@
     ".": "./src/index.ts",
     "./prisma": "./src/prisma.ts",
     "./admins": "./src/admins.ts",
-    "./dashboard": "./src/dashboard-config.ts",
-    "./canvas": "./src/canvas.ts"
+    "./dashboard": "./src/dashboard-config.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

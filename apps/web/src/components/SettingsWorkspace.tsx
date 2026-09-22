@@ -17,16 +17,15 @@ const SAVE_DEBOUNCE_MS = 500;
  * up live on the dashboard page.
  */
 export interface SettingsWorkspaceProps {
-  isOwner: boolean;
   visibleTabs: readonly string[];
 }
 
-export function SettingsWorkspace({ isOwner, visibleTabs }: SettingsWorkspaceProps): JSX.Element {
+export function SettingsWorkspace({ visibleTabs }: SettingsWorkspaceProps): JSX.Element {
   const searchParams = useSearchParams();
   const requestedCategory = searchParams.get('category');
   const requestedOption = searchParams.get('option');
 
-  const categories = SETTINGS_CATEGORIES.filter((category) => !category.ownerOnly || isOwner);
+  const categories = SETTINGS_CATEGORIES;
 
   const [config, setConfig] = useState<DashboardConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +136,6 @@ export function SettingsWorkspace({ isOwner, visibleTabs }: SettingsWorkspacePro
                 handleChange({
                   backgroundImage: null,
                   backgroundColor: null,
-                  density: 'comfortable',
                   liveUpdates: true,
                   uiScale: 1,
                   railFullHide: false,

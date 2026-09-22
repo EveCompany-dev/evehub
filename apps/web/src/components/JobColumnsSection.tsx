@@ -28,12 +28,9 @@ function toDraft(column: JobColumnSummary): ColumnColorDraft {
 }
 
 /**
- * Owner-only, shown only when `/settings` renders this category (see
- * SETTINGS_CATEGORIES' `ownerOnly` filter in SettingsWorkspace). Unlike every
- * other Settings section this edits JobColumn rows — a value shared by the
- * whole workspace — not the per-user dashboardConfig, so it fetches and
- * saves independently instead of going through SettingsWorkspace's config
- * plumbing. The API still re-checks isOwner server-side (see
+ * Admin-only, rendered on the Equipe page (app/team/page.tsx) because it
+ * edits JobColumn rows — a value shared by the whole team — not anyone's
+ * personal dashboardConfig. It fetches and saves on its own. The API still re-checks isOwner server-side (see
  * app/api/jobs/columns/[id]/route.ts) — this component hiding the controls
  * is a UX nicety, not the actual guard.
  */

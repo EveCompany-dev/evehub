@@ -2780,19 +2780,6 @@ video.eve-month__chip-thumb {
   cursor: default;
 }
 
-/* Densidade compacta: cabe mais widget na tela, cabecalho/corpo mais enxutos. */
-.eve-grid-container.is-compact .eve-widget__header {
-  padding: 6px 10px;
-}
-
-.eve-grid-container.is-compact .eve-widget__body {
-  padding: 8px;
-}
-
-.eve-grid-container.is-compact .eve-widget__footer {
-  padding: 4px 10px;
-}
-
 /* Espaco para o dock nao cobrir o ultimo widget. */
 .eve-main {
   padding-bottom: 96px;
@@ -3208,13 +3195,6 @@ video.eve-month__chip-thumb {
   height: 28px;
   padding: 0 10px;
   font-size: 12px;
-}
-
-.eve-team__role-select {
-  height: 28px;
-  padding: 0 8px;
-  font-size: 12px;
-  max-width: 160px;
 }
 
 .eve-team__roles {
@@ -4802,10 +4782,6 @@ video.eve-month__chip-thumb {
   padding-bottom: 12px;
 }
 
-.eve-grid-container.is-compact .eve-notes__alerts {
-  padding-bottom: 8px;
-}
-
 /* --- registro de atividades (admins) -------------------------------------- */
 
 .eve-activity {
@@ -4941,13 +4917,36 @@ video.eve-month__chip-thumb {
   font-size: 13px;
 }
 
-.eve-team__link-box {
-  margin: 0 0 16px;
+/* One kebab per row: every admin action lives in its menu (TeamSection's openMemberMenu). */
+.eve-team__menu {
+  margin-left: auto;
+  flex: none;
+}
+
+/* Full-width strip under a row: delete confirmation, generated password link. */
+.eve-team__panel {
+  width: 100%;
   padding: 12px 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface-2);
   font-size: 13px;
+}
+
+.eve-team__panel--danger {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface-2));
+}
+
+.eve-team__panel-text {
+  margin: 0 0 10px;
+  line-height: 1.5;
+}
+
+.eve-team__panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .eve-team__link-row {
@@ -4999,4 +4998,85 @@ video.eve-month__chip-thumb {
   margin: 0 0 14px;
   font-size: 13px;
   line-height: 1.5;
+}
+
+/* --- destaque do deep link do Ctrl+K (SettingsWorkspace.tsx) ------------- */
+
+/* Quando o Ctrl+K manda para uma configuração específica, ela pisca: sem isso
+   a pessoa cai numa página com oito campos e ainda tem que procurar o que
+   pediu. */
+.eve-settings__section [data-setting-id].is-highlighted {
+  border-radius: 8px;
+  outline: 2px solid var(--accent);
+  outline-offset: 6px;
+  animation: eve-setting-pulse 2.2s var(--ease-brand);
+}
+
+@keyframes eve-setting-pulse {
+  0%,
+  100% {
+    background: transparent;
+  }
+  18% {
+    background: var(--accent-soft);
+  }
+}
+
+/* Respeita quem pediu menos animação: o contorno já indica o campo. */
+@media (prefers-reduced-motion: reduce) {
+  .eve-settings__section [data-setting-id].is-highlighted {
+    animation: none;
+  }
+}
+
+/* --- submenus do menu de contexto (ContextMenu.tsx) ---------------------- */
+
+.eve-menu__row {
+  position: relative;
+}
+
+.eve-menu__item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.eve-menu__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.eve-menu__item.is-open {
+  background: var(--surface-2);
+}
+
+.eve-menu__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-menu__hint,
+.eve-menu__chevron {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.eve-menu__separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
+.eve-menu--sub {
+  min-width: 200px;
+  max-height: 60vh;
+  overflow-y: auto;
+  /* Above .eve-contextmenu's z-index: 70 (globals.css) — it's the flyout's
+     parent, but without its own stacking order the submenu inherited the
+     base .eve-menu class's z-index: 20 instead and could render under
+     unrelated page elements between those two values. */
+  z-index: 71;
 }

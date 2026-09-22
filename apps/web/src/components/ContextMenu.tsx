@@ -45,10 +45,10 @@ function fit(x: number, y: number, count: number): { left: number; top: number }
 
 /**
  * Right-click menu, positioned at the cursor — the Office-style alternative
- * to a fixed toolbar for row/column actions, and the canvas's main way to add,
- * lock, edit and remove modules. `open` is meant to be wired to an element's
- * `onContextMenu`; `render()` renders the floating menu (or nothing) and
- * should be called once near the root of whatever uses it.
+ * to a fixed toolbar for row/column actions, the dashboard's way to add
+ * modules, and the ⋮ menus (Tabelas, Equipe). `open` is wired to an
+ * element's `onContextMenu` or `onClick`; `render()` renders the floating
+ * menu (or nothing) and should be called once near the root of whatever uses it.
  *
  * One level of submenu is supported, which is enough for "add module ▸ list
  * of connectors" without turning this into a general menu framework.
@@ -81,10 +81,8 @@ export function useContextMenu(): ContextMenuControls {
     };
     document.addEventListener('mousedown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
-    // Not `true`-phase on the canvas: panning the board fires scroll-ish
-    // events constantly, and the menu closing under the cursor mid-gesture is
-    // worse than it lingering. Capture-phase scroll is still what closes it
-    // inside a scrolling table.
+    // Capture-phase, so scrolling any container (a table, the page) closes
+    // it instead of leaving it floating over content that moved away.
     document.addEventListener('scroll', close, true);
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
@@ -114,7 +112,12 @@ export function useContextMenu(): ContextMenuControls {
           className={className}
           disabled={item.disabled}
           onClick={() => {
-            if (hasSub || !item.onSelect) return;
+            // A tap opens the flyout too: touch screens never send the hover.
+            if (hasSub) {
+              setOpenSub(openSub === index ? null : index);
+              return;
+            }
+            if (!item.onSelect) return;
             item.onSelect();
             close();
           }}
@@ -163,7 +166,10 @@ export function useContextMenu(): ContextMenuControls {
                   close();
                 }}
               >
-                <span className="eve-menu__label">{sub.label}</span>
+                <span className="eve-menu__label">
+                  {sub.checked ? <Check size={14} aria-hidden="true" className="eve-menu__check" /> : null}
+                  {sub.label}
+                </span>
                 {sub.hint && <span className="eve-menu__hint">{sub.hint}</span>}
               </button>
             ))}

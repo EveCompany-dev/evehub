@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { canvasStateSchema, emptyCanvasState, type CanvasState } from './canvas';
 import { viewConfigSchema, type ViewConfig } from './widget-view';
 
 /** One tile on the 12-column grid. `i` is the ConnectorInstance id. */
@@ -27,18 +26,15 @@ export const widgetSettingsSchema = z.object({
   viewConfig: viewConfigSchema.nullable().default(null),
 });
 
+/**
+ * The dashboard at `/` is the 12-column grid, and only the grid. A freeform
+ * "canvas" mode existed as an opt-in alternative until 2026-09-22; configs
+ * saved back then still carry `mode`/`canvas` (and a `density` setting),
+ * which this schema drops on parse — see parseDashboardConfig for how the
+ * widgets someone had on the canvas are kept.
+ */
 export const dashboardConfigSchema = z.object({
-  /**
-   * Which dashboard the user gets at `/`. 'grid' is the default: the
-   * original 12-column layout. 'canvas' — a freeform board where modules can
-   * be placed, duplicated and connected — is still new/unproven enough to be
-   * an opt-in second option rather than what everyone lands on. The stored
-   * `layout` below is untouched either way, so switching back and forth
-   * loses nothing.
-   */
-  mode: z.enum(['canvas', 'grid']).default('grid'),
   layout: z.array(widgetLayoutSchema).default([]),
-  canvas: canvasStateSchema.default(emptyCanvasState),
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
   theme: z.enum(['dark', 'light', 'system']).default('system'),
   activeClient: z.string().nullable().default(null),
@@ -48,8 +44,6 @@ export const dashboardConfigSchema = z.object({
   backgroundImage: z.string().nullable().default(null),
   /** Cor solida atras/por baixo da imagem (ou sozinha, sem imagem). */
   backgroundColor: z.string().nullable().default(null),
-  /** Altura de linha/margem do grid: 'compact' cabe mais widget na tela. */
-  density: z.enum(['comfortable', 'compact']).default('comfortable'),
   /**
    * false = widgets so atualizam por sync manual, ignorando o evento SSE de
    * "dado mudou". Util em conexoes fracas ou pra quem acha o auto-refresh
@@ -85,24 +79,19 @@ export const dashboardConfigSchema = z.object({
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
-export type DashboardMode = DashboardConfig['mode'];
 export { viewConfigSchema } from './widget-view';
 export type { ViewConfig } from './widget-view';
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
-export type DashboardDensity = DashboardConfig['density'];
 
 export const emptyDashboardConfig: DashboardConfig = {
-  mode: 'grid',
   layout: [],
-  canvas: emptyCanvasState,
   widgets: {},
   theme: 'system',
   activeClient: null,
   locked: false,
   backgroundImage: null,
   backgroundColor: null,
-  density: 'comfortable',
   liveUpdates: true,
   uiScale: 1,
   railFullHide: false,
@@ -116,7 +105,34 @@ export const emptyDashboardConfig: DashboardConfig = {
  */
 export function parseDashboardConfig(value: unknown): DashboardConfig {
   const parsed = dashboardConfigSchema.safeParse(value ?? {});
-  return parsed.success ? parsed.data : { ...emptyDashboardConfig };
+  if (!parsed.success) return { ...emptyDashboardConfig };
+  return carryOverCanvasWidgets(value, parsed.data);
+}
+
+/**
+ * Someone who was on the (removed) canvas mode would otherwise open the grid
+ * and find only whatever it held before they switched — or nothing. Every
+ * module that was on their canvas and isn't on the grid yet is appended to it
+ * instead. Runs only while the stored config still says `mode: 'canvas'`; the
+ * first save writes the config back without it, so this happens once.
+ */
+function carryOverCanvasWidgets(raw: unknown, config: DashboardConfig): DashboardConfig {
+  if (!raw || typeof raw !== 'object') return config;
+  const legacy = raw as { mode?: unknown; canvas?: { nodes?: unknown } };
+  if (legacy.mode !== 'canvas' || !Array.isArray(legacy.canvas?.nodes)) return config;
+
+  let next = config;
+  for (const node of legacy.canvas.nodes) {
+    if (!node || typeof node !== 'object') continue;
+    const { kind, instanceId } = node as { kind?: unknown; instanceId?: unknown };
+    if (kind !== 'widget' || typeof instanceId !== 'string' || !instanceId) continue;
+    next = appendWidget(next, instanceId);
+    // The canvas read the same per-instance settings (title, chosen view);
+    // appendWidget would reset them.
+    const saved = config.widgets[instanceId];
+    if (saved) next = { ...next, widgets: { ...next.widgets, [instanceId]: saved } };
+  }
+  return next;
 }
 
 const GRID_COLS = 12;
@@ -180,10 +196,8 @@ export function setViewConfig(config: DashboardConfig, instanceId: string, viewC
 
 export type GeneralSettings = Pick<
   DashboardConfig,
-  | 'mode'
   | 'backgroundImage'
   | 'backgroundColor'
-  | 'density'
   | 'liveUpdates'
   | 'uiScale'
   | 'railFullHide'
@@ -194,13 +208,4 @@ export type GeneralSettings = Pick<
 /** Merges dashboard-wide appearance/behavior settings (the gear panel), leaving layout/widgets untouched. */
 export function updateGeneralSettings(config: DashboardConfig, patch: Partial<GeneralSettings>): DashboardConfig {
   return { ...config, ...patch };
-}
-
-/** Replaces the whole board. The canvas owns its own reducers in canvas.ts; this is the only seam into the config. */
-export function setCanvas(config: DashboardConfig, canvas: CanvasState): DashboardConfig {
-  return { ...config, canvas };
-}
-
-export function setDashboardMode(config: DashboardConfig, mode: DashboardMode): DashboardConfig {
-  return { ...config, mode };
 }
