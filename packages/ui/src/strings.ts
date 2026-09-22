@@ -152,8 +152,6 @@ export const strings = {
 
   team: {
     title: 'Equipe',
-    hint: 'Só entra quem foi cadastrado aqui. Sem senha, a pessoa entra com o Google da empresa; com senha, pelo formulário. Os administradores são fixos (jose@ e financeiro@).',
-    memberHint: 'Quem faz parte da equipe. Só os administradores podem mudar alguma coisa aqui.',
     add: 'Adicionar pessoa',
     confirmAdd: 'Criar conta',
     adding: 'Criando...',

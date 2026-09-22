@@ -426,8 +426,6 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
         )}
       </div>
 
-      <p className="eve-dim eve-profile__hint">{isOwner ? strings.team.hint : strings.team.memberHint}</p>
-
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
       {notice && <p className="eve-alert">{notice}</p>}
 
