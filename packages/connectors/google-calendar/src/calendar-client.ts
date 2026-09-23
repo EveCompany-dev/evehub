@@ -142,8 +142,8 @@ export async function listEvents(token: string, calendarId: string, timeMin: Dat
   return events;
 }
 
-/** `sendUpdates=all`: the people invited get Google's own invitation / change / cancellation e-mail. */
-const NOTIFY = { sendUpdates: 'all' };
+/** `sendUpdates=none`: Eve Hub never e-mails an event's guests — the team shares one account and most of its addresses receive no mail. */
+const NOTIFY = { sendUpdates: 'none' };
 
 export async function insertEvent(token: string, calendarId: string, body: Record<string, unknown>): Promise<GoogleEvent> {
   return request<GoogleEvent>(token, `/calendars/${encodeURIComponent(calendarId)}/events`, { method: 'POST', params: NOTIFY, body });

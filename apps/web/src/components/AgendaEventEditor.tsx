@@ -41,7 +41,7 @@ function dayToIso(value: string): string {
 
 /**
  * An appointment in the Agenda do Time, which is Google Agenda: saving writes
- * to Google, and Google e-mails the invitations. A private event is shown
+ * to Google, and nobody is e-mailed (people are a tag). A private event is shown
  * read-only — it can only be seen and changed in Google itself.
  */
 export function AgendaEventEditor({ calendars, clients, members, initial, defaultDate, onClose, onSaved }: AgendaEventEditorProps): JSX.Element {
@@ -58,14 +58,13 @@ export function AgendaEventEditor({ calendars, clients, members, initial, defaul
   const [end, setEnd] = useState(() => (initial ? (initial.allDay ? lastDayOf(initial) : initial.end ? toLocalInputValue(new Date(initial.end)) : '') : ''));
   const [calendarKey, setCalendarKey] = useState(initial?.calendarKey ?? calendars[0]?.key ?? '');
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
-  const [attendeeIds, setAttendeeIds] = useState<Set<string>>(
-    () => new Set(members.filter((member) => initial?.attendeeEmails.includes(member.email.toLowerCase())).map((member) => member.id)),
-  );
+  // People are a tag on the event (for the Membro filter), never an e-mail invitation.
+  const [memberIds, setMemberIds] = useState<Set<string>>(() => new Set(initial?.memberIds ?? []));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const toggleAttendee = (userId: string) => {
-    setAttendeeIds((current) => {
+  const toggleMember = (userId: string) => {
+    setMemberIds((current) => {
       const next = new Set(current);
       if (next.has(userId)) next.delete(userId);
       else next.add(userId);
@@ -85,7 +84,7 @@ export function AgendaEventEditor({ calendars, clients, members, initial, defaul
       end: end ? (allDay ? dayToIso(end) : new Date(end).toISOString()) : undefined,
       allDay,
       clientId: clientId || null,
-      attendeeIds: [...attendeeIds],
+      memberIds: [...memberIds],
     };
 
     try {
@@ -193,11 +192,11 @@ export function AgendaEventEditor({ calendars, clients, members, initial, defaul
             </label>
 
             <div className="eve-field">
-              <span className="eve-field__label">Convidar (o Google manda o convite)</span>
+              <span className="eve-field__label">Pessoas (só uma marcação no Eve Hub — ninguém recebe e-mail)</span>
               <div className="eve-agenda-editor__attendees">
                 {members.map((member) => (
                   <label key={member.id} className="eve-check">
-                    <input type="checkbox" checked={attendeeIds.has(member.id)} onChange={() => toggleAttendee(member.id)} />
+                    <input type="checkbox" checked={memberIds.has(member.id)} onChange={() => toggleMember(member.id)} />
                     <span>{memberLabel(member)}</span>
                   </label>
                 ))}

@@ -71,6 +71,7 @@ function eventData(record: { data: unknown }): CalendarEventData {
 interface Directory {
   clients: { id: string; name: string }[];
   membersByEmail: Map<string, string>;
+  memberIds: Set<string>;
 }
 
 async function directory(workspaceId: string): Promise<Directory> {
@@ -78,13 +79,15 @@ async function directory(workspaceId: string): Promise<Directory> {
     prisma.client.findMany({ where: { workspaceId }, select: { id: true, name: true } }),
     prisma.user.findMany({ where: { workspaceId, deletedAt: null }, select: { id: true, email: true } }),
   ]);
-  return { clients, membersByEmail: new Map(members.map((member) => [member.email.toLowerCase(), member.id])) };
+  return { clients, membersByEmail: new Map(members.map((member) => [member.email.toLowerCase(), member.id])), memberIds: new Set(members.map((member) => member.id)) };
 }
 
 function toSummary(record: { id: string; connectorInstanceId: string; data: unknown }, dir: Directory): AgendaEventSummary {
   const data = eventData(record);
   const emails = data.attendees.map((attendee) => attendee.email);
-  const memberIds = [...new Set([...emails, ...(data.organizerEmail ? [data.organizerEmail] : [])].map((email) => dir.membersByEmail.get(email)).filter((id): id is string => Boolean(id)))];
+  // Tagged from Eve Hub (older records may predate the field), plus anyone invited in Google with a team address.
+  const byEmail = [...emails, ...(data.organizerEmail ? [data.organizerEmail] : [])].map((email) => dir.membersByEmail.get(email));
+  const memberIds = [...new Set([...(data.memberIds ?? []).filter((id) => dir.memberIds.has(id)), ...byEmail.filter((id): id is string => Boolean(id))])];
   const tagged = data.clientId && dir.clients.some((client) => client.id === data.clientId) ? data.clientId : null;
   return {
     id: record.id,
@@ -142,17 +145,18 @@ export const agendaEventSchema = z.object({
   end: z.string().datetime().optional(),
   allDay: z.boolean().default(false),
   clientId: z.string().min(1).nullable().optional(),
-  /** Team members to invite; Google e-mails them the invitation. */
-  attendeeIds: z.array(z.string().min(1)).max(50).default([]),
+  /** Team members tagged on it — a tag stored on the event; nobody is invited or e-mailed. */
+  memberIds: z.array(z.string().min(1)).max(50).default([]),
 });
 
 export type AgendaEventBody = z.infer<typeof agendaEventSchema>;
 
-async function memberEmails(workspaceId: string, ids: string[]): Promise<string[]> {
-  if (ids.length === 0) return [];
-  const members = await prisma.user.findMany({ where: { workspaceId, id: { in: ids }, deletedAt: null }, select: { email: true } });
-  if (members.length !== new Set(ids).size) throw new HttpError(400, 'Um ou mais participantes não pertencem a este workspace.');
-  return members.map((member) => member.email.toLowerCase());
+async function checkMembers(workspaceId: string, ids: string[]): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const count = await prisma.user.count({ where: { workspaceId, id: { in: unique }, deletedAt: null } });
+  if (count !== unique.length) throw new HttpError(400, 'Uma ou mais pessoas não pertencem a este workspace.');
+  return unique;
 }
 
 async function checkClient(workspaceId: string, clientId: string | null | undefined): Promise<string | null> {
@@ -196,7 +200,7 @@ export async function createAgendaEvent(workspaceId: string, key: string, body: 
     start: body.start,
     end: body.end ?? null,
     allDay: body.allDay,
-    attendeeEmails: await memberEmails(workspaceId, body.attendeeIds),
+    memberIds: await checkMembers(workspaceId, body.memberIds),
     clientId: await checkClient(workspaceId, body.clientId),
   };
   const { calendar, ctx } = calendarOf(instance);
@@ -215,13 +219,11 @@ async function requireEventRecord(workspaceId: string, id: string) {
 
 /**
  * Edits it in Google, only if nobody changed it there first (the version is
- * checked). Guests from outside the team stay invited — the form only lists
- * members.
+ * checked). The event's guests are never touched, and nobody is e-mailed.
  */
 export async function updateAgendaEvent(workspaceId: string, id: string, body: AgendaEventBody): Promise<{ before: string; event: AgendaEventSummary }> {
   const { record, data } = await requireEventRecord(workspaceId, id);
   const dir = await directory(workspaceId);
-  const outsiders = data.attendees.map((attendee) => attendee.email).filter((email) => !dir.membersByEmail.has(email));
   const input: CalendarEventInput = {
     calendarId: data.calendarId,
     title: body.title,
@@ -229,7 +231,7 @@ export async function updateAgendaEvent(workspaceId: string, id: string, body: A
     start: body.start,
     end: body.end ?? null,
     allDay: body.allDay,
-    attendeeEmails: [...outsiders, ...(await memberEmails(workspaceId, body.attendeeIds))],
+    memberIds: await checkMembers(workspaceId, body.memberIds),
     clientId: await checkClient(workspaceId, body.clientId),
   };
   const { calendar, ctx } = calendarOf(record.connectorInstance);
@@ -237,7 +239,7 @@ export async function updateAgendaEvent(workspaceId: string, id: string, body: A
   return { before: data.title, event: toSummary(saved, dir) };
 }
 
-/** Deletes it in Google (the guests get Google's cancellation) and from the mirror. */
+/** Deletes it in Google (quietly — no cancellation e-mail) and from the mirror. */
 export async function deleteAgendaEvent(workspaceId: string, id: string): Promise<{ title: string }> {
   const { record, data } = await requireEventRecord(workspaceId, id);
   const { calendar, ctx } = calendarOf(record.connectorInstance);

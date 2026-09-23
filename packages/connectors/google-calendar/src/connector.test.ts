@@ -1,13 +1,13 @@
 import type { ConnectorContext } from '@eve/connector-sdk';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetTokenCacheForTests } from './calendar-client';
-import { googleCalendarConnector, type GoogleCalendarConfig, type GoogleCalendarCredentials } from './connector';
+import { googleCalendarConnector, pickCalendars, type GoogleCalendarConfig, type GoogleCalendarCredentials } from './connector';
 
 // Only the network is faked: the paging, mapping and conflict handling under test are the connector's own.
 const credentials: GoogleCalendarCredentials = { clientId: 'client-id-longo', clientSecret: 'secret', refreshToken: 'refresh-token-longo' };
 
 function context(config: Partial<GoogleCalendarConfig> = {}): ConnectorContext<GoogleCalendarConfig, GoogleCalendarCredentials> {
-  return { instanceId: 'i1', config: { accountEmail: 'marketing@evecompany.com.br', calendarIds: ['primary'], ...config }, credentials, lastSyncedAt: null };
+  return { instanceId: 'i1', config: { accountEmail: 'marketing@evecompany.com.br', calendarIds: ['*'], ...config }, credentials, lastSyncedAt: null };
 }
 
 const primary = { id: 'marketing@evecompany.com.br', summary: 'marketing@evecompany.com.br', summaryOverride: 'Marketing', backgroundColor: '#9fc6e7', primary: true };
@@ -44,7 +44,7 @@ afterEach(() => {
 describe('sync', () => {
   it('mirrors every event of the chosen calendar, across pages, as versioned records', async () => {
     handler = (url) => {
-      if (url.pathname.endsWith('/calendarList')) return { body: { items: [primary, { id: 'feriados', summary: 'Feriados' }] } };
+      if (url.pathname.endsWith('/calendarList')) return { body: { items: [primary, { id: 'feriados', summary: 'Feriados', selected: false }] } };
       if (!url.searchParams.get('pageToken')) return { body: { items: [event('a'), event('b', { status: 'cancelled' })], nextPageToken: 'p2' } };
       return { body: { items: [event('c')] } };
     };
@@ -70,10 +70,29 @@ describe('sync', () => {
   });
 });
 
-describe('calendar', () => {
-  const input = { calendarId: primary.id, title: 'Reunião Acme', description: null, start: '2026-09-24T13:00:00.000Z', end: null, allDay: false, attendeeEmails: ['ana@evecompany.com.br'], clientId: 'c1' };
+describe('pickCalendars', () => {
+  const entries = [
+    { id: 'atendimento@evecompany.com.br', primary: true, selected: true },
+    { id: 'marketing', summary: 'Marketing Evecompany', selected: true },
+    { id: 'foto', summary: 'Foto e Vídeo', selected: true },
+    { id: 'desmarcada', summary: 'Antiga', selected: false },
+    { id: 'escondida', summary: 'Escondida', selected: true, hidden: true },
+  ];
 
-  it('creates the event in Google, which sends the invitations, and returns it as a record', async () => {
+  it('"*" takes every calendar ticked in Google, the main one included', () => {
+    expect(pickCalendars(entries, ['*']).map((entry) => entry.id)).toEqual(['atendimento@evecompany.com.br', 'marketing', 'foto']);
+  });
+
+  it('still understands "primary" and explicit ids', () => {
+    expect(pickCalendars(entries, ['primary']).map((entry) => entry.id)).toEqual(['atendimento@evecompany.com.br']);
+    expect(pickCalendars(entries, ['foto', 'desmarcada']).map((entry) => entry.id)).toEqual(['foto', 'desmarcada']);
+  });
+});
+
+describe('calendar', () => {
+  const input = { calendarId: primary.id, title: 'Reunião Acme', description: null, start: '2026-09-24T13:00:00.000Z', end: null, allDay: false, memberIds: ['u1'], clientId: 'c1' };
+
+  it('creates the event in Google without e-mailing anyone, and returns it as a record', async () => {
     handler = (url, init) => {
       if (url.pathname.includes('/calendarList/')) return { body: primary };
       return { body: event('novo', { summary: JSON.parse(String(init.body)).summary }) };
@@ -81,8 +100,10 @@ describe('calendar', () => {
     const result = await googleCalendarConnector.calendar!.createEvent(context(), input);
     expect(result).toMatchObject({ ok: true, record: { remoteId: `${primary.id}::novo`, data: { title: 'Reunião Acme' } } });
     const insert = calls.find((call) => call.method === 'POST' && call.url.pathname.endsWith('/events'))!;
-    expect(insert.url.searchParams.get('sendUpdates')).toBe('all');
-    expect(JSON.parse(String(insert.init.body))).toMatchObject({ attendees: [{ email: 'ana@evecompany.com.br' }], extendedProperties: { shared: { eveClientId: 'c1' } } });
+    expect(insert.url.searchParams.get('sendUpdates')).toBe('none');
+    const sent = JSON.parse(String(insert.init.body)) as Record<string, unknown>;
+    expect(sent).not.toHaveProperty('attendees');
+    expect(sent).toMatchObject({ extendedProperties: { shared: { eveClientId: 'c1', eveMemberIds: 'u1' } } });
   });
 
   it('edits with If-Match, and reports a conflict when Google changed it first', async () => {

@@ -44,6 +44,7 @@ const eventsRoute = await import('../app/api/agenda/events/route');
 const eventRoute = await import('../app/api/agenda/events/[id]/route');
 
 const CALENDAR = 'marketing-vitest@evecompany.com.br';
+const FOTO = 'foto-video-vitest@group.calendar.google.com';
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 const json = (method: string, url: string, body: unknown) =>
   new Request(`http://test${url}`, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -51,6 +52,7 @@ const json = (method: string, url: string, body: unknown) =>
 /** What the fake Google holds, and every call it got. */
 const google = {
   events: [] as Record<string, unknown>[],
+  fotoEvents: [{ id: 'f1', etag: '"f1"', status: 'confirmed', summary: 'Reels e Fotos Babymee', start: { dateTime: '2026-09-11T09:00:00-03:00' } }] as Record<string, unknown>[],
   patchStatus: 200,
   calls: [] as { method: string; path: string; body: Record<string, unknown> | null }[],
 };
@@ -64,9 +66,9 @@ function fakeGoogle(): void {
     const reply = (status: number, payload?: unknown) => new Response(status === 204 ? null : JSON.stringify(payload ?? {}), { status });
 
     if (url.hostname === 'oauth2.googleapis.com') return reply(200, { access_token: 'token', expires_in: 3600 });
-    if (url.pathname.endsWith('/users/me/calendarList')) return reply(200, { items: [{ id: CALENDAR, summaryOverride: 'Marketing', backgroundColor: '#9fc6e7', primary: true }] });
+    if (url.pathname.endsWith('/users/me/calendarList')) return reply(200, { items: [{ id: CALENDAR, summaryOverride: 'Marketing', backgroundColor: '#9fc6e7', primary: true, selected: true }, { id: FOTO, summary: 'Foto e Vídeo', backgroundColor: '#51b749', selected: true }, { id: 'antiga', summary: 'Desmarcada', selected: false }] });
     if (url.pathname.includes('/users/me/calendarList/')) return reply(200, { id: CALENDAR, summaryOverride: 'Marketing', backgroundColor: '#9fc6e7' });
-    if (url.pathname.endsWith('/events') && method === 'GET') return reply(200, { items: google.events });
+    if (url.pathname.endsWith('/events') && method === 'GET') return reply(200, { items: url.pathname.includes(encodeURIComponent(FOTO)) ? google.fotoEvents : url.pathname.includes('antiga') ? [{ id: 'nunca', etag: '"x"', summary: 'Não deveria aparecer', start: { dateTime: '2026-09-24T10:00:00-03:00' } }] : google.events });
     if (url.pathname.endsWith('/events') && method === 'POST') {
       return reply(200, { id: 'novo', etag: '"n1"', status: 'confirmed', iCalUID: 'novo@google.com', ...body });
     }
@@ -132,7 +134,7 @@ describe.skipIf(!dbUp)('Agenda do Time against Postgres, with Google faked', () 
         workspaceId,
         connectorId: 'google-calendar',
         label: 'Google Agenda · marketing',
-        config: { accountEmail: CALENDAR, calendarIds: ['primary'] },
+        config: { accountEmail: CALENDAR, calendarIds: ['*'] },
         credentialsEnc: new Uint8Array(encrypted.data),
         credentialsKeyVersion: encrypted.keyVersion,
       },
@@ -140,38 +142,40 @@ describe.skipIf(!dbUp)('Agenda do Time against Postgres, with Google faked', () 
 
     const month = await getMonth();
     expect(month.connected).toBe(true);
-    expect(month.calendars.map((calendar) => calendar.name)).toEqual(['Marketing']);
-    expect(month.events.map((event) => event.title)).toEqual(['Gravação Acme Café', 'Ocupado']);
+    // Every calendar ticked in Google is read (not the unticked one), each becoming a filter tag.
+    expect(month.calendars.map((calendar) => calendar.name)).toEqual(['Marketing', 'Foto e Vídeo']);
+    expect(month.events.map((event) => event.title)).toEqual(['Reels e Fotos Babymee', 'Gravação Acme Café', 'Ocupado']);
     // The client comes from the title, the member from the invite (case aside).
-    expect(month.events[0]).toMatchObject({ clientId, clientTagged: false, memberIds: [memberId] });
-    expect(month.events[1]).toMatchObject({ private: true, clientId: null });
+    expect(month.events.find((event) => event.title === 'Gravação Acme Café')).toMatchObject({ clientId, clientTagged: false, memberIds: [memberId] });
+    expect(month.events.find((event) => event.private)).toMatchObject({ private: true, clientId: null });
   });
 
-  it('creates in Google, inviting the chosen members and tagging the client, and shows it right away', async () => {
+  it('creates in Google tagging the client and the people (no invitation), and shows it right away', async () => {
     const [calendar] = (await getMonth()).calendars;
     const response = await eventsRoute.POST(
-      json('POST', '/api/agenda/events', { calendarKey: calendar!.key, title: 'Reunião Acme', start: '2026-09-28T13:00:00.000Z', allDay: false, clientId, attendeeIds: [memberId] }),
+      json('POST', '/api/agenda/events', { calendarKey: calendar!.key, title: 'Reunião Acme', start: '2026-09-28T13:00:00.000Z', allDay: false, clientId, memberIds: [memberId] }),
     );
     expect(response.status).toBe(201);
     const { event } = (await response.json()) as { event: { id: string; clientTagged: boolean; memberIds: string[] } };
     expect(event).toMatchObject({ clientTagged: true, memberIds: [memberId] });
 
     const insert = google.calls.find((call) => call.method === 'POST' && call.path.endsWith('/events'))!;
-    expect(insert.body).toMatchObject({ attendees: [{ email: memberEmail }], extendedProperties: { shared: { eveClientId: clientId } } });
+    expect(insert.body).not.toHaveProperty('attendees');
+    expect(insert.body).toMatchObject({ extendedProperties: { shared: { eveClientId: clientId, eveMemberIds: memberId } } });
     expect(await prisma.syncRecord.count({ where: { id: event.id } })).toBe(1);
   });
 
-  it('keeps outside guests when editing, and refuses to overwrite a change made in Google', async () => {
+  it('never touches the guests when editing, and refuses to overwrite a change made in Google', async () => {
     const { events } = await getMonth();
     const gravacao = events.find((event) => event.title === 'Gravação Acme Café')!;
 
-    const saved = await eventRoute.PATCH(json('PATCH', '', { title: 'Gravação Acme Café', start: '2026-09-24T13:00:00.000Z', allDay: false, attendeeIds: [] }), params(gravacao.id));
+    const saved = await eventRoute.PATCH(json('PATCH', '', { title: 'Gravação Acme Café', start: '2026-09-24T13:00:00.000Z', allDay: false, memberIds: [] }), params(gravacao.id));
     expect(saved.status).toBe(200);
     const patchCall = google.calls.filter((call) => call.method === 'PATCH').at(-1)!;
-    expect(patchCall.body!.attendees).toEqual([{ email: 'cliente@acme.com' }]);
+    expect(patchCall.body).not.toHaveProperty('attendees');
 
     google.patchStatus = 412;
-    const conflict = await eventRoute.PATCH(json('PATCH', '', { title: 'Outro', start: '2026-09-24T13:00:00.000Z', allDay: false, attendeeIds: [] }), params(gravacao.id));
+    const conflict = await eventRoute.PATCH(json('PATCH', '', { title: 'Outro', start: '2026-09-24T13:00:00.000Z', allDay: false, memberIds: [] }), params(gravacao.id));
     expect(conflict.status).toBe(409);
     google.patchStatus = 200;
   });
@@ -179,7 +183,7 @@ describe.skipIf(!dbUp)('Agenda do Time against Postgres, with Google faked', () 
   it('never edits a private event from here', async () => {
     const { events } = await getMonth();
     const busy = events.find((event) => event.private)!;
-    expect((await eventRoute.PATCH(json('PATCH', '', { title: 'x', start: '2026-09-25T12:00:00.000Z', allDay: true, attendeeIds: [] }), params(busy.id))).status).toBe(403);
+    expect((await eventRoute.PATCH(json('PATCH', '', { title: 'x', start: '2026-09-25T12:00:00.000Z', allDay: true, memberIds: [] }), params(busy.id))).status).toBe(403);
     expect((await eventRoute.DELETE(new Request('http://test'), params(busy.id))).status).toBe(403);
   });
 

@@ -47,6 +47,16 @@ export const PRIVATE_TITLE = 'Ocupado';
 /** The key Eve Hub stores its client tag under, on the event itself (visible to every copy of it). */
 export const CLIENT_PROPERTY = 'eveClientId';
 
+/** The team members tagged from Eve Hub, comma-separated user ids — a tag, not an invitation. */
+export const MEMBERS_PROPERTY = 'eveMemberIds';
+
+/**
+ * `calendarIds: ['*']`: every calendar the account has ticked in Google
+ * ("Marketing Evecompany", "Foto e Vídeo", "Reunião Cliente"…). Teams keep
+ * their work in secondary calendars, which is what the Agenda filters by.
+ */
+export const ALL_SHOWN_CALENDARS = '*';
+
 export interface GoogleEventTime {
   date?: string;
   dateTime?: string;
@@ -80,6 +90,9 @@ export interface GoogleCalendarListEntry {
   backgroundColor?: string;
   primary?: boolean;
   accessRole?: string;
+  /** Ticked in the account's Google Agenda sidebar. */
+  selected?: boolean;
+  hidden?: boolean;
 }
 
 export interface CalendarRef {
@@ -151,6 +164,12 @@ export function toEventData(event: GoogleEvent, calendar: CalendarRef): Calendar
     link: event.htmlLink ?? null,
     uid: event.iCalUID ?? null,
     clientId: hidden ? null : clientId,
+    memberIds: hidden
+      ? []
+      : (event.extendedProperties?.shared?.[MEMBERS_PROPERTY] ?? '')
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean),
     private: hidden,
     recurring: Boolean(event.recurringEventId),
   };
@@ -192,9 +211,10 @@ export function toGoogleEventBody(input: CalendarEventInput, timeZone: string = 
     description: input.description ?? '',
     start,
     end,
-    attendees: [...new Set(input.attendeeEmails.map((email) => email.toLowerCase()))].map((email) => ({ email })),
-    // "" rather than dropping the key: a PATCH merges extendedProperties, so a
+    // No `attendees`: Eve Hub never invites anyone (a PATCH leaves the guests
+    // an event already has untouched). People are tags, like the client.
+    // "" rather than dropping a key: a PATCH merges extendedProperties, so a
     // removed tag has to be written as empty to actually go away.
-    extendedProperties: { shared: { [CLIENT_PROPERTY]: input.clientId ?? '' } },
+    extendedProperties: { shared: { [CLIENT_PROPERTY]: input.clientId ?? '', [MEMBERS_PROPERTY]: [...new Set(input.memberIds)].join(',') } },
   };
 }

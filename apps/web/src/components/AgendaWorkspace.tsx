@@ -28,9 +28,10 @@ function timeOnly(iso: string): string {
 /**
  * The Agenda do Time: the team's appointments straight from the connected
  * Google Agenda (marketing@, plus anyone's own calendar that was connected),
- * on one month grid, narrowed with tag filters — cliente, membro and, with
- * more than one calendar, agenda. Creating, editing or deleting here writes
- * to Google; Google sends the invitations.
+ * on one month grid, narrowed with tag filters — agenda (each Google calendar
+ * the account has ticked: "Foto e Vídeo", "Reunião Cliente"…), cliente and
+ * membro. Creating, editing or deleting here writes to Google, quietly: no
+ * one is e-mailed; people are a tag.
  */
 export function AgendaWorkspace(): JSX.Element {
   const now = new Date();
@@ -107,7 +108,17 @@ export function AgendaWorkspace(): JSX.Element {
   );
 
   const calendarChoices = useMemo<Choice[]>(
-    () => calendars.map((calendar) => ({ id: calendar.key, label: calendar.name, node: <TagPill name={calendar.name} /> })),
+    // Google's own calendars ("Foto e Vídeo", "Reunião Cliente"…) are the team's tags, in their Google colors.
+    () =>
+      calendars.map((calendar) => ({
+        id: calendar.key,
+        label: calendar.name,
+        node: (
+          <span className="eve-pill" style={calendar.color ? { ['--pill' as string]: calendar.color } : undefined}>
+            <span className="eve-pill__text">{calendar.name}</span>
+          </span>
+        ),
+      })),
     [calendars],
   );
 
@@ -122,9 +133,10 @@ export function AgendaWorkspace(): JSX.Element {
   return (
     <div className="eve-scheduling">
       <div className="eve-agenda__bar">
+        {calendars.length > 1 && <TagFilter label="Agenda" choices={calendarChoices} selected={filters.calendars} onChange={(ids) => setFilters({ ...filters, calendars: ids })} />}
         <TagFilter label="Cliente" choices={clientChoices} selected={filters.clients} onChange={(ids) => setFilters({ ...filters, clients: ids })} />
         <TagFilter label="Membro" choices={memberChoices} selected={filters.members} onChange={(ids) => setFilters({ ...filters, members: ids })} />
-        {calendars.length > 1 && <TagFilter label="Agenda" choices={calendarChoices} selected={filters.calendars} onChange={(ids) => setFilters({ ...filters, calendars: ids })} />}
+
         {hasAgendaFilters(filters) && (
           <button type="button" className="eve-btn" onClick={() => setFilters(NO_AGENDA_FILTERS)}>
             Limpar filtros

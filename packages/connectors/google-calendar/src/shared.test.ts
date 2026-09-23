@@ -36,6 +36,7 @@ describe('toEventData', () => {
       link: 'https://www.google.com/calendar/event?eid=abc',
       uid: 'abc@google.com',
       clientId: null,
+      memberIds: [],
       private: false,
       recurring: false,
     });
@@ -51,6 +52,10 @@ describe('toEventData', () => {
     expect(data).toMatchObject({ title: 'Ocupado', description: null, attendees: [], clientId: null, private: true });
   });
 
+  it('reads the people tagged from Eve Hub', () => {
+    expect(toEventData({ ...base, extendedProperties: { shared: { eveMemberIds: 'u1, u2' } } }, calendar)!.memberIds).toEqual(['u1', 'u2']);
+  });
+
   it('reads the client tag Eve Hub wrote on the event', () => {
     expect(toEventData({ ...base, extendedProperties: { shared: { eveClientId: 'c1' } } }, calendar)!.clientId).toBe('c1');
     expect(toEventData({ ...base, extendedProperties: { shared: { eveClientId: '' } } }, calendar)!.clientId).toBeNull();
@@ -64,16 +69,15 @@ describe('toEventData', () => {
 });
 
 describe('toGoogleEventBody', () => {
-  const input = { calendarId: 'primary', title: 'Reunião', description: null, start: '2026-09-24T13:00:00.000Z', end: null, allDay: false, attendeeEmails: ['Ana@evecompany.com.br', 'ana@evecompany.com.br'], clientId: 'c1' };
+  const input = { calendarId: 'primary', title: 'Reunião', description: null, start: '2026-09-24T13:00:00.000Z', end: null, allDay: false, memberIds: ['u1', 'u2', 'u1'], clientId: 'c1' };
 
-  it('gives a timed event with no end one hour, in São Paulo time, inviting each person once', () => {
+  it('gives a timed event with no end one hour, in São Paulo time, tagging each person once and inviting nobody', () => {
     expect(toGoogleEventBody(input)).toEqual({
       summary: 'Reunião',
       description: '',
       start: { dateTime: '2026-09-24T13:00:00.000Z', timeZone: 'America/Sao_Paulo' },
       end: { dateTime: '2026-09-24T14:00:00.000Z', timeZone: 'America/Sao_Paulo' },
-      attendees: [{ email: 'ana@evecompany.com.br' }],
-      extendedProperties: { shared: { eveClientId: 'c1' } },
+      extendedProperties: { shared: { eveClientId: 'c1', eveMemberIds: 'u1,u2' } },
     });
   });
 
@@ -84,8 +88,8 @@ describe('toGoogleEventBody', () => {
     expect(body.end).toEqual({ date: '2026-09-27' });
   });
 
-  it('clears the client tag by writing it empty (PATCH merges extended properties)', () => {
-    expect(toGoogleEventBody({ ...input, clientId: null }).extendedProperties).toEqual({ shared: { eveClientId: '' } });
+  it('clears the tags by writing them empty (PATCH merges extended properties)', () => {
+    expect(toGoogleEventBody({ ...input, clientId: null, memberIds: [] }).extendedProperties).toEqual({ shared: { eveClientId: '', eveMemberIds: '' } });
   });
 });
 
