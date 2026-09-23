@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { JobColumnsSection } from '../../components/JobColumnsSection';
-import { canManageJobColumnColors, canViewTeamTab } from '../../lib/permissions';
+import { TeamConnectorsSection } from '../../components/TeamConnectorsSection';
+import { canManageJobColumnColors, canViewTeamTab, canWriteCredentials } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 import { TeamSection } from '../perfil/TeamSection';
 
@@ -34,6 +35,12 @@ export default async function TeamPage(): Promise<JSX.Element> {
       {canManageJobColumnColors(user) && (
         <section className="eve-card">
           <JobColumnsSection />
+        </section>
+      )}
+
+      {canWriteCredentials(user) && (
+        <section className="eve-card">
+          <TeamConnectorsSection />
         </section>
       )}
     </div>

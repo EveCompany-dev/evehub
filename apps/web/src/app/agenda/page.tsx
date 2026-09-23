@@ -12,13 +12,13 @@ export const dynamic = 'force-dynamic';
 /**
  * The Agenda do Time (see AgendaWorkspace), behind the Agenda tab. It only
  * exists once a Google Agenda is connected: before that, an admin lands on
- * Conectores to connect one and everybody else back on the dashboard.
+ * Equipe > Conectores to connect one and everybody else back on the dashboard.
  */
 export default async function AgendaPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
   if (!canViewScheduling(user)) redirect('/');
-  if (!(await hasCalendarConnection(user.workspaceId))) redirect(canWriteCredentials(user) ? '/connectors' : '/');
+  if (!(await hasCalendarConnection(user.workspaceId))) redirect(canWriteCredentials(user) ? '/team' : '/');
 
   return (
     <div className="eve-wide-page">

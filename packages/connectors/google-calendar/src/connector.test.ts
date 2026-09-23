@@ -66,7 +66,7 @@ describe('sync', () => {
   it('says so in words when the access was revoked', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: 'invalid_grant' }), { status: 400 }));
     const result = await googleCalendarConnector.sync(context());
-    expect(result).toEqual({ ok: false, error: 'O acesso ao Google Agenda foi revogado ou expirou. Reconecte a conta em Conectores.' });
+    expect(result).toEqual({ ok: false, error: 'O acesso ao Google Agenda foi revogado ou expirou. Reconecte a conta em Equipe > Conectores.' });
   });
 });
 
