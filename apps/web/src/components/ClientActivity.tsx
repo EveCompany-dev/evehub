@@ -99,7 +99,7 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
         id="jobs"
         title={
           <>
-            <SquareKanban size={16} aria-hidden="true" /> Jobs {activity && <span className="eve-dim">({activity.jobs.length})</span>}
+            <SquareKanban size={16} aria-hidden="true" /> Jobs
           </>
         }
         actions={
@@ -137,10 +137,9 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
         id="arquivos"
         title={
           <>
-            <Files size={16} aria-hidden="true" /> Arquivos {activity && <span className="eve-dim">({activity.files.length})</span>}
+            <Files size={16} aria-hidden="true" /> Arquivos
           </>
         }
-        hint="anexos dos jobs e mídia dos posts agendados"
       >
         {activity && activity.files.length === 0 && <p className="eve-dim">Nenhum arquivo ainda.</p>}
         {activity && activity.files.length > 0 && (
@@ -164,10 +163,9 @@ export function ClientActivity({ clientId }: { clientId: string }): JSX.Element 
         id="mencoes"
         title={
           <>
-            <MessageSquareQuote size={16} aria-hidden="true" /> Menções {activity && <span className="eve-dim">({activity.mentions.length})</span>}
+            <MessageSquareQuote size={16} aria-hidden="true" /> Menções
           </>
         }
-        hint="onde o nome do cliente aparece no chat e em comentários de outros jobs"
       >
         {activity && activity.mentions.length === 0 && <p className="eve-dim">Nenhuma menção encontrada.</p>}
         {activity && activity.mentions.length > 0 && (

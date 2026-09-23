@@ -6,9 +6,19 @@ export interface NavRoute {
   label: string;
   /** Tab that gates this route; omit for routes every authenticated user has. */
   tab?: TabKey;
+  /** Something the workspace must have switched on, on top of the tab (see NAV_FEATURES). */
+  feature?: NavFeature;
   /** Extra search terms for the Ctrl+K index. */
   keywords?: string[];
 }
+
+/**
+ * Workspace-level switches that show or hide a page for everybody, passed
+ * alongside the user's tabs in the same list: 'calendar' = at least one
+ * calendar (Google Agenda) is connected — the Agenda do Time only exists then.
+ */
+export const NAV_FEATURES = ['calendar'] as const;
+export type NavFeature = (typeof NAV_FEATURES)[number];
 
 /**
  * Every page, once.
@@ -22,13 +32,12 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/', label: strings.dashboard.title, keywords: ['dashboard', 'board', 'grade', 'inicio', 'home', 'modulos', 'widgets'] },
   { href: '/chat', label: strings.nav.chat, tab: 'chat', keywords: ['conversa', 'mensagem', 'equipe'] },
   { href: '/jobs', label: strings.nav.jobs, tab: 'jobs', keywords: ['tarefas', 'kanban', 'quadro', 'demandas'] },
-  { href: '/clients', label: 'Clientes', tab: 'tables', keywords: ['cliente', 'marca', 'cnpj', 'cadastro', 'calendario de conteudo', 'postagens', 'referencias'] },
-  { href: '/clients/calendar', label: 'Calendário de Conteúdo', tab: 'tables', keywords: ['conteudo', 'postagens', 'reels', 'carrossel', 'feed', 'publicacao', 'gravacao'] },
+  { href: '/clients', label: 'Clientes', tab: 'tables', keywords: ['cliente', 'marca', 'cnpj', 'cadastro', 'postagens', 'referencias', 'calendario de conteudo'] },
   { href: '/tables', label: strings.nav.tables, tab: 'tables', keywords: ['tabela', 'planilha', 'dados', 'base'] },
   { href: '/connectors', label: strings.nav.connectors, tab: 'connectors', keywords: ['conexoes', 'integracoes', 'api', 'credenciais'] },
   { href: '/automations', label: strings.nav.automations, tab: 'automations', keywords: ['webhook', 'n8n', 'automacao', 'gatilho'] },
-  { href: '/agenda', label: strings.nav.scheduling, tab: 'scheduling', keywords: ['agenda', 'calendario', 'reuniao', 'compromisso', 'evento', 'time'] },
-  { href: '/scheduling', label: 'Agendar post', tab: 'scheduling', keywords: ['posts', 'publicacao', 'instagram', 'facebook', 'meta', 'agendar'] },
+  { href: '/agenda', label: strings.nav.scheduling, tab: 'scheduling', feature: 'calendar', keywords: ['agenda do time', 'calendario', 'reuniao', 'compromisso', 'evento', 'time', 'equipe'] },
+  { href: '/scheduling', label: 'Agendar post', tab: 'scheduling', keywords: ['posts', 'publicacao', 'instagram', 'facebook', 'meta', 'agendar', 'carrossel', 'lote'] },
   { href: '/financial', label: strings.nav.financial, tab: 'financial', keywords: ['financeiro', 'verba', 'custo', 'receita'] },
   { href: '/team', label: strings.nav.team, tab: 'team', keywords: ['equipe', 'pessoas', 'membros', 'permissoes', 'senha'] },
   { href: '/activity', label: 'Registro de atividades', tab: 'activity', keywords: ['log', 'auditoria', 'historico', 'atividades', 'quem fez'] },
@@ -41,22 +50,26 @@ export const NAV_ROUTES: NavRoute[] = [
 const NOT_LANDING = new Set(['/notifications', '/perfil', '/settings']);
 
 /**
- * Every page a user may pick as their default, in rail order: the routes they
- * can see, plus "Minha Agenda" (a saved filter of /agenda, worth its own entry).
+ * Default pages that no longer exist, mapped to where they went. "Minha
+ * Agenda" was a saved filter of /agenda until the agenda became the team's
+ * only view, and the all-clients content calendar gave way to each client's
+ * own (both 2026-09-22).
  */
+const RETIRED_LANDING: Record<string, string> = { '/agenda?mine=1': '/agenda', '/clients/calendar': '/clients' };
+
+/** Every page a user may pick as their default, in rail order: the routes they can see. */
 export function landingOptions(visibleTabs: readonly string[]): NavRoute[] {
-  const extra: NavRoute = { href: '/agenda?mine=1', label: 'Minha Agenda', tab: 'scheduling', keywords: ['agenda', 'meus eventos'] };
-  const routes = visibleRoutes(visibleTabs).filter((route) => !NOT_LANDING.has(route.href));
-  const at = routes.findIndex((route) => route.href === '/agenda');
-  return at < 0 ? routes : [...routes.slice(0, at + 1), extra, ...routes.slice(at + 1)];
+  return visibleRoutes(visibleTabs).filter((route) => !NOT_LANDING.has(route.href));
 }
 
 /** The chosen default if the user may still open it, else null (an old choice must never strand anyone). */
 export function resolveLandingPage(defaultPage: string | null | undefined, visibleTabs: readonly string[]): string | null {
   if (!defaultPage || defaultPage === '/') return null;
-  return landingOptions(visibleTabs).some((route) => route.href === defaultPage) ? defaultPage : null;
+  const page = RETIRED_LANDING[defaultPage] ?? defaultPage;
+  return landingOptions(visibleTabs).some((route) => route.href === page) ? page : null;
 }
 
-export function visibleRoutes(visibleTabs: readonly string[]): NavRoute[] {
-  return NAV_ROUTES.filter((route) => !route.tab || visibleTabs.includes(route.tab));
+/** `navKeys` = the user's tabs plus the workspace's switched-on features (see lib/nav-access.ts). */
+export function visibleRoutes(navKeys: readonly string[]): NavRoute[] {
+  return NAV_ROUTES.filter((route) => (!route.tab || navKeys.includes(route.tab)) && (!route.feature || navKeys.includes(route.feature)));
 }

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { SettingsWorkspace } from '../../components/SettingsWorkspace';
-import { getVisibleTabs } from '../../lib/permissions';
+import { navKeys } from '../../lib/nav-access';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +27,7 @@ export default async function SettingsPage(): Promise<JSX.Element> {
       </header>
 
       <div className="eve-wide-page__body">
-        <SettingsWorkspace visibleTabs={[...getVisibleTabs(user)]} />
+        <SettingsWorkspace visibleTabs={await navKeys(user, user.workspaceId)} />
       </div>
     </div>
   );

@@ -1,15 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, MessageSquareQuote, Pencil, Plug, Search, SquareKanban } from '@eve/ui';
+import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, MessageSquareQuote, Pencil, Plug, Search, SquareKanban, X } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX, type ReactNode } from 'react';
 import { pickProfile, PROFILE_FIELDS } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientActivity } from './ClientActivity';
 import { ClientBrandEditor } from './ClientBrandEditor';
 import { ClientConnectors } from './ClientConnectors';
+import type { CalendarMenuTarget } from './CalendarView';
 import { ClientSubTable } from './ClientSubTable';
 import { CollapsibleSection, openSection } from './CollapsibleSection';
+import type { ContextMenuItem } from './ContextMenu';
+import type { DataTableRowValue } from './data-table-types';
+import { PostComposer } from './PostComposer';
 import type { ClientDetail } from './project-types';
 import { ClientAvatar, TagPill } from './TagPill';
 
@@ -21,7 +25,12 @@ interface LinkedRowGroup {
 
 export interface ClientDetailWorkspaceProps {
   clientId: string;
+  /** Can open Agendar Post (the Agenda tab) — adds "Agendar post" to content rows and a right-click menu to the calendar. */
+  canSchedule: boolean;
 }
+
+/** What the Agendar Post modal opens with: a content row to publish, or a day for a new post. */
+type ComposerTarget = { rowId?: string; date?: Date };
 
 const IDEA_DEFAULTS = { status: 'Ideia' };
 
@@ -49,7 +58,19 @@ function jumpTo(id: string): void {
  * references, posts and the content calendar (sub-tables filtered by this
  * client), plus its jobs, files and mentions (see ClientActivity).
  */
-export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps): JSX.Element {
+export function ClientDetailWorkspace({ clientId, canSchedule }: ClientDetailWorkspaceProps): JSX.Element {
+  // Agendar Post opens on top of this page — never another tab — from a row's page or a right-click on the calendar.
+  const [composer, setComposer] = useState<ComposerTarget | null>(null);
+  const rowAction = canSchedule
+    ? (row: DataTableRowValue): ReactNode => (
+        <button type="button" className="eve-btn eve-btn--primary" onClick={() => setComposer({ rowId: row.id })}>
+          Agendar post
+        </button>
+      )
+    : undefined;
+  const calendarMenu = canSchedule
+    ? ({ date }: CalendarMenuTarget): ContextMenuItem[] => [{ label: 'Agendar post neste dia', onSelect: () => setComposer({ date }) }]
+    : undefined;
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [linkedRows, setLinkedRows] = useState<LinkedRowGroup[]>([]);
   const [editingBrand, setEditingBrand] = useState(false);
@@ -215,13 +236,13 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         id="postagens"
         kind="content"
         title="Postagens"
-        hint="ideias e conteúdos deste cliente"
         clientId={clientId}
         modes={['table', 'gallery']}
         defaultMode="table"
         addSignal={contentSignal}
         addDefaults={IDEA_DEFAULTS}
         onRowsChange={onPostsChange}
+        rowAction={rowAction}
       />
       <ClientSubTable
         key={`cal-${contentVersion.calendar}`}
@@ -232,6 +253,8 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
         modes={['calendar']}
         defaultMode="calendar"
         onRowsChange={onCalendarChange}
+        rowAction={rowAction}
+        calendarMenu={calendarMenu}
       />
 
       <ClientActivity clientId={clientId} />
@@ -243,7 +266,6 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
             <Plug size={16} aria-hidden="true" /> Conectores
           </>
         }
-        hint="conexões (Meta, Notion…) deste cliente"
       >
         <ClientConnectors clientId={clientId} />
       </CollapsibleSection>
@@ -254,7 +276,7 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
             <div key={group.table.id} className="eve-clientpage__linked">
               <div className="eve-clientpage__section-head">
                 <h4>
-                  {group.table.name} <span className="eve-dim">({group.count})</span>
+                  {group.table.name}
                 </h4>
                 <Link href={`/tables?table=${group.table.id}`} className="eve-btn">
                   Abrir tabela
@@ -285,6 +307,32 @@ export function ClientDetailWorkspace({ clientId }: ClientDetailWorkspaceProps):
           }}
           onClose={() => setEditingBrand(false)}
         />
+      )}
+
+      {composer && (
+        // No close on backdrop click: a half-written post (or a batch) must not vanish on a stray click.
+        <div className="eve-modal-backdrop">
+          <div className="eve-modal eve-composer-modal" role="dialog" aria-label={`Agendar post · ${client.name}`}>
+            <div className="eve-composer-modal__head">
+              <h2 className="eve-card__title">Agendar post · {client.name}</h2>
+              <button type="button" className="eve-btn eve-btn--icon" aria-label="Fechar" onClick={() => setComposer(null)}>
+                <X size={16} aria-hidden="true" />
+              </button>
+            </div>
+            <PostComposer
+              rowId={composer.rowId}
+              embedded={{
+                clientId,
+                ...(composer.date ? { date: composer.date } : {}),
+                onDone: () => {
+                  setComposer(null);
+                  // The row's Status and date just changed: redraw both views of the content table.
+                  setContentVersion((current) => ({ posts: current.posts + 1, calendar: current.calendar + 1 }));
+                },
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

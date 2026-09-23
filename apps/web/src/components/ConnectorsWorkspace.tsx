@@ -3,6 +3,7 @@
 import { Plug, strings } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import type { AvailableConnector } from './DashboardShell';
+import { isTeamConnector } from '../lib/connector-scope';
 import { ConnectorSetup } from './ConnectorSetup';
 import { useEscapeToClose } from './useEscapeToClose';
 
@@ -23,6 +24,8 @@ interface ConnectorCatalogEntry extends AvailableConnector {
 
 export interface ConnectorsWorkspaceProps {
   isOwner: boolean;
+  /** 'team' = only the team's own connectors (the Equipe page); default = every outside service. */
+  scope?: 'team';
 }
 
 const STATUS_LABEL: Record<InstanceRow['status'], string> = {
@@ -43,7 +46,7 @@ function formatLastSynced(value: string | null): string {
  * entry point (the dashboard's Ctrl+K "add widget" palette), which was easy
  * to miss and showed nothing about connections that already exist.
  */
-export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.Element {
+export function ConnectorsWorkspace({ isOwner, scope }: ConnectorsWorkspaceProps): JSX.Element {
   const [available, setAvailable] = useState<ConnectorCatalogEntry[]>([]);
   const [instances, setInstances] = useState<InstanceRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,14 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
   const [setupConnector, setSetupConnector] = useState<ConnectorCatalogEntry | null>(null);
   const [expandedConnector, setExpandedConnector] = useState<ConnectorCatalogEntry | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Why "Conectar com Google" came back without connecting (?googleAgenda=, set by its OAuth routes).
+  const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Mount-time read of the URL, an external system like localStorage in SideRail.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGoogleNotice(new URLSearchParams(window.location.search).get('googleAgenda'));
+  }, []);
 
   useEscapeToClose(() => setExpandedConnector(null));
 
@@ -70,15 +81,17 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
       // This page is about real outside connections (Notion, Meta, Claude) —
       // local widgets with nothing to "connect" (Calculator, Notes, Calendar,
       // Demo) stay reachable from the dashboard's own add-widget palette.
-      setAvailable(body.available.filter((connector) => connector.category === 'external'));
-      setInstances(body.instances ?? []);
+      // On Equipe, only the team's own tools: the clients' social media is connected on each client page.
+      const shown = body.available.filter((connector) => (scope === 'team' ? isTeamConnector(connector) : connector.category === 'external'));
+      setAvailable(shown);
+      setInstances((body.instances ?? []).filter((instance) => shown.some((connector) => connector.id === instance.connectorId)));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [scope]);
 
   useEffect(() => {
     // Mount fetch — same legitimate case as useWidgetData.ts's initial fetch.
@@ -146,6 +159,7 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
 
   return (
     <div className="eve-connectors">
+      {googleNotice && <p className="eve-alert eve-alert--error">Google Agenda: {googleNotice}</p>}
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
       {loading ? (

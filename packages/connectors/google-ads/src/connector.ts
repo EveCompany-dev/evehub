@@ -86,8 +86,9 @@ export const googleAdsConnector: EveConnector<GoogleAdsConfig, GoogleAdsCredenti
   GoogleAdsCredentials
 >({
   id: 'google-ads',
-  label: 'Google Ads',
-  description: 'Mostra o desempenho das campanhas de uma conta do Google Ads. Somente leitura.',
+  label: 'Google Ads (anúncios)',
+  // Ads only, on purpose: posting to Google (Perfil da Empresa / Business) will be a connector of its own.
+  description: 'Só os anúncios: desempenho das campanhas (impressões, cliques, custo, conversões) da conta do Google Ads do cliente. Somente leitura — não publica nada no Google.',
   category: 'external',
   auth: 'oauth2',
   capabilities: { read: true, write: false, webhook: false },

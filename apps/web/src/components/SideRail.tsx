@@ -39,31 +39,19 @@ interface RailGroupItem {
   tab?: string;
 }
 
-const GROUPS: Record<string, { alsoActive?: string[]; items: RailGroupItem[] }> = {
-  '/agenda': {
-    items: [
-      { href: '/agenda?mine=1', label: 'Minha Agenda' },
-      { href: '/agenda', label: 'Time' },
-    ],
-  },
-  '/clients': {
-    items: [
-      { href: '/clients', label: 'Todos os clientes' },
-      { href: '/clients/calendar', label: 'Calendário de Conteúdo' },
-    ],
-  },
+const GROUPS: Record<string, { items: RailGroupItem[] }> = {
   // Not a page of its own: a drawer for the working tools that used to sit loose in the rail.
   '/tools': {
     items: [
-      { href: '/scheduling?new=1', label: 'Agendar Post', tab: 'scheduling' },
+      { href: '/scheduling', label: 'Agendar Post', tab: 'scheduling' },
       { href: '/automations', label: 'Automações', tab: 'automations' },
     ],
   },
 };
 
-/** The path prefix a group entry lives under, for the rail highlight ("/scheduling?new=1" -> "/scheduling"). */
-function pathOf(href: string): string {
-  return href.split('?')[0]!;
+/** Is `pathname` this page or one under it? ("/clients/abc" is under "/clients"; "/clientsx" is not.) */
+function isUnder(pathname: string, href: string): boolean {
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function TeamIcon(): JSX.Element {
@@ -154,8 +142,7 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
     '/clients': <ClientsIcon />,
     '/tables': <TablesIcon />,
     '/tools': <Wrench size={18} aria-hidden="true" />,
-    // Not '/scheduling' — that's the post-scheduler *tool*, reachable only
-    // from inside the Agenda dropdown below, not its own top-level rail icon.
+    // Not '/scheduling': the post scheduler sits in the Tools dropdown.
     '/agenda': <SchedulingIcon />,
     '/financial': <FinancialIcon />,
     '/team': <TeamIcon />,
@@ -208,17 +195,16 @@ export function SideRail({ visibleTabs, railFullHide }: SideRailProps): JSX.Elem
       {items.map((item) => {
         const group = GROUPS[item.href];
         const active = group
-          ? group.items.some((entry) => pathname.startsWith(pathOf(entry.href)) && (entry.href !== '/clients' || pathname === '/clients' || !pathname.startsWith('/clients/calendar')))
-          : pathname.startsWith(item.href);
+          ? group.items.some((entry) => isUnder(pathname, entry.href))
+          : isUnder(pathname, item.href);
         if (group) {
-          const groupActive = active || (item.href === '/clients' && pathname.startsWith('/clients'));
           const visibleEntries = group.items.filter((entry) => !entry.tab || visibleTabs.includes(entry.tab));
           const isOpen = openGroup === item.href;
           return (
             <div key={item.href} className="eve-rail__group">
               <button
                 type="button"
-                className={groupActive ? 'eve-rail__item eve-rail__group-trigger is-active' : 'eve-rail__item eve-rail__group-trigger'}
+                className={active ? 'eve-rail__item eve-rail__group-trigger is-active' : 'eve-rail__item eve-rail__group-trigger'}
                 aria-expanded={isOpen}
                 title={item.label}
                 onClick={() => {

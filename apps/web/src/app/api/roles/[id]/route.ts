@@ -3,7 +3,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
-import { canManageTeam, ROLE_GRANTABLE_TABS } from '../../../../lib/permissions';
+import { canManageTeam, describeRoleTabs, ROLE_GRANTABLE_TABS } from '../../../../lib/permissions';
 import { HttpError, requireUser } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -13,25 +13,9 @@ const patchSchema = z.object({
   tabs: z.array(z.string()).optional(),
 });
 
-/** Only what a Role may grant — never the admin-only activity log. */
+/** Only what a Role may allow — never the admin-only activity log. */
 function cleanTabs(tabs: string[]): string[] {
   return tabs.filter((tab) => (ROLE_GRANTABLE_TABS as readonly string[]).includes(tab));
-}
-
-const TAB_LABELS: Record<string, string> = {
-  chat: 'Chat',
-  jobs: 'Jobs',
-  tables: 'Tabelas',
-  connectors: 'Conectores',
-  automations: 'Automações',
-  scheduling: 'Agenda',
-  financial: 'Financeiro',
-  team: 'Equipe',
-};
-
-function tabList(tabs: unknown): string {
-  const list = Array.isArray(tabs) ? tabs.map((tab) => TAB_LABELS[String(tab)] ?? String(tab)) : [];
-  return list.length > 0 ? list.join(', ') : 'nenhuma aba extra';
 }
 
 
@@ -64,8 +48,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       action: 'role.update',
       summary:
         role.name !== before.name
-          ? `renomeou o cargo ${quoted(before.name)} para ${quoted(role.name)} (${tabList(role.tabs)})`
-          : `mudou as abas do cargo ${quoted(role.name)} para: ${tabList(role.tabs)}`,
+          ? `renomeou o cargo ${quoted(before.name)} para ${quoted(role.name)} (${describeRoleTabs(role.tabs)})`
+          : `mudou as abas do cargo ${quoted(role.name)} para: ${describeRoleTabs(role.tabs)}`,
       entityType: 'role',
       entityId: id,
     });

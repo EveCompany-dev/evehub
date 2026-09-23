@@ -1,4 +1,5 @@
-import { prisma, type DataColumn } from '@eve/core';
+import { CONTENT_STATUS, contentDate, prisma, type DataColumn, type Prisma } from '@eve/core';
+import { parseLooseDate, toIsoDate } from './table-dates';
 
 /**
  * The tables every client page is built from — Notion's "Calendário de
@@ -21,6 +22,20 @@ function tag(options: [string, string][]): Pick<DataColumn, 'options' | 'optionC
   return { options: options.map(([name]) => name), optionColors: Object.fromEntries(options) };
 }
 
+const AUTOMATIC_STATUSES: [string, string][] = [
+  [CONTENT_STATUS.scheduled, 'pink'],
+  [CONTENT_STATUS.published, 'green'],
+  [CONTENT_STATUS.failed, 'red'],
+];
+
+/**
+ * Until 2026-09-22 this was one option: nothing could tell "scheduled" from
+ * "went live", so the team kept one tag for both. Eve Hub now knows (the
+ * worker only calls a post published once Meta confirms it), so the option
+ * is split — see splitRetiredStatus.
+ */
+export const RETIRED_STATUS = 'Publicado/Programado';
+
 const CHANNELS: [string, string][] = [
   ['Instagram', 'pink'],
   ['Facebook', 'blue'],
@@ -40,12 +55,14 @@ export const SYSTEM_TABLES: Record<SystemTableKind, SystemTableDefinition> = {
         key: 'status',
         label: 'Status',
         type: 'select',
+        // The last three are set by Eve Hub itself as posts are scheduled,
+        // confirmed by Meta, or fail (see @eve/core's content-posts).
         ...tag([
           ['Ideia', 'yellow'],
           ['Roteirizando', 'purple'],
           ['Em produção', 'blue'],
           ['Em aprovação', 'orange'],
-          ['Publicado/Programado', 'green'],
+          ...AUTOMATIC_STATUSES,
         ]),
       },
       {
@@ -124,10 +141,61 @@ async function addMissingColumns(table: SummaryRow, kind: SystemTableKind): Prom
   return prisma.dataTable.update({ where: { id: table.id }, data: { columns: [...current, ...missing] as unknown as object }, select: SUMMARY });
 }
 
+/**
+ * The content Status column with the options Eve Hub sets by itself, or null
+ * when it already has them. The retired "Publicado/Programado" gives its
+ * place to Programado + Publicado; Falhou goes at the end. Options the team
+ * added or recolored stay as they are.
+ */
+export function splitRetiredStatus(columns: DataColumn[]): DataColumn[] | null {
+  let changed = false;
+  const next = columns.map((column) => {
+    if (column.key !== 'status' || column.type !== 'select') return column;
+    const current = column.options ?? [];
+    const options = current.flatMap((option) => (option === RETIRED_STATUS ? [CONTENT_STATUS.scheduled, CONTENT_STATUS.published] : [option]));
+    for (const [name] of AUTOMATIC_STATUSES) if (!options.includes(name)) options.push(name);
+    const unique = [...new Set(options)];
+    if (unique.length === current.length && unique.every((option, index) => option === current[index])) return column;
+
+    changed = true;
+    const optionColors = { ...column.optionColors };
+    delete optionColors[RETIRED_STATUS];
+    for (const [name, color] of AUTOMATIC_STATUSES) optionColors[name] ??= color;
+    return { ...column, options: unique, optionColors };
+  });
+  return changed ? next : null;
+}
+
+/** What a row tagged "Publicado/Programado" really is: past its date, published; otherwise (or no readable date) scheduled. */
+export function statusAfterSplit(dateValue: unknown, today: string): string {
+  const date = typeof dateValue === 'string' ? parseLooseDate(dateValue) : null;
+  return date && toIsoDate(date) < today ? CONTENT_STATUS.published : CONTENT_STATUS.scheduled;
+}
+
+/** One-time, on the first read after the split shipped: new options, and every retired tag re-tagged by its date. */
+async function upgradeContentStatuses(table: SummaryRow): Promise<SummaryRow> {
+  const current = Array.isArray(table.columns) ? (table.columns as unknown as DataColumn[]) : [];
+  const columns = splitRetiredStatus(current);
+  if (!columns) return table;
+
+  const today = contentDate(new Date());
+  return prisma.$transaction(async (tx) => {
+    const rows = await tx.dataTableRow.findMany({ where: { tableId: table.id, data: { path: ['status'], equals: RETIRED_STATUS } }, select: { id: true, data: true } });
+    for (const row of rows) {
+      const data = row.data as Record<string, unknown>;
+      await tx.dataTableRow.update({ where: { id: row.id }, data: { data: { ...data, status: statusAfterSplit(data.data, today) } as Prisma.InputJsonValue } });
+    }
+    return tx.dataTable.update({ where: { id: table.id }, data: { columns: columns as unknown as object }, select: SUMMARY });
+  });
+}
+
 /** The workspace's table of this kind, created with its standard columns the first time it is asked for. */
 export async function ensureSystemTable(workspaceId: string, kind: SystemTableKind) {
   const existing = await prisma.dataTable.findFirst({ where: { workspaceId, kind }, select: SUMMARY });
-  if (existing) return addMissingColumns(existing, kind);
+  if (existing) {
+    const complete = await addMissingColumns(existing, kind);
+    return kind === 'content' ? upgradeContentStatuses(complete) : complete;
+  }
 
   const definition = SYSTEM_TABLES[kind];
   try {

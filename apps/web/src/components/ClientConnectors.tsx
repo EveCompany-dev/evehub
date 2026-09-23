@@ -3,6 +3,7 @@
 import { Plug, Plus, Trash2 } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { isClientConnector } from '../lib/connector-scope';
 import { ConnectorSetup } from './ConnectorSetup';
 import type { AvailableConnector } from './DashboardShell';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -68,7 +69,8 @@ export function ConnectorPicker({ clientId, available, onConnected, onClose, int
     }
   };
 
-  const creatable = available.filter((connector) => connector.canCreate);
+  // A client's connections are its own accounts (social media, Google Ads); the team's tools are on Equipe.
+  const creatable = available.filter((connector) => connector.canCreate && isClientConnector(connector));
 
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>

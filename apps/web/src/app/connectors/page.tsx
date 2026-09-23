@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { ConnectorsWorkspace } from '../../components/ConnectorsWorkspace';
+import { canViewTab } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function ConnectorsPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
+  if (!canViewTab(user, 'connectors')) redirect('/');
 
   const row = await prisma.user.findUnique({ where: { id: user.id }, select: { isOwner: true } });
   if (!row) redirect('/login');

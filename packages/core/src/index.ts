@@ -63,6 +63,15 @@ export { equalizeVerifyTiming, hashPassword, verifyPassword } from './password';
 export { ADMIN_EMAILS, isAdminEmail } from './admins';
 export { errorMessage, loadConnectorContext, type LoadedConnector } from './connector-context';
 export { pruneSnapshots, runSync, type SyncOutcome } from './sync';
+export {
+  CONTENT_STATUS,
+  CONTENT_TIME_ZONE,
+  contentDate,
+  contentRowPatch,
+  contentStatusFor,
+  refreshContentRow,
+  type ContentPostState,
+} from './content-posts';
 export { connectorAlertFor, connectorAlertMessage, raiseConnectorAlert, type ConnectorAlert } from './connector-alerts';
 export {
   listUndoableEdits,

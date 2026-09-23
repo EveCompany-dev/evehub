@@ -1,6 +1,6 @@
 'use client';
 
-import type { JSX, ReactNode } from 'react';
+import type { JSX, MouseEvent as ReactMouseEvent, ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from '@eve/ui';
 
 const WEEKDAYS = ['dom.', 'seg.', 'ter.', 'qua.', 'qui.', 'sex.', 'sáb.'];
@@ -26,6 +26,8 @@ export interface MonthGridProps {
   onMonthChange: (year: number, month: number) => void;
   renderDay?: (date: Date) => ReactNode;
   onDayClick?: (date: Date) => void;
+  /** Right-click on a day of this month. */
+  onDayContextMenu?: (date: Date, event: ReactMouseEvent) => void;
 }
 
 /**
@@ -33,7 +35,7 @@ export interface MonthGridProps {
  * of its own — used both by the scheduling calendar (real posts) and the
  * plain calendar widget (nothing, just dates).
  */
-export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }: MonthGridProps): JSX.Element {
+export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick, onDayContextMenu }: MonthGridProps): JSX.Element {
   const today = new Date();
   const firstWeekday = new Date(year, month, 1).getDay();
   const total = daysInMonth(year, month);
@@ -93,6 +95,7 @@ export function MonthGrid({ year, month, onMonthChange, renderDay, onDayClick }:
               key={index}
               className={classes.join(' ')}
               onClick={adjacent ? () => onMonthChange(date.getFullYear(), date.getMonth()) : onDayClick ? () => onDayClick(date) : undefined}
+              onContextMenu={!adjacent && onDayContextMenu ? (event) => onDayContextMenu(date, event) : undefined}
             >
               <span className="eve-month__num">
                 {date.getDate() === 1 ? `1 de ${date.toLocaleDateString('pt-BR', { month: 'short' })}` : date.getDate()}

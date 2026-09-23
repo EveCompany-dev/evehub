@@ -1,5 +1,10 @@
 export type {
   AnyEveConnector,
+  CalendarEventData,
+  CalendarEventInput,
+  CalendarInfo,
+  CalendarSource,
+  CalendarWriteResult,
   ConnectorAuthKind,
   ConnectorCapabilities,
   ConnectorContext,

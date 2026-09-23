@@ -3,37 +3,21 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
-import { canManageTeam, ROLE_GRANTABLE_TABS } from '../../../lib/permissions';
+import { canManageTeam, describeRoleTabs, ROLE_GRANTABLE_TABS } from '../../../lib/permissions';
 import { HttpError, requireUser } from '../../../lib/session';
 
 export const runtime = 'nodejs';
 
 const createSchema = z.object({
   name: z.string().trim().min(1).max(60),
-  tabs: z.array(z.string()).default([]),
+  /** The tabs the cargo allows — every one of them unless the admin unticks some. */
+  tabs: z.array(z.string()).default([...ROLE_GRANTABLE_TABS]),
 });
 
-/** Only what a Role may grant — never the admin-only activity log. */
+/** Only what a Role may allow — never the admin-only activity log. */
 function cleanTabs(tabs: string[]): string[] {
   return tabs.filter((tab) => (ROLE_GRANTABLE_TABS as readonly string[]).includes(tab));
 }
-
-const TAB_LABELS: Record<string, string> = {
-  chat: 'Chat',
-  jobs: 'Jobs',
-  tables: 'Tabelas',
-  connectors: 'Conectores',
-  automations: 'Automações',
-  scheduling: 'Agenda',
-  financial: 'Financeiro',
-  team: 'Equipe',
-};
-
-function tabList(tabs: unknown): string {
-  const list = Array.isArray(tabs) ? tabs.map((tab) => TAB_LABELS[String(tab)] ?? String(tab)) : [];
-  return list.length > 0 ? list.join(', ') : 'nenhuma aba extra';
-}
-
 
 /** Every Role in the workspace, for the roles-management panel and the per-member assignment dropdown. Owner-only, same as the rest of team management. */
 export async function GET(): Promise<Response> {
@@ -63,7 +47,7 @@ export async function POST(request: Request): Promise<Response> {
 
     await logActivity(user, {
       action: 'role.create',
-      summary: `criou o cargo ${quoted(role.name)} (${tabList(role.tabs)})`,
+      summary: `criou o cargo ${quoted(role.name)} (${describeRoleTabs(role.tabs)})`,
       entityType: 'role',
       entityId: role.id,
     });

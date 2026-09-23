@@ -100,6 +100,24 @@ export async function checkFacebookPostStatus(token: string, postId: string): Pr
   return { isPublished: Boolean(response.is_published) };
 }
 
+/**
+ * The public link of a published post — Instagram media `permalink`, Facebook
+ * post `permalink_url` — for the content calendar's "Link da publicação".
+ * Stories vanish in 24h, so they get none.
+ */
+export async function fetchPermalink(
+  token: string,
+  post: { platform: 'instagram' | 'facebook'; postType: string; metaPostId: string },
+): Promise<string | null> {
+  if (post.postType === 'story') return null;
+  if (post.platform === 'instagram') {
+    const response = await graphRequest<{ permalink?: string }>(token, `/${post.metaPostId}`, { params: { fields: 'permalink' } });
+    return response.permalink ?? null;
+  }
+  const response = await graphRequest<{ permalink_url?: string }>(token, `/${post.metaPostId}`, { params: { fields: 'permalink_url' } });
+  return response.permalink_url ?? null;
+}
+
 /** Cancels a not-yet-published scheduled Facebook post. */
 export async function deleteFacebookPost(token: string, postId: string): Promise<void> {
   await graphRequest(token, `/${postId}`, { method: 'DELETE' });

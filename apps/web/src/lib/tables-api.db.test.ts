@@ -1,6 +1,7 @@
 import 'dotenv/config';
-import { prisma } from '@eve/core';
+import { prisma, refreshContentRow } from '@eve/core';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { ensureSystemTable, RETIRED_STATUS, SYSTEM_TABLES } from './system-tables';
 import { buildImportPlan, setClientAction, toImportPayload } from './table-import/plan';
 
 /**
@@ -101,8 +102,9 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     if (workspaceId) await prisma.workspace.delete({ where: { id: workspaceId } }).catch(() => undefined);
   });
 
+  /** Not allowed = a member whose cargo leaves the Agenda tab out (with no cargo, every tab is on). */
   const asMember = (allowed: boolean) => {
-    session.user = { ...session.user!, isOwner: allowed };
+    session.user = { ...session.user!, isOwner: allowed, roleTabs: allowed ? null : ['tables'] };
   };
 
   async function importPlan(csv: string, name = 'Postagens 0123456789abcdef0123456789abcdef.csv', mutate?: (plan: ReturnType<typeof buildImportPlan>) => ReturnType<typeof buildImportPlan>) {
@@ -373,7 +375,7 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     expect(table.name).toBe('Calendário de Conteúdo');
     const byKey = Object.fromEntries(table.columns.map((column) => [column.key, column]));
     expect(byKey['canal']).toMatchObject({ type: 'select', options: expect.arrayContaining(['Instagram']) });
-    expect(byKey['status']).toMatchObject({ type: 'select', optionColors: { Ideia: 'yellow', 'Publicado/Programado': 'green' } });
+    expect(byKey['status']).toMatchObject({ type: 'select', optionColors: { Ideia: 'yellow', Programado: 'pink', Publicado: 'green', Falhou: 'red' } });
     expect(byKey['formato']).toMatchObject({ type: 'select', optionColors: { Reels: 'purple', Carrossel: 'pink', Feed: 'orange' } });
     expect(byKey['cliente']!.type).toBe('client');
     expect(byKey['data']!.type).toBe('date');
@@ -392,6 +394,71 @@ describe.skipIf(!dbUp)('tables API against Postgres', () => {
     await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Reels X', cliente: client!.id, status: 'Ideia' } } });
     const linked = (await (await linkedRoute.GET(new Request('http://test'), params(client!.id))).json()) as { groups: { table: { name: string } }[] };
     expect(linked.groups.map((group) => group.table.name)).not.toContain('Calendário de Conteúdo');
+  });
+
+  it('splits a legacy "Publicado/Programado" by date, once', async () => {
+    const other = await prisma.workspace.create({ data: { name: `vitest-legacy-${Date.now()}` } });
+    try {
+      const legacy = SYSTEM_TABLES.content.columns.map((column) =>
+        column.key === 'status' ? { ...column, options: ['Ideia', RETIRED_STATUS], optionColors: { Ideia: 'yellow', [RETIRED_STATUS]: 'green' } } : column,
+      );
+      const table = await prisma.dataTable.create({ data: { workspaceId: other.id, kind: 'content', name: 'Calendário de Conteúdo', columns: legacy as unknown as object } });
+      const past = await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Antigo', status: RETIRED_STATUS, data: '01/09/2020' } } });
+      const future = await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Futuro', status: RETIRED_STATUS, data: '2099-01-01' } } });
+      const idea = await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Ideia', status: 'Ideia', data: '01/09/2020' } } });
+
+      const upgraded = await ensureSystemTable(other.id, 'content');
+      const status = (upgraded.columns as unknown as { key: string; options?: string[] }[]).find((column) => column.key === 'status')!;
+      expect(status.options).toEqual(['Ideia', 'Programado', 'Publicado', 'Falhou']);
+
+      const statusOf = async (id: string) => ((await prisma.dataTableRow.findUniqueOrThrow({ where: { id } })).data as { status: string }).status;
+      expect(await statusOf(past.id)).toBe('Publicado');
+      expect(await statusOf(future.id)).toBe('Programado');
+      expect(await statusOf(idea.id)).toBe('Ideia');
+
+      // Second read: nothing left to do, nothing changes.
+      await prisma.dataTableRow.update({ where: { id: future.id }, data: { data: { titulo: 'Futuro', status: 'Em produção', data: '2099-01-01' } } });
+      await ensureSystemTable(other.id, 'content');
+      expect(await statusOf(future.id)).toBe('Em produção');
+    } finally {
+      await prisma.workspace.delete({ where: { id: other.id } });
+    }
+  });
+
+  it('keeps a content row in step with its posts: Programado, then Publicado with the link, back when cancelled', async () => {
+    const table = await ensureSystemTable(workspaceId, 'content');
+    const client = await prisma.client.create({ data: { workspaceId, name: 'Cliente dos Posts' } });
+    const instance = await prisma.connectorInstance.create({ data: { workspaceId, connectorId: 'meta', label: 'Meta de teste' } });
+    const author = await prisma.user.create({ data: { workspaceId, email: `vitest-posts-${Date.now()}@example.com`, name: 'Autora' } });
+    const row = await prisma.dataTableRow.create({ data: { tableId: table.id, data: { titulo: 'Reels do café', cliente: client.id, status: 'Em aprovação' } } });
+    const dataOf = async () => (await prisma.dataTableRow.findUniqueOrThrow({ where: { id: row.id } })).data as Record<string, unknown>;
+
+    const post = await prisma.scheduledPost.create({
+      data: {
+        workspaceId,
+        connectorInstanceId: instance.id,
+        clientSource: 'local',
+        clientId: client.id,
+        clientLabel: client.name,
+        platform: 'instagram',
+        caption: 'Café',
+        mediaUrl: 'https://example.com/a.jpg',
+        // 22:30 in São Paulo: the calendar day is the 24th, not UTC's 25th.
+        scheduledFor: new Date('2026-09-25T01:30:00.000Z'),
+        createdBy: author.id,
+        contentRowId: row.id,
+      },
+    });
+    await refreshContentRow(row.id);
+    expect(await dataOf()).toMatchObject({ titulo: 'Reels do café', status: 'Programado', data: '2026-09-24' });
+
+    await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'published', permalink: 'https://www.instagram.com/p/abc/' } });
+    await refreshContentRow(row.id);
+    expect(await dataOf()).toMatchObject({ status: 'Publicado', link: 'https://www.instagram.com/p/abc/' });
+
+    await prisma.scheduledPost.delete({ where: { id: post.id } });
+    await refreshContentRow(row.id);
+    expect(await dataOf()).toMatchObject({ status: 'Em aprovação' });
   });
 
   it('gathers a client\'s jobs, files and mentions in one place', async () => {
