@@ -105,6 +105,8 @@ export interface CalendarEventData {
   uid: string | null;
   /** Client tagged from Eve Hub (stored on the event itself), if any. */
   clientId: string | null;
+  /** Team members tagged from Eve Hub (stored on the event itself, never invited). */
+  memberIds: string[];
   /** Marked private at the source: only "busy" is shown, never the details. */
   private: boolean;
   recurring: boolean;
@@ -118,8 +120,11 @@ export interface CalendarEventInput {
   start: string;
   end: string | null;
   allDay: boolean;
-  /** Invited by e-mail — the source sends the invitations. */
-  attendeeEmails: string[];
+  /**
+   * Team members tagged on the event — stored on it, never invited: the team
+   * shares one Google account and most of its addresses receive no mail.
+   */
+  memberIds: string[];
   clientId: string | null;
 }
 

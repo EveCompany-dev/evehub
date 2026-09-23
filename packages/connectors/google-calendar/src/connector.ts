@@ -12,6 +12,7 @@ import {
   patchEvent,
 } from './calendar-client';
 import {
+  ALL_SHOWN_CALENDARS,
   calendarRef,
   parseRemoteId,
   SYNC_FUTURE_DAYS,
@@ -20,6 +21,7 @@ import {
   toGoogleEventBody,
   toRemoteId,
   type CalendarRef,
+  type GoogleCalendarListEntry,
   type GoogleCalendarSnapshot,
   type GoogleEvent,
 } from './shared';
@@ -27,8 +29,8 @@ import {
 const configSchema = z.object({
   /** The Google account this connection signed in as — what names it in Conectores. */
   accountEmail: z.string().default(''),
-  /** Which of the account's calendars to show; "primary" is its main one. */
-  calendarIds: z.array(z.string().min(1)).min(1).default(['primary']),
+  /** Which of the account's calendars to show: "*" = every one ticked in Google, "primary" = its main one, or ids. */
+  calendarIds: z.array(z.string().min(1)).min(1).default([ALL_SHOWN_CALENDARS]),
 });
 
 const credentialsSchema = z.object({
@@ -47,6 +49,15 @@ function toRecord(event: GoogleEvent, calendar: CalendarRef): RemoteRecord | nul
   return data ? { remoteId: toRemoteId(calendar.id, event.id), remoteVersion: event.etag, data: data as unknown as Record<string, unknown> } : null;
 }
 
+/** The account's calendars the config asks for, each once, in the account's own order. */
+export function pickCalendars(entries: GoogleCalendarListEntry[], ids: readonly string[]): GoogleCalendarListEntry[] {
+  return entries.filter(
+    (entry) =>
+      !entry.hidden &&
+      ids.some((id) => (id === ALL_SHOWN_CALENDARS ? entry.selected || entry.primary : id === 'primary' ? entry.primary : entry.id === id)),
+  );
+}
+
 function failure(error: unknown): { ok: false; error: string } {
   return { ok: false, error: error instanceof Error ? error.message : String(error) };
 }
@@ -59,7 +70,9 @@ function failure(error: unknown): { ok: false; error: string } {
  *
  * Google stays the source of truth: sync mirrors every event in a window
  * around today, and events created or edited in Eve Hub are written to
- * Google first (with Google sending the invitations), then mirrored back.
+ * Google first, then mirrored back. It reads every calendar the account has
+ * ticked in Google — the team files its work by calendar ("Foto e Vídeo",
+ * "Reunião Cliente"…) — and never e-mails anyone.
  */
 export const googleCalendarConnector: EveConnector<GoogleCalendarConfig, GoogleCalendarCredentials> = registerConnector<
   GoogleCalendarConfig,
@@ -77,7 +90,7 @@ export const googleCalendarConnector: EveConnector<GoogleCalendarConfig, GoogleC
   defaultSize: { w: 6, h: 6, minW: 4, minH: 4 },
   configSchema,
   credentialsSchema,
-  defaultConfig: { accountEmail: '', calendarIds: ['primary'] },
+  defaultConfig: { accountEmail: '', calendarIds: [ALL_SHOWN_CALENDARS] },
 
   describeFields(): FieldSchema[] {
     return [
@@ -91,10 +104,7 @@ export const googleCalendarConnector: EveConnector<GoogleCalendarConfig, GoogleC
     try {
       const token = await getAccessToken(ctx.credentials);
       const entries = await listCalendarEntries(token);
-      const calendars = ctx.config.calendarIds
-        .map((id) => entries.find((entry) => (id === 'primary' ? entry.primary : entry.id === id)))
-        .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-        .map(calendarRef);
+      const calendars = pickCalendars(entries, ctx.config.calendarIds).map(calendarRef);
       if (calendars.length === 0) return { ok: false, error: 'Nenhuma das agendas escolhidas existe mais nessa conta do Google.' };
 
       const now = Date.now();

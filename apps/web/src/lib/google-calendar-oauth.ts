@@ -110,7 +110,7 @@ export async function saveGoogleCalendarConnection(input: {
           workspaceId: input.workspaceId,
           connectorId: 'google-calendar',
           label: `Google Agenda · ${input.email}`,
-          config: { accountEmail: input.email, calendarIds: ['primary'] },
+          config: { accountEmail: input.email, calendarIds: ['*'] },
           credentialsEnc: new Uint8Array(encrypted.data),
           credentialsKeyVersion: encrypted.keyVersion,
         },
