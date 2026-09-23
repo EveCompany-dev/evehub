@@ -22,6 +22,27 @@ encontra os mesmos modulos na grade — `parseDashboardConfig` os traz uma vez.
 comportamento). O que vale para o time todo, como as **cores dos status** dos
 Jobs, fica na pagina **Equipe**, so para admins.
 
+## Agenda e conteudo
+
+Dois calendarios, cada um com um trabalho:
+
+- **Calendario de Conteudo** (na pagina de cada cliente): substitui o Notion e
+  o mLabs. Cada linha e um conteudo, da ideia ao post. "Agendar post" na linha
+  abre o Agendar Post ja preenchido (cliente, Canal + Formato, roteiro, imagem,
+  data), e o Status anda sozinho: **Programado** ao agendar, **Publicado** so
+  quando o Meta confirma (com o link preenchido), **Falhou** se der erro, volta
+  para Em aprovacao se o post for cancelado. Post escrito direto no Agendar
+  Post cria a linha dele.
+- **Agenda do Time** (`/agenda`): o Google Agenda conectado, com filtros de tag
+  (cliente, membro, agenda). So aparece depois que uma conta do Google e
+  conectada em Conectores. Criar, editar ou apagar aqui grava no Google, e o
+  Google manda os convites. Evento particular no Google aparece so como
+  "Ocupado". Da para conectar mais de uma conta (a marketing@ e a de alguem);
+  a mesma reuniao nas duas aparece uma vez so.
+- **Agendar Post** (`/scheduling`, em Tools): o editor numa pagina propria.
+  Varios arquivos de uma vez perguntam "carrossel ou posts separados?"; posts
+  separados viram subpaginas, um post cada, agendadas juntas.
+
 ## Documentos
 
 | Arquivo | Conteudo |
@@ -64,6 +85,27 @@ Sem `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` a tela de login simplesmente nao mostr
 o botao do Google. Para ligar, crie um OAuth client Web no Google Cloud com o
 redirect `http://localhost:3000/api/auth/callback/google`. Só entram e-mails do
 dominio em `ALLOWED_EMAIL_DOMAIN`.
+
+### Google Agenda (opcional)
+
+Usa o mesmo OAuth client do login com Google (`AUTH_GOOGLE_ID` /
+`AUTH_GOOGLE_SECRET`). No projeto do Google Cloud desse client:
+
+1. Ative a **Google Calendar API**.
+2. Em Credenciais, no client OAuth, adicione o redirect
+   `https://<seu-dominio>/api/connectors/google-calendar/callback` (e o de
+   `http://localhost:3000/...` para dev).
+3. Na tela de consentimento, deixe o app como **Interno** (Workspace). Em
+   "Externo" + "Teste", o Google expira o acesso a cada 7 dias.
+
+Depois, um admin clica em Conectores > Google Agenda > "Conectar com Google" e
+escolhe a conta (a marketing@, por exemplo). Sem `PUBLIC_BASE_URL`, o endereco
+de volta vem dos headers do proxy — confira que ele e o mesmo cadastrado.
+
+### E-mail de saida (opcional)
+
+`SMTP_URL` liga o envio dos relatos de bug por e-mail para jose@evecompany.com.br
+(ver `.env.example`). Sem ele, o relato chega so no sino e no registro de atividades.
 
 ### Google Ads (opcional)
 
@@ -137,6 +179,11 @@ deles quebra o teste em vez de sumir com o connector em silencio.
 Nada no `core` muda. Use `packages/connectors/demo` como referencia — ele
 implementa o contrato inteiro, incluindo conflito e undo.
 
+Se o connector e uma agenda (Outlook, por exemplo), implemente tambem o
+`calendar` do `EveConnector` (`CalendarSource` no SDK) e devolva os eventos
+como `CalendarEventData` no `sync()`: a Agenda do Time passa a mostra-lo sem
+mudar mais nada. `packages/connectors/google-calendar` e a referencia.
+
 ---
 
 ## Decisoes que valem saber
@@ -160,6 +207,12 @@ implementa o contrato inteiro, incluindo conflito e undo.
   resto do time ve a equipe (somente leitura) e nao mexe em ninguem. Mudar a
   lista = editar `ADMIN_EMAILS` **e** criar uma migration com o mesmo UPDATE da
   `admin_controls_audit_log`. Toda a regra vive em `apps/web/src/lib/permissions.ts`.
+- **Todas as abas vem ligadas; cargo so tira.** Sem cargo, a pessoa ve todas as
+  abas (menos o registro de atividades, que e so de admin). Um cargo e a lista
+  do que fica liberado: a aba desmarcada some do menu e a pagina redireciona.
+  Ate 2026-09-22 o cargo *somava* abas a um conjunto padrao; a migration
+  `role_tabs_allow_list` reescreveu os cargos existentes sem mudar o que
+  ninguem via. A tag Social Media nao libera mais nada sozinha.
 - **So entra quem foi cadastrado.** O Google do dominio nao cria conta sozinho
   (exceto para os e-mails de admin); um admin cadastra a pessoa na tela de Equipe.
 - **Apagar conta funciona mesmo com trabalho no workspace.** Depois de desativar,

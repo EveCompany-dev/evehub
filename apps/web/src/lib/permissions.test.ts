@@ -2,6 +2,7 @@ import { ADMIN_EMAILS, isAdminEmail } from '@eve/core/admins';
 import { describe, expect, it } from 'vitest';
 import {
   canCreateInstance,
+  canDeleteClient,
   canDeleteInstance,
   canManageTeam,
   canViewActivityLog,
@@ -19,7 +20,7 @@ import {
 
 const owner = { isOwner: true };
 const member = { isOwner: false };
-const noRole = { isOwner: false, isSocialMedia: false, roleTabs: null };
+const noRole = { isOwner: false, roleTabs: null };
 
 describe('permissions', () => {
   it('lets anyone add a connector that carries no secret', () => {
@@ -42,6 +43,11 @@ describe('permissions', () => {
   it('keeps instance deletion (and its audit trail) owner-only', () => {
     expect(canDeleteInstance(member)).toBe(false);
     expect(canDeleteInstance(owner)).toBe(true);
+  });
+
+  it('keeps deleting a client admin-only', () => {
+    expect(canDeleteClient(owner)).toBe(true);
+    expect(canDeleteClient(member)).toBe(false);
   });
 
   it('keeps the activity log admin-only', () => {
@@ -126,53 +132,51 @@ describe('team guards', () => {
 
 describe('tab visibility (roles)', () => {
   it('gives an admin every tab, role or not, including the activity log', () => {
-    const tabs = getVisibleTabs({ isOwner: true, isSocialMedia: false, roleTabs: null });
+    const tabs = getVisibleTabs({ isOwner: true, roleTabs: null });
     expect(tabs.has('financial')).toBe(true);
     expect(tabs.has('team')).toBe(true);
     expect(tabs.has('scheduling')).toBe(true);
     expect(tabs.has('activity')).toBe(true);
   });
 
-  it('gives a plain member the default tabs, which now include the read-only team roster', () => {
+  it('a Role cannot take anything away from an admin', () => {
+    const tabs = getVisibleTabs({ isOwner: true, roleTabs: ['chat'] });
+    expect(tabs.has('financial')).toBe(true);
+    expect(tabs.has('activity')).toBe(true);
+  });
+
+  it('gives a member with no Role every tab but the activity log', () => {
     const tabs = getVisibleTabs(noRole);
-    expect([...tabs].sort()).toEqual(['automations', 'chat', 'connectors', 'jobs', 'tables', 'team']);
+    expect([...tabs].sort()).toEqual(['automations', 'chat', 'connectors', 'financial', 'jobs', 'scheduling', 'tables', 'team']);
     expect(canViewTeamTab(noRole)).toBe(true);
+    expect(canViewScheduling(noRole)).toBe(true);
+    expect(canViewFinancial(noRole)).toBe(true);
     expect(canManageTeam(noRole)).toBe(false);
   });
 
-  it('isSocialMedia adds scheduling on top of the default tabs, nothing else', () => {
-    const tabs = getVisibleTabs({ isOwner: false, isSocialMedia: true, roleTabs: null });
-    expect(tabs.has('scheduling')).toBe(true);
-    expect(tabs.has('financial')).toBe(false);
+  it('a Role is an allow-list: the tabs it leaves out are hidden', () => {
+    const withRole = { isOwner: false, roleTabs: ['chat', 'jobs', 'team'] };
+    const tabs = getVisibleTabs(withRole);
+    expect([...tabs].sort()).toEqual(['chat', 'jobs', 'team']);
+    expect(canViewFinancial(withRole)).toBe(false);
+    expect(canViewScheduling(withRole)).toBe(false);
+    expect(canViewTeamTab(withRole)).toBe(true);
   });
 
-  it('a Role is the only way a member reaches financial', () => {
-    const withRole = { isOwner: false, isSocialMedia: false, roleTabs: ['financial'] };
-    expect(canViewFinancial(withRole)).toBe(true);
-    expect(canViewFinancial(noRole)).toBe(false);
+  it('a Role that allows nothing leaves only the pages every account has', () => {
+    expect(getVisibleTabs({ isOwner: false, roleTabs: [] }).size).toBe(0);
+    expect(canViewTeamTab({ isOwner: false, roleTabs: [] })).toBe(false);
   });
 
   it('a Role can never reach the activity log, even if its JSON says so', () => {
-    const tabs = getVisibleTabs({ isOwner: false, isSocialMedia: false, roleTabs: ['activity', 'financial'] });
+    const tabs = getVisibleTabs({ isOwner: false, roleTabs: ['activity', 'financial'] });
     expect(tabs.has('activity')).toBe(false);
     expect(tabs.has('financial')).toBe(true);
     expect(ROLE_GRANTABLE_TABS).not.toContain('activity');
   });
 
-  it('a Role cannot take away the default tabs or the isSocialMedia shortcut', () => {
-    const tabs = getVisibleTabs({ isOwner: false, isSocialMedia: true, roleTabs: ['financial'] });
-    expect(tabs.has('jobs')).toBe(true);
-    expect(tabs.has('scheduling')).toBe(true);
-    expect(tabs.has('financial')).toBe(true);
-  });
-
-  it('canViewScheduling still respects the legacy isSocialMedia shortcut', () => {
-    expect(canViewScheduling({ isOwner: false, isSocialMedia: true, roleTabs: null })).toBe(true);
-    expect(canViewScheduling(noRole)).toBe(false);
-  });
-
   it('ignores unknown/garbage tab strings from a corrupted Role.tabs value', () => {
-    const tabs = getVisibleTabs({ isOwner: false, isSocialMedia: false, roleTabs: ['financial', 'not-a-real-tab'] });
+    const tabs = getVisibleTabs({ isOwner: false, roleTabs: ['financial', 'not-a-real-tab'] });
     expect(tabs.has('financial')).toBe(true);
     expect([...tabs]).not.toContain('not-a-real-tab');
   });

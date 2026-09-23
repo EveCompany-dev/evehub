@@ -68,6 +68,9 @@ enum NotificationType {
   /// Alguem clicou em "Esqueci minha senha". Vai so para os admins, que sao
   /// quem gera o link de redefinicao (ver PasswordResetRequest).
   passwordResetRequested
+  /// Alguem mandou um relato de bug/feedback. Vai para jose@evecompany.com.br,
+  /// que tambem recebe o e-mail quando o SMTP esta configurado.
+  bugReport
 }
 
 enum FinancialEntryType {
@@ -451,11 +454,10 @@ model Project {
   @@index([workspaceId, clientId])
 }
 
-/// A agenda de verdade — reunioes, compromissos, prazos — como um calendario
-/// do Notion. ScheduledPost (post do Instagram/Facebook) e uma ferramenta
-/// associada a ela, nao a mesma coisa: um post agendado nao vira um
-/// AgendaEvent, e vice-versa. Tags ainda nao existem aqui — ver o comentario
-/// original de "tags e eventos" — so eventos por enquanto.
+/// LEGADO desde 2026-09-23: a Agenda do Time passou a ser o Google Agenda
+/// conectado (connector google-calendar; os eventos ficam em SyncRecord) e
+/// nada mais le ou grava aqui. A tabela so continua para nao perder eventos
+/// criados antes da troca — apagar numa migration quando ninguem precisar.
 model AgendaEvent {
   id          String    @id @default(cuid())
   workspaceId String
@@ -542,6 +544,14 @@ model ScheduledPost {
   metaCreationId String?
   /// Id do post/media ja publicado no Meta, quando existe.
   metaPostId     String?
+  /// Link publico depois de publicado (permalink do Instagram, permalink_url do Facebook).
+  permalink      String?
+
+  /// A linha do Calendario de Conteudo que este post publica. O post e a
+  /// execucao da linha: agendar, publicar, falhar ou cancelar muda o Status
+  /// dela (ver packages/core/src/content-posts.ts). Nulo = post avulso antigo.
+  contentRowId String?
+  contentRow   DataTableRow? @relation(fields: [contentRowId], references: [id], onDelete: SetNull)
 
   createdBy     String
   createdByUser User   @relation(fields: [createdBy], references: [id])
@@ -551,6 +561,7 @@ model ScheduledPost {
 
   @@index([workspaceId, scheduledFor])
   @@index([status, scheduledFor])
+  @@index([contentRowId])
 }
 
 // ---------------------------------------------------------------------------
@@ -599,6 +610,9 @@ model DataTableRow {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  /// Posts agendados a partir desta linha (so linhas do Calendario de Conteudo tem).
+  scheduledPosts ScheduledPost[]
 
   @@index([tableId])
 }
@@ -954,10 +968,9 @@ model DirectMessageAttachment {
 }
 
 /// A pilula "Reportar bug/feedback" fixa no canto da tela — qualquer usuario
-/// autenticado pode abrir. `emailedAt` fica nulo ate o envio de e-mail ser
-/// ligado (ver lib/bug-report-email.ts); a linha existe e fica visivel para
-/// quem tem acesso ao banco mesmo antes disso, o e-mail e so uma notificacao
-/// a mais por cima do registro.
+/// autenticado pode abrir. Cada relato avisa jose@evecompany.com.br no sino e,
+/// com SMTP_URL configurado, por e-mail (ver lib/bug-report-email.ts);
+/// `emailedAt` fica nulo enquanto o e-mail nao sai.
 model BugReport {
   id          String    @id @default(cuid())
   workspaceId String

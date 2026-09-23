@@ -1,4 +1,4 @@
-import { loadConnectorContext, prisma } from '@eve/core';
+import { loadConnectorContext, prisma, refreshContentRow } from '@eve/core';
 import {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
@@ -7,6 +7,7 @@ import {
   createInstagramContainer,
   createInstagramReelContainer,
   createInstagramStoryContainer,
+  fetchPermalink,
   mediaKindFromUrl,
   pollInstagramContainerReady,
   publishFacebookStory,
@@ -45,6 +46,38 @@ function sleep(ms: number): Promise<void> {
 const TYPE_LABEL: Record<string, string> = { feed: 'post', story: 'story', reel: 'reel' };
 
 /**
+ * The post's Calendário de Conteúdo row follows what just happened to it
+ * (Programado → Publicado, or Falhou) — see @eve/core's content-posts. A
+ * failure here is logged, never the reason the tick dies: the post's own
+ * status is what must be right.
+ */
+async function syncContentRow(post: { id: string; contentRowId: string | null }): Promise<void> {
+  if (!post.contentRowId) return;
+  try {
+    await refreshContentRow(post.contentRowId);
+  } catch (cause) {
+    console.error(`[worker] falha ao atualizar o conteudo do post ${post.id}:`, errorMessage(cause));
+  }
+}
+
+/** Meta confirmed it: record the id and the public link, then move the content row to Publicado. */
+async function markPublished(
+  post: { id: string; platform: 'instagram' | 'facebook'; postType: string; contentRowId: string | null },
+  token: string,
+  metaPostId: string,
+): Promise<void> {
+  let permalink: string | null = null;
+  try {
+    permalink = await fetchPermalink(token, { platform: post.platform, postType: post.postType, metaPostId });
+  } catch (cause) {
+    // The post is out either way; only the link in the calendar stays empty.
+    console.error(`[worker] falha ao buscar o link do post ${post.id}:`, errorMessage(cause));
+  }
+  await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'published', metaPostId, statusMessage: null, permalink } });
+  await syncContentRow(post);
+}
+
+/**
  * A post that fails is otherwise completely silent: it happens at a minute
  * nobody is watching, and all it leaves behind is a row that quietly turns
  * red in a calendar cell. Notifying whoever scheduled it is the only thing
@@ -52,7 +85,7 @@ const TYPE_LABEL: Record<string, string> = { feed: 'post', story: 'story', reel:
  * write, not just the status write.
  */
 async function markFailed(
-  post: { id: string; workspaceId: string; createdBy: string; clientLabel: string; platform: string; postType: string },
+  post: { id: string; workspaceId: string; createdBy: string; clientLabel: string; platform: string; postType: string; contentRowId: string | null },
   error: unknown,
 ): Promise<void> {
   const message = errorMessage(error).slice(0, 500);
@@ -61,6 +94,7 @@ async function markFailed(
     where: { id: post.id },
     data: { status: 'failed', statusMessage: message },
   });
+  await syncContentRow(post);
 
   // Never let the notification be the reason the tick dies: the status write
   // above is the part that must not be lost.
@@ -180,10 +214,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         creationId,
       );
 
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'published', metaPostId: mediaId, statusMessage: null },
-      });
+      await markPublished(post, credentials.pageAccessToken, mediaId);
     } catch (error) {
       await markFailed(post, error);
     }
@@ -212,7 +243,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
 
       const { isPublished } = await checkFacebookPostStatus(credentials.pageAccessToken, post.metaPostId);
       if (isPublished) {
-        await prisma.scheduledPost.update({ where: { id: post.id }, data: { status: 'published' } });
+        await markPublished(post, credentials.pageAccessToken, post.metaPostId);
       } else if (now.getTime() - post.scheduledFor.getTime() > FACEBOOK_GRACE_MS) {
         await markFailed(post, new Error('O Meta nao confirmou a publicacao a tempo.'));
       }
@@ -238,10 +269,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
 
       const { postId } = await publishFacebookStory(credentials.pageAccessToken, config.pageId, post.mediaUrl);
 
-      await prisma.scheduledPost.update({
-        where: { id: post.id },
-        data: { status: 'published', metaPostId: postId, statusMessage: null },
-      });
+      await markPublished(post, credentials.pageAccessToken, postId);
     } catch (error) {
       await markFailed(post, error);
     }

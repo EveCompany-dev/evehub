@@ -132,7 +132,37 @@ function initialValues(fields: SetupField[]): Record<string, string> {
   return Object.fromEntries(fields.map((field) => [field.key, field.defaultValue ?? '']));
 }
 
-export function ConnectorSetup({ connector, onCancel, onConnected, clientId }: ConnectorSetupProps): JSX.Element {
+/**
+ * Google Agenda connects through Google's own consent screen, not a form:
+ * the person picks the account there (the shared marketing@, or their own)
+ * and lands on the Agenda do Time once it's connected.
+ */
+function GoogleCalendarSetup({ connector, onCancel }: Pick<ConnectorSetupProps, 'connector' | 'onCancel'>): JSX.Element {
+  return (
+    <div className="eve-setup">
+      <div className="eve-setup__head">
+        <button type="button" className="eve-btn eve-btn--icon" onClick={onCancel} aria-label={strings.dock.back}>
+          <ChevronLeft size={14} aria-hidden="true" />
+        </button>
+        <strong>{connector.label}</strong>
+      </div>
+      <p className="eve-setup__hint">
+        Entre na conta do Google cuja agenda o time vai ver — a marketing@, ou a de alguém que tenha a própria. Cada conta vira uma
+        conexão; compromissos marcados como particulares no Google aparecem só como “Ocupado”.
+      </p>
+      {/* A plain link, not fetch: the browser has to actually go to Google and come back. */}
+      <a className="eve-btn eve-btn--primary eve-btn--block" href="/api/connectors/google-calendar/connect">
+        Conectar com Google
+      </a>
+    </div>
+  );
+}
+
+export function ConnectorSetup(props: ConnectorSetupProps): JSX.Element {
+  return props.connector.id === 'google-calendar' ? <GoogleCalendarSetup connector={props.connector} onCancel={props.onCancel} /> : <CredentialsSetup {...props} />;
+}
+
+function CredentialsSetup({ connector, onCancel, onConnected, clientId }: ConnectorSetupProps): JSX.Element {
   const fields = SETUP_FIELDS[connector.id] ?? [];
 
   const [values, setValues] = useState<Record<string, string>>(() => initialValues(fields));

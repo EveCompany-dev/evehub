@@ -3,7 +3,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
-import { canViewScheduling } from '../../../../../lib/permissions';
+import { canDeleteClient, canViewScheduling } from '../../../../../lib/permissions';
 import { clientProfileOut, parseClientProfile } from '../../../../../lib/client-fields';
 import { HttpError, requireUser } from '../../../../../lib/session';
 
@@ -60,6 +60,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   return handle(async () => {
     const user = await requireUser();
     if (!canViewScheduling(user)) throw new HttpError(403, strings.errors.notAllowedScheduling);
+    if (!canDeleteClient(user)) throw new HttpError(403, 'Só um administrador pode apagar um cliente.');
 
     const { id } = await context.params;
     const client = await requireLocalClient(id, user.workspaceId);

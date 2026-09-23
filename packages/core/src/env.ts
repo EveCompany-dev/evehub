@@ -52,6 +52,16 @@ const envSchema = z.object({
    * or copying .env.example verbatim would refuse to boot.
    */
   PUBLIC_BASE_URL: z.preprocess((value) => (value === '' ? undefined : value), z.string().url().optional()),
+
+  /**
+   * Where the app sends e-mail (today only bug reports, to
+   * jose@evecompany.com.br), as one SMTP URL, e.g. Google Workspace with an
+   * app password: `smtps://marketing%40evecompany.com.br:APP_PASSWORD@smtp.gmail.com:465`.
+   * Unset = no e-mail; the report still lands in the app (bell + activity log).
+   */
+  SMTP_URL: z.preprocess((value) => (value === '' ? undefined : value), z.string().url().optional()),
+  /** Sender shown on those e-mails; defaults to the SMTP login. */
+  MAIL_FROM: z.preprocess((value) => (value === '' ? undefined : value), z.string().min(3).optional()),
 });
 
 export type EveEnv = z.infer<typeof envSchema>;

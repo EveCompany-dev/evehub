@@ -4,22 +4,28 @@ import { useMemo, useState, type JSX } from 'react';
 import { normalizeName } from '../lib/table-import/clients';
 import { toIsoDate } from '../lib/table-dates';
 import { bucketByDay, initialMonth, rowTitle } from '../lib/table-views';
+import { useContextMenu, type ContextMenuItem } from './ContextMenu';
 import type { DataColumn, DataTableRowValue, TableEnv } from './data-table-types';
 import { MonthGrid } from './MonthGrid';
 import { FacebookIcon, InstagramIcon } from './PlatformIcon';
-import { Popover } from './Popover';
 import { ClientPill, TagPill } from './TagPill';
+
+/** What was right-clicked: a day, and the entry on it when the click landed on one. */
+export interface CalendarMenuTarget {
+  date: Date;
+  row?: DataTableRowValue;
+}
 
 export interface CalendarViewProps {
   env: TableEnv;
   rows: DataTableRowValue[];
   dateColumn: DataColumn;
   clientLabels: Record<string, string>;
-  /** Draw the client on each entry (the all-clients calendar needs it; a client's own page doesn't). */
+  /** Draw the client on each entry (off on a client's own page, where it would only repeat the page). */
   showClient: boolean;
   onOpen: (rowId: string) => void;
-  /** Creates a row already dated to this day. */
-  onAddOnDay: (date: Date) => void;
+  /** Right-click menu for a day or an entry (the client page's "Agendar post"); no menu when omitted. */
+  menuFor?: (target: CalendarMenuTarget) => ContextMenuItem[];
 }
 
 /** The channel's mark: Instagram/Facebook get their glyph, anything else a neutral dot. */
@@ -34,15 +40,15 @@ function ChannelMark({ name }: { name: string }): JSX.Element {
  * The content schedule, laid out like the Notion "Calendário de Conteúdo":
  * each entry is a white card on its day — channel mark and title, then the
  * format and status pills underneath. Dates are read whichever way they were
- * written; entries with no readable date wait under "Sem data" instead of
- * disappearing. Nothing is filtered here: what you see is everything scheduled.
+ * written. It only shows what is already planned; right-click (when the page
+ * offers it) schedules a post from a day or an entry.
  */
-export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, onOpen, onAddOnDay }: CalendarViewProps): JSX.Element {
+export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, onOpen, menuFor }: CalendarViewProps): JSX.Element {
   const columns = env.table.columns;
   const buckets = useMemo(() => bucketByDay(rows, dateColumn.key), [rows, dateColumn.key]);
   const start = useMemo(() => initialMonth(rows, dateColumn.key), [rows, dateColumn.key]);
   const [cursor, setCursor] = useState(start);
-  const [undatedAnchor, setUndatedAnchor] = useState<DOMRect | null>(null);
+  const menu = useContextMenu();
 
   const channelColumn = columns.find((column) => column.type === 'select' && normalizeName(column.label) === 'canal');
   // Format first, then status — the order Notion shows them — then any other select/tags column.
@@ -55,19 +61,11 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
 
   return (
     <div className="eve-calview">
-      <div className="eve-calview__bar">
-        <button type="button" className="eve-calview__undated" onClick={(event) => setUndatedAnchor(event.currentTarget.getBoundingClientRect())} disabled={buckets.undated.length === 0}>
-          Sem data ({buckets.undated.length})
-        </button>
-        <button type="button" className="eve-calview__new" onClick={() => onAddOnDay(new Date())}>
-          Nova
-        </button>
-      </div>
-
       <MonthGrid
         year={cursor.year}
         month={cursor.month}
         onMonthChange={(year, month) => setCursor({ year, month })}
+        onDayContextMenu={menuFor ? (date, event) => menu.open(event, menuFor({ date })) : undefined}
         renderDay={(date) => {
           const dayRows = buckets.byDay.get(toIsoDate(date)) ?? [];
           return (
@@ -85,6 +83,14 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
                       event.stopPropagation();
                       onOpen(row.id);
                     }}
+                    onContextMenu={
+                      menuFor
+                        ? (event) => {
+                            event.stopPropagation();
+                            menu.open(event, menuFor({ date, row }));
+                          }
+                        : undefined
+                    }
                   >
                     <span className="eve-calview__head">
                       {typeof channel === 'string' && channel !== '' && <ChannelMark name={channel} />}
@@ -99,45 +105,11 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
                   </button>
                 );
               })}
-              <button
-                type="button"
-                className="eve-calview__add"
-                aria-label={`Nova linha em ${date.toLocaleDateString('pt-BR')}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onAddOnDay(date);
-                }}
-              >
-                +
-              </button>
             </div>
           );
         }}
       />
-
-      {undatedAnchor && (
-        <Popover anchor={undatedAnchor} onClose={() => setUndatedAnchor(null)} width={320}>
-          <p className="eve-popover__title">Sem data reconhecível</p>
-          <div className="eve-popover__list">
-            {buckets.undated.map((row) => (
-              <button
-                key={row.id}
-                type="button"
-                className="eve-popover__item"
-                onClick={() => {
-                  setUndatedAnchor(null);
-                  onOpen(row.id);
-                }}
-              >
-                {rowTitle(columns, row, clientLabels)}
-                {typeof row.data[dateColumn.key] === 'string' && row.data[dateColumn.key] !== '' && (
-                  <span className="eve-dim eve-popover__count">“{String(row.data[dateColumn.key])}”</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </Popover>
-      )}
+      {menu.render()}
     </div>
   );
 }

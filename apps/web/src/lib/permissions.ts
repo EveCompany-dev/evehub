@@ -6,22 +6,39 @@ export interface PermissionSubject {
 }
 
 /**
- * Every nav section. 'chat' through 'automations', plus 'team', are the
- * DEFAULT_TABS every authenticated non-admin already gets. 'activity' (the
- * registro de atividades) is admin-only and outside what a Role can grant —
- * see ROLE_GRANTABLE_TABS.
+ * Every nav section. 'activity' (the registro de atividades) is admin-only
+ * and outside what a Role can allow — see ROLE_GRANTABLE_TABS.
  */
 export const TAB_KEYS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team', 'activity'] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 
-/** What the Role editor offers. A Role never reaches the activity log, whatever its JSON says. */
+/**
+ * Every tab a non-admin can have — all of them on by default — and what the
+ * Role editor offers. A Role never reaches the activity log, whatever its JSON says.
+ */
 export const ROLE_GRANTABLE_TABS: readonly TabKey[] = TAB_KEYS.filter((tab) => tab !== 'activity');
 
-/**
- * 'team' is here since admin became a fixed list: everyone sees who is on the
- * team (read-only), and only the admins can change anything about it.
- */
-const DEFAULT_TABS: readonly TabKey[] = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'team'];
+export const TAB_LABELS: Record<TabKey, string> = {
+  chat: 'Chat',
+  jobs: 'Jobs',
+  tables: 'Tabelas',
+  connectors: 'Conectores',
+  automations: 'Automações',
+  scheduling: 'Agenda',
+  financial: 'Financeiro',
+  team: 'Equipe',
+  activity: 'Registro de atividades',
+};
+
+/** What a cargo lets its members open, in words: "todas as abas", "todas menos Financeiro", "só Chat, Jobs". */
+export function describeRoleTabs(tabs: unknown): string {
+  const allowed = ROLE_GRANTABLE_TABS.filter((tab) => Array.isArray(tabs) && tabs.includes(tab));
+  const hidden = ROLE_GRANTABLE_TABS.filter((tab) => !allowed.includes(tab));
+  const names = (list: readonly TabKey[]) => list.map((tab) => TAB_LABELS[tab]).join(', ');
+  if (hidden.length === 0) return 'todas as abas';
+  if (allowed.length === 0) return 'nenhuma aba';
+  return hidden.length <= allowed.length ? `todas menos ${names(hidden)}` : `só ${names(allowed)}`;
+}
 
 const roleTabsSchema = z.array(z.string()).catch([]);
 
@@ -32,7 +49,6 @@ export function parseRoleTabs(value: unknown): string[] {
 
 export interface TabSubject {
   isOwner: boolean;
-  isSocialMedia: boolean;
   /** null = no Role assigned. Pass `parseRoleTabs(role.tabs)` for an assigned one. */
   roleTabs: string[] | null;
 }
@@ -40,32 +56,27 @@ export interface TabSubject {
 /**
  * The product's entire tab-visibility model, in one place.
  *
- * Owner bypasses this completely — always sees every tab, has since before
- * roles existed, and a Role can never take that away. Everyone else gets
- * DEFAULT_TABS, plus 'scheduling' if tagged isSocialMedia (a legacy shortcut
- * kept for backward compat), plus whatever their assigned Role's `tabs`
- * array adds — that's the only way a non-owner ever reaches 'financial'.
- * A Role only ever *adds* visibility; it can't take away a default tab or the
- * isSocialMedia shortcut, and it can never add 'activity'.
+ * Owner bypasses this completely — always sees every tab, activity log
+ * included, and a Role can never take that away. Everyone else starts with
+ * every ROLE_GRANTABLE_TABS entry; an assigned Role is an allow-list, so the
+ * only thing that ever hides a tab from a member is a cargo that leaves it
+ * out. A Role can never add 'activity'. (Until 2026-09-22 a Role *added* tabs
+ * to a fixed default set — the role_tabs_allow_list migration rewrote every
+ * existing Role so nobody's view changed.)
  */
 export function getVisibleTabs(user: TabSubject): Set<TabKey> {
   if (user.isOwner) return new Set(TAB_KEYS);
-
-  const tabs = new Set<TabKey>(DEFAULT_TABS);
-  if (user.isSocialMedia) tabs.add('scheduling');
-  for (const tab of user.roleTabs ?? []) {
-    if ((ROLE_GRANTABLE_TABS as readonly string[]).includes(tab)) tabs.add(tab as TabKey);
-  }
-  return tabs;
+  if (user.roleTabs === null) return new Set(ROLE_GRANTABLE_TABS);
+  return new Set(ROLE_GRANTABLE_TABS.filter((tab) => user.roleTabs!.includes(tab)));
 }
 
 export function canViewTab(user: TabSubject, tab: TabKey): boolean {
   return getVisibleTabs(user).has(tab);
 }
 
-/** Builds a TabSubject from the shape every call site fetches: `select: { isOwner, isSocialMedia, role: { select: { tabs: true } } }`. */
-export function toTabSubject(row: { isOwner: boolean; isSocialMedia: boolean; role: { tabs: unknown } | null }): TabSubject {
-  return { isOwner: row.isOwner, isSocialMedia: row.isSocialMedia, roleTabs: row.role ? parseRoleTabs(row.role.tabs) : null };
+/** Builds a TabSubject from the shape every call site fetches: `select: { isOwner, role: { select: { tabs: true } } }`. */
+export function toTabSubject(row: { isOwner: boolean; role: { tabs: unknown } | null }): TabSubject {
+  return { isOwner: row.isOwner, roleTabs: row.role ? parseRoleTabs(row.role.tabs) : null };
 }
 
 /**
@@ -97,10 +108,19 @@ export function canDeleteInstance(user: PermissionSubject): boolean {
 /**
  * Mutating the team — adding people, disabling, deleting, resetting a
  * password, and managing Roles themselves — is admin-only no matter what.
- * Everyone else gets the read-only roster (the 'team' tab is a default one):
+ * Everyone else gets the read-only roster (unless a cargo hides 'team'):
  * they see each other, they cannot act on each other.
  */
 export function canManageTeam(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
+/**
+ * Apagar um cliente leva junto a pagina e os projetos dele, e tira o vinculo
+ * de jobs, posts e conexoes — so admin. Criar e editar continuam abertos a
+ * quem ve a aba.
+ */
+export function canDeleteClient(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
@@ -114,7 +134,7 @@ export function canViewFinancial(user: TabSubject): boolean {
   return canViewTab(user, 'financial');
 }
 
-/** Agenda de posts: 'scheduling' tab — isOwner, isSocialMedia, or an assigned Role all fall out of getVisibleTabs(). */
+/** Agenda, Calendário de Conteúdo e Agendar Post: the 'scheduling' tab. */
 export function canViewScheduling(user: TabSubject): boolean {
   return canViewTab(user, 'scheduling');
 }
@@ -129,7 +149,7 @@ export function canManageJobColumnColors(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
-/** Read-only roster: 'team' is a default tab now, so this is true for every signed-in account. See canManageTeam for the (admin-only) mutation gate. */
+/** Read-only roster: true for every signed-in account a cargo doesn't hide it from. See canManageTeam for the (admin-only) mutation gate. */
 export function canViewTeamTab(user: TabSubject): boolean {
   return user.isOwner || canViewTab(user, 'team');
 }

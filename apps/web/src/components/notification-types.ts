@@ -7,7 +7,8 @@ export type NotificationType =
   | 'directMessage'
   | 'connectorSyncFailed'
   | 'connectorSyncRecovered'
-  | 'passwordResetRequested';
+  | 'passwordResetRequested'
+  | 'bugReport';
 
 /**
  * Where clicking a notification goes, or null when there is nowhere useful to
@@ -21,6 +22,8 @@ export function notificationHref(notification: Pick<NotificationSummary, 'type' 
   if (notification.type === 'connectorSyncFailed' || notification.type === 'connectorSyncRecovered') return '/connectors';
   // Os admins geram o link de senha na tela de Equipe.
   if (notification.type === 'passwordResetRequested') return '/team';
+  // O relato inteiro fica no registro de atividades (so admins, como jose@).
+  if (notification.type === 'bugReport') return '/activity';
   return null;
 }
 

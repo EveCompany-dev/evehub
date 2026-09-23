@@ -4,7 +4,7 @@ import { Copy, EllipsisVertical, strings } from '@eve/ui';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type JSX, type MouseEvent as ReactMouseEvent } from 'react';
 import { useContextMenu, type ContextMenuItem } from '../../components/ContextMenu';
-import { ROLE_GRANTABLE_TABS } from '../../lib/permissions';
+import { describeRoleTabs, ROLE_GRANTABLE_TABS, TAB_LABELS } from '../../lib/permissions';
 import { Avatar } from './ProfileForm';
 
 export interface TeamMember {
@@ -43,16 +43,10 @@ interface IssuedLink {
   expiresAt: string;
 }
 
-const TAB_LABELS: Record<string, string> = {
-  chat: 'Chat',
-  jobs: 'Jobs',
-  tables: 'Tabelas',
-  connectors: 'Conectores',
-  automations: 'Automações',
-  scheduling: 'Agenda',
-  financial: 'Financeiro',
-  team: 'Equipe',
-};
+/** A new cargo starts with every tab allowed; the admin unticks what its members shouldn't see. */
+function emptyRoleDraft(): { name: string; tabs: Set<string> } {
+  return { name: '', tabs: new Set(ROLE_GRANTABLE_TABS) };
+}
 
 export interface TeamSectionProps {
   currentUserId: string;
@@ -66,6 +60,10 @@ export interface TeamSectionProps {
 
 async function readJson<T>(response: Response): Promise<T & { error?: string }> {
   return (await response.json().catch(() => ({}))) as T & { error?: string };
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 function whoOf(member: { name: string | null; email: string }): string {
@@ -109,7 +107,7 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
   const router = useRouter();
   const [roleBusy, setRoleBusy] = useState(false);
   const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
-  const [roleDraft, setRoleDraft] = useState<{ name: string; tabs: Set<string> }>({ name: '', tabs: new Set() });
+  const [roleDraft, setRoleDraft] = useState(emptyRoleDraft);
 
   const load = useCallback(async () => {
     try {
@@ -344,7 +342,7 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
 
   const resetRoleDraft = () => {
     setEditingRoleId(null);
-    setRoleDraft({ name: '', tabs: new Set() });
+    setRoleDraft(emptyRoleDraft());
   };
 
   const startEditRole = (role: RoleRow) => {
@@ -634,8 +632,8 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
           {managingRoles && (
             <>
               <p className="eve-dim eve-profile__hint">
-                Um cargo concede acesso extra a abas, além do conjunto padrão (Chat, Jobs, Tabelas, Conectores, Automações,
-                Equipe). Nenhum cargo dá acesso de administrador nem ao registro de atividades.
+                Sem cargo, a pessoa vê todas as abas. Um cargo esconde as abas que ficarem desmarcadas. Nenhum cargo dá acesso
+                de administrador nem ao registro de atividades.
               </p>
 
               {roles.length > 0 && (
@@ -643,9 +641,7 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                   {roles.map((role) => (
                     <li key={role.id} className="eve-team__role-row">
                       <span className="eve-team__role-name">{role.name}</span>
-                      <span className="eve-dim eve-team__role-tabs">
-                        {role.tabs.length > 0 ? role.tabs.map((tab) => TAB_LABELS[tab] ?? tab).join(', ') : 'Nenhuma aba extra'}
-                      </span>
+                      <span className="eve-dim eve-team__role-tabs">{capitalize(describeRoleTabs(role.tabs))}</span>
                       <span className="eve-team__actions">
                         <button type="button" className="eve-btn" onClick={() => startEditRole(role)}>
                           Editar
@@ -671,12 +667,12 @@ export function TeamSection({ currentUserId, isOwner }: TeamSectionProps): JSX.E
                 </label>
 
                 <div className="eve-field">
-                  <span className="eve-field__label">Abas visíveis</span>
+                  <span className="eve-field__label">Abas liberadas</span>
                   <div className="eve-team__role-tabs-grid">
                     {ROLE_GRANTABLE_TABS.map((tab) => (
                       <label key={tab} className="eve-check">
                         <input type="checkbox" checked={roleDraft.tabs.has(tab)} onChange={() => toggleDraftTab(tab)} />
-                        <span>{TAB_LABELS[tab] ?? tab}</span>
+                        <span>{TAB_LABELS[tab]}</span>
                       </label>
                     ))}
                   </div>

@@ -30,11 +30,43 @@ function toDraft(column: JobColumnSummary): ColumnColorDraft {
 /**
  * Admin-only, rendered on the Equipe page (app/team/page.tsx) because it
  * edits JobColumn rows — a value shared by the whole team — not anyone's
- * personal dashboardConfig. It fetches and saves on its own. The API still re-checks isOwner server-side (see
+ * personal dashboardConfig. Folded by default, like Cargos right above it:
+ * the editor mounts (and fetches) on the first open and then stays mounted
+ * while folded, so a color saved a moment before folding still goes out.
+ * The API still re-checks isOwner server-side (see
  * app/api/jobs/columns/[id]/route.ts) — this component hiding the controls
  * is a UX nicety, not the actual guard.
  */
 export function JobColumnsSection(): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [everOpened, setEverOpened] = useState(false);
+
+  return (
+    <section className="eve-settings__section">
+      <div className="eve-team__head">
+        <h3 className="eve-card__title">{strings.jobs.columnColorsTitle}</h3>
+        <button
+          type="button"
+          className="eve-btn"
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((value) => !value);
+            setEverOpened(true);
+          }}
+        >
+          {open ? 'Fechar' : 'Editar cores'}
+        </button>
+      </div>
+      {everOpened && (
+        <div hidden={!open}>
+          <ColumnColorsEditor />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ColumnColorsEditor(): JSX.Element {
   const [columns, setColumns] = useState<JobColumnSummary[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ColumnColorDraft>>({});
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -114,8 +146,7 @@ export function JobColumnsSection(): JSX.Element {
   if (!columns) return <p className="eve-dim">carregando...</p>;
 
   return (
-    <section className="eve-settings__section">
-      <h4 className="eve-settings__section-title">{strings.jobs.columnColorsTitle}</h4>
+    <>
       <p className="eve-setup__hint">{strings.jobs.columnColorsHint}</p>
 
       {columns.map((column) => {
@@ -205,6 +236,6 @@ export function JobColumnsSection(): JSX.Element {
           </div>
         );
       })}
-    </section>
+    </>
   );
 }

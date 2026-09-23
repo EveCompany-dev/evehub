@@ -17,9 +17,9 @@ function BugIcon(): JSX.Element {
 /**
  * Fixed pill in the bottom-left corner of every page — bug icon, hides its
  * label until hovered (the "pulled out" slide). Clicking opens the report
- * form; sending it always saves a BugReportAttachment row first, then tries
- * the email (see lib/bug-report-email.ts — a stub until a provider is
- * configured), so a report is never lost even before that's wired up.
+ * form; sending it saves the report first, then tells jose@evecompany.com.br
+ * in the bell and, once SMTP_URL is set, by e-mail (see lib/bug-report-email.ts),
+ * so a report is never lost.
  */
 export function BugReportPill(): JSX.Element {
   const [open, setOpen] = useState(false);

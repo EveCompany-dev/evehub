@@ -2,7 +2,8 @@ import { prisma } from '@eve/core';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../lib/activity';
 import { fail, handle, ok } from '../../../lib/api';
-import { sendBugReportEmail } from '../../../lib/bug-report-email';
+import { BUG_REPORT_RECIPIENT, sendBugReportEmail } from '../../../lib/bug-report-email';
+import { notify } from '../../../lib/notifications';
 import { requireUser } from '../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -36,6 +37,21 @@ export async function POST(request: Request): Promise<Response> {
       include: { attachments: true },
     });
 
+    // In jose@'s bell right away — the e-mail below only goes out once SMTP is set up.
+    const recipient = await prisma.user.findFirst({
+      where: { workspaceId: user.workspaceId, email: BUG_REPORT_RECIPIENT, deletedAt: null },
+      select: { id: true },
+    });
+    if (recipient) {
+      await notify({
+        workspaceId: user.workspaceId,
+        userId: recipient.id,
+        actorId: user.id,
+        type: 'bugReport',
+        message: `${user.name?.trim() || user.email} relatou: ${report.message.slice(0, 200)}${report.message.length > 200 ? '…' : ''}`,
+      });
+    }
+
     const sent = await sendBugReportEmail({
       reporterName: user.name?.trim() || user.email,
       reporterEmail: user.email,
@@ -47,7 +63,8 @@ export async function POST(request: Request): Promise<Response> {
 
     await logActivity(user, {
       action: 'bug.report',
-      summary: `enviou um relato de bug/feedback: ${quoted(report.message, 120)}`,
+      // Long enough to read the report where the bell sends jose@ (the activity log).
+      summary: `enviou um relato de bug/feedback: ${quoted(report.message, 600)}${report.attachments.length > 0 ? ` (${report.attachments.length} anexo${report.attachments.length === 1 ? '' : 's'})` : ''}`,
       entityType: 'bugReport',
       entityId: report.id,
     });

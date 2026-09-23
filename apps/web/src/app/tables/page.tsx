@@ -3,11 +3,12 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { TablesWorkspace } from '../../components/TablesWorkspace';
+import { canViewTab } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
-/** Open to any authenticated workspace member — no permission tag, same as Automations. */
+/** Every member unless their cargo hides the Tabelas tab. */
 export default async function TablesPage({
   searchParams,
 }: {
@@ -15,6 +16,7 @@ export default async function TablesPage({
 }): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
+  if (!canViewTab(user, 'tables')) redirect('/');
   const { table } = await searchParams;
 
   return (
