@@ -22,6 +22,7 @@ COPY packages/connectors/notes/package.json packages/connectors/notes/
 COPY packages/connectors/notion/package.json packages/connectors/notion/
 COPY packages/connectors/overview/package.json packages/connectors/overview/
 COPY packages/connectors/timer/package.json packages/connectors/timer/
+COPY packages/connectors/todo/package.json packages/connectors/todo/
 RUN pnpm install --frozen-lockfile
 
 FROM base AS build

@@ -108,6 +108,7 @@ model Workspace {
   roles              Role[]
   activityLogs       ActivityLog[]
   passwordResetRequests PasswordResetRequest[]
+  todoLists          TodoList[]
 }
 
 model User {
@@ -183,6 +184,7 @@ model User {
   activityLogs         ActivityLog[]
   passwordResetRequests PasswordResetRequest[] @relation("PasswordResetRequester")
   issuedPasswordResets  PasswordResetRequest[] @relation("PasswordResetIssuer")
+  todoLists             TodoList[]
 
   @@index([workspaceId])
 }
@@ -1088,4 +1090,53 @@ model PasswordResetRequest {
 
   @@index([workspaceId, createdAt])
   @@index([userId])
+}
+
+// --- Tarefas (widget "Tarefas") ------------------------------------------
+
+/// Lista de tarefas PESSOAL. So o dono a ve e mexe nela — nem admin, nem
+/// pela UI, nem pela API (toda rota em /api/todos confere ownerId contra a
+/// sessao e responde 404 para qualquer outra pessoa). Nunca entra no
+/// registro de atividades: e dado pessoal (ver readme, "Registro de
+/// atividades"). O chat do Claude cria, edita e conclui tarefas aqui, mas
+/// nao tem ferramenta para excluir nada.
+model TodoList {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  name     String
+  /// Ordem das listas do dono (seletor de lista do widget).
+  position Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items TodoItem[]
+
+  @@index([ownerId, position])
+  @@index([workspaceId])
+}
+
+model TodoItem {
+  id     String   @id @default(cuid())
+  listId String
+  list   TodoList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  /// Texto livre. Mencoes e links viram tokens no proprio texto:
+  /// @[rotulo](job:<id>), @[rotulo](client:<id>), /[rotulo](page:/jobs) —
+  /// ver apps/web/src/lib/todo-tokens.ts.
+  text     String
+  done     Boolean   @default(false)
+  doneAt   DateTime?
+  /// Ordem manual (arrastar), 0 = topo. Reescrita inteira a cada reordenacao.
+  position Int       @default(0)
+  dueDate  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([listId, position])
 }

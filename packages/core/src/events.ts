@@ -13,6 +13,23 @@ export interface ConnectorUpdatedEvent {
 }
 
 /**
+ * Someone's personal to-do lists changed (the Claude chat added a task, another
+ * tab reordered one). Travels on the same channel as connector updates — one
+ * subscriber per process either way — but the SSE route forwards it only to
+ * `userId`'s own tabs: the lists are private, so even the fact that they
+ * changed never reaches anyone else in the workspace.
+ */
+export interface TodoUpdatedEvent {
+  type: 'todo:updated';
+  workspaceId: string;
+  userId: string;
+  /** null = more than one list may have changed. */
+  listId: string | null;
+}
+
+export type LiveEvent = ConnectorUpdatedEvent | TodoUpdatedEvent;
+
+/**
  * Options for every Redis client used on a request path.
  *
  * `enableOfflineQueue: false` is the important one: with the queue enabled (the
@@ -61,6 +78,10 @@ function getPublisher(): Redis {
 }
 
 export async function publishConnectorEvent(event: ConnectorUpdatedEvent): Promise<void> {
+  await publishLiveEvent(event);
+}
+
+export async function publishLiveEvent(event: LiveEvent): Promise<void> {
   try {
     await getPublisher().publish(CONNECTOR_CHANNEL, JSON.stringify(event));
   } catch (error) {
@@ -74,7 +95,7 @@ export async function publishConnectorEvent(event: ConnectorUpdatedEvent): Promi
  * Opens a dedicated subscriber connection. Redis puts a connection in
  * subscriber mode exclusively, so this cannot share the publisher's socket.
  */
-export function subscribeToConnectorEvents(onEvent: (event: ConnectorUpdatedEvent) => void): () => void {
+export function subscribeToConnectorEvents(onEvent: (event: LiveEvent) => void): () => void {
   // The subscriber is a long-lived background stream, so it keeps retrying
   // rather than failing fast: reconnecting on its own is the desired behaviour.
   const subscriber = new Redis(getEnv().REDIS_URL, {
@@ -87,7 +108,7 @@ export function subscribeToConnectorEvents(onEvent: (event: ConnectorUpdatedEven
   subscriber.on('message', (channel, raw) => {
     if (channel !== CONNECTOR_CHANNEL) return;
     try {
-      onEvent(JSON.parse(raw) as ConnectorUpdatedEvent);
+      onEvent(JSON.parse(raw) as LiveEvent);
     } catch {
       console.error('[events] ignoring malformed event payload');
     }

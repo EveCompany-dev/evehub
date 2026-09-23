@@ -92,6 +92,9 @@ importers:
       '@eve/connector-timer':
         specifier: workspace:*
         version: link:../../packages/connectors/timer
+      '@eve/connector-todo':
+        specifier: workspace:*
+        version: link:../../packages/connectors/todo
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -186,6 +189,9 @@ importers:
       '@eve/connector-timer':
         specifier: workspace:*
         version: link:../../packages/connectors/timer
+      '@eve/connector-todo':
+        specifier: workspace:*
+        version: link:../../packages/connectors/todo
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -385,6 +391,19 @@ importers:
         version: 6.0.3
 
   packages/connectors/timer:
+    dependencies:
+      '@eve/connector-sdk':
+        specifier: workspace:*
+        version: link:../../connector-sdk
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.2
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
+  packages/connectors/todo:
     dependencies:
       '@eve/connector-sdk':
         specifier: workspace:*

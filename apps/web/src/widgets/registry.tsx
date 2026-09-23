@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Database,
   FileText,
+  ListTodo,
   Plug,
   StickyNote,
   Sunrise,
@@ -59,6 +60,10 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
     ssr: false,
     loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
   }),
+  todo: dynamic(() => import('./TodoWidget').then((mod) => mod.TodoWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
 };
 
 /** The icon at the top of each widget's settings card. */
@@ -71,6 +76,7 @@ const icons: Record<string, LucideIcon> = {
   calendar: CalendarDays,
   overview: Sunrise,
   timer: Timer,
+  todo: ListTodo,
 };
 
 const genericWidget: ComponentType<WidgetProps> = dynamic(

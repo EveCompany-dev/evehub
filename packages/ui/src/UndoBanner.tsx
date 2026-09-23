@@ -1,13 +1,15 @@
 'use client';
 
-import { useEffect, useState, type JSX } from 'react';
+import { useEffect, useState, type JSX, type ReactNode } from 'react';
 import { strings } from './strings';
 
 export interface UndoBannerProps {
   /** Muda quando surge uma edicao nova — reabre o aviso. */
   editId: string;
-  field: string;
-  newValue: string;
+  field?: string;
+  newValue?: string;
+  /** Texto livre no lugar de "campo → valor" (ex.: "Tarefa excluida"). */
+  message?: ReactNode;
   userName?: string | null;
   onUndo: () => void;
   /** Tempo ate sumir sozinho. A edicao continua desfazivel pelo menu. */
@@ -25,6 +27,7 @@ export function UndoBanner({
   editId,
   field,
   newValue,
+  message,
   userName,
   onUndo,
   autoHideMs = 12_000,
@@ -44,7 +47,11 @@ export function UndoBanner({
   return (
     <div className="eve-alert eve-undo">
       <span className="eve-undo__text">
-        {field} &rarr; {newValue || '—'}
+        {message ?? (
+          <>
+            {field} &rarr; {newValue || '—'}
+          </>
+        )}
         {userName ? ` (${strings.edit.savedBy(userName)})` : ''}
       </span>
 

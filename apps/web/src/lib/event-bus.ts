@@ -1,6 +1,6 @@
-import { subscribeToConnectorEvents, type ConnectorUpdatedEvent } from '@eve/core';
+import { subscribeToConnectorEvents, type LiveEvent } from '@eve/core';
 
-type Listener = (event: ConnectorUpdatedEvent) => void;
+type Listener = (event: LiveEvent) => void;
 
 /**
  * One Redis subscriber per Node process, fanned out to every open SSE stream.
