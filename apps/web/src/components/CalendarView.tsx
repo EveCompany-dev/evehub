@@ -10,10 +10,9 @@ import { MonthGrid } from './MonthGrid';
 import { FacebookIcon, InstagramIcon } from './PlatformIcon';
 import { ClientPill, TagPill } from './TagPill';
 
-/** What was right-clicked: a day, and the entry on it when the click landed on one. */
+/** What was right-clicked: a day (an entry's own actions are on its page, one left click away). */
 export interface CalendarMenuTarget {
   date: Date;
-  row?: DataTableRowValue;
 }
 
 export interface CalendarViewProps {
@@ -24,7 +23,7 @@ export interface CalendarViewProps {
   /** Draw the client on each entry (off on a client's own page, where it would only repeat the page). */
   showClient: boolean;
   onOpen: (rowId: string) => void;
-  /** Right-click menu for a day or an entry (the client page's "Agendar post"); no menu when omitted. */
+  /** Right-click menu for a day (the client page's "Agendar post neste dia"); no menu when omitted. */
   menuFor?: (target: CalendarMenuTarget) => ContextMenuItem[];
 }
 
@@ -40,8 +39,8 @@ function ChannelMark({ name }: { name: string }): JSX.Element {
  * The content schedule, laid out like the Notion "Calendário de Conteúdo":
  * each entry is a white card on its day — channel mark and title, then the
  * format and status pills underneath. Dates are read whichever way they were
- * written. It only shows what is already planned; right-click (when the page
- * offers it) schedules a post from a day or an entry.
+ * written. It only shows what is already planned; right-click on a day (when
+ * the page offers it) schedules a post for that day.
  */
 export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, onOpen, menuFor }: CalendarViewProps): JSX.Element {
   const columns = env.table.columns;
@@ -83,14 +82,6 @@ export function CalendarView({ env, rows, dateColumn, clientLabels, showClient, 
                       event.stopPropagation();
                       onOpen(row.id);
                     }}
-                    onContextMenu={
-                      menuFor
-                        ? (event) => {
-                            event.stopPropagation();
-                            menu.open(event, menuFor({ date, row }));
-                          }
-                        : undefined
-                    }
                   >
                     <span className="eve-calview__head">
                       {typeof channel === 'string' && channel !== '' && <ChannelMark name={channel} />}

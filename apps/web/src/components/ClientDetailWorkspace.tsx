@@ -69,10 +69,7 @@ export function ClientDetailWorkspace({ clientId, canSchedule }: ClientDetailWor
       )
     : undefined;
   const calendarMenu = canSchedule
-    ? ({ date, row }: CalendarMenuTarget): ContextMenuItem[] => [
-        ...(row ? [{ label: 'Agendar este conteúdo', onSelect: () => setComposer({ rowId: row.id }) }] : []),
-        { label: 'Agendar post neste dia', onSelect: () => setComposer({ date }) },
-      ]
+    ? ({ date }: CalendarMenuTarget): ContextMenuItem[] => [{ label: 'Agendar post neste dia', onSelect: () => setComposer({ date }) }]
     : undefined;
   const [client, setClient] = useState<ClientDetail | null>(null);
   const [linkedRows, setLinkedRows] = useState<LinkedRowGroup[]>([]);

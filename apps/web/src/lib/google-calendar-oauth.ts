@@ -45,9 +45,9 @@ export function redirectUri(request: Request): string {
   return `${publicOrigin(request)}${OAUTH_PATH}/callback`;
 }
 
-/** Back to Conectores with the reason it didn't work, which the page shows (?googleAgenda=...). */
+/** Back to Equipe > Conectores with the reason it didn't work, which the page shows (?googleAgenda=...). */
 export function backToConnectors(request: Request, reason: string): NextResponse {
-  const url = new URL('/connectors', publicOrigin(request));
+  const url = new URL('/team', publicOrigin(request));
   url.searchParams.set('googleAgenda', reason);
   return NextResponse.redirect(url);
 }

@@ -3,6 +3,7 @@
 import { Plug, Plus, Trash2 } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { isClientConnector } from '../lib/connector-scope';
 import { ConnectorSetup } from './ConnectorSetup';
 import type { AvailableConnector } from './DashboardShell';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -22,9 +23,6 @@ const STATUS_LABEL: Record<InstanceRow['status'], { text: string; color: string 
   error: { text: 'erro', color: 'red' },
   disabled: { text: 'desligado', color: 'gray' },
 };
-
-/** Outside services that belong to the team, never to one client. */
-const TEAM_ONLY = new Set(['chat', 'google-calendar']);
 
 export interface ConnectorPickerProps {
   clientId: string;
@@ -71,9 +69,8 @@ export function ConnectorPicker({ clientId, available, onConnected, onClose, int
     }
   };
 
-  // Only real outside services a client has (Meta, Google Ads, Notion): no local widgets like Demo
-  // or Timer, and none of the team's own tools (the Claude assistant, the Google Agenda).
-  const creatable = available.filter((connector) => connector.canCreate && connector.category === 'external' && !TEAM_ONLY.has(connector.id));
+  // A client's connections are its social media accounts; the team's tools are connected on Equipe.
+  const creatable = available.filter((connector) => connector.canCreate && isClientConnector(connector));
 
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>

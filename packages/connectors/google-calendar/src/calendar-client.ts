@@ -63,7 +63,7 @@ export async function getAccessToken(auth: GoogleCalendarAuth, now: number = Dat
     // changed, or (for an app still in "testing") the 7-day token expired.
     throw new GoogleCalendarError(
       parsed.error === 'invalid_grant'
-        ? 'O acesso ao Google Agenda foi revogado ou expirou. Reconecte a conta em Conectores.'
+        ? 'O acesso ao Google Agenda foi revogado ou expirou. Reconecte a conta em Equipe > Conectores.'
         : (parsed.error_description ?? parsed.error ?? `O Google recusou a renovação do acesso (HTTP ${response.status}).`),
       response.status,
     );
@@ -75,7 +75,7 @@ export async function getAccessToken(auth: GoogleCalendarAuth, now: number = Dat
 
 /** One line somebody can act on, from the API's error status. */
 export function describeError(status: number, message: string | undefined): string {
-  if (status === 401) return 'O Google recusou o acesso. Reconecte a conta em Conectores.';
+  if (status === 401) return 'O Google recusou o acesso. Reconecte a conta em Equipe > Conectores.';
   if (status === 403) return `Sem permissão nessa agenda do Google${message ? `: ${message}` : '.'}`;
   if (status === 404) return 'Essa agenda ou esse evento não existe mais no Google Agenda.';
   if (status === 429) return 'O Google Agenda pediu para ir mais devagar. A próxima sincronização tenta de novo.';
