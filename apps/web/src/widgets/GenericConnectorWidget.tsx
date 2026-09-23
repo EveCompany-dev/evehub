@@ -1,7 +1,7 @@
 'use client';
 
-import { strings, WidgetShell } from '@eve/ui';
-import { useState, type JSX } from 'react';
+import { strings, WidgetConnectionPlaceholder, WidgetShell } from '@eve/ui';
+import type { JSX } from 'react';
 import type { WidgetProps } from './types';
 import { useWidgetData } from './useWidgetData';
 import { StatCardsView } from './view/StatCardsView';
@@ -17,10 +17,9 @@ import { resolveFields } from './view/resolve-fields';
  * ideally `describeFields()` renders through here immediately — no new
  * `XyzWidget.tsx` required, no viewer/registry.tsx entry needed either.
  */
-export function GenericConnectorWidget({ instanceId, title, onRemove, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
+export function GenericConnectorWidget({ instanceId, title, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
-  const [showViewConfig, setShowViewConfig] = useState(false);
 
   const canWrite = Boolean(data?.instance.capabilities.write);
   const allFields = data?.fields ?? [];
@@ -36,22 +35,13 @@ export function GenericConnectorWidget({ instanceId, title, onRemove, viewConfig
       editable={canWrite && fields.some((field) => field.writable)}
       editing={editing.editing}
       onToggleEdit={editing.toggleEdit}
-      actions={[
-        { label: strings.view.configure, onSelect: () => setShowViewConfig((value) => !value) },
-        { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: <ViewConfigMenu allFields={allFields} value={viewConfig} onChange={onViewConfigChange} />,
+        conexao: <WidgetConnectionPlaceholder />,
+      }}
+      onSyncNow={syncNow}
       footerExtra={data ? data.records.length + ' registros' : null}
     >
-      {showViewConfig && (
-        <ViewConfigMenu
-          allFields={allFields}
-          value={viewConfig}
-          onChange={onViewConfigChange}
-          onClose={() => setShowViewConfig(false)}
-        />
-      )}
-
       {editing.editing && (
         <div className="eve-alert eve-editbar eve-no-drag">
           <span>{editing.isDirty ? strings.edit.pendingChanges : strings.edit.editHint}</span>

@@ -264,6 +264,8 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
       await tx.jobCollaborator.deleteMany({ where: { userId: target.id } });
       await tx.agendaEventAttendee.deleteMany({ where: { userId: target.id } });
       await tx.passwordResetRequest.deleteMany({ where: { userId: target.id } });
+      // Listas de tarefas sao pessoais: ninguem mais as ve, entao saem junto (os itens caem em cascata).
+      await tx.todoList.deleteMany({ where: { ownerId: target.id } });
       await tx.jobTask.updateMany({ where: { assigneeId: target.id }, data: { assigneeId: null } });
       // Um cronometro esquecido rodando ficaria contando horas para sempre.
       await tx.timeEntry.updateMany({ where: { userId: target.id, endedAt: null }, data: { endedAt: now } });

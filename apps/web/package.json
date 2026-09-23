@@ -27,6 +27,7 @@
     "@eve/connector-overview": "workspace:*",
     "@eve/connector-sdk": "workspace:*",
     "@eve/connector-timer": "workspace:*",
+    "@eve/connector-todo": "workspace:*",
     "@eve/core": "workspace:*",
     "@eve/ui": "workspace:*",
     "@node-rs/argon2": "^2.2.1",

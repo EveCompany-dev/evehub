@@ -6,6 +6,8 @@ type Callback = () => void;
 
 interface EventStreamValue {
   subscribe: (instanceId: string, callback: Callback) => () => void;
+  /** The caller's own to-do lists changed (the server only sends these to their owner). */
+  subscribeTodos: (callback: Callback) => () => void;
 }
 
 const EventStreamContext = createContext<EventStreamValue | null>(null);
@@ -28,6 +30,7 @@ export interface EventStreamProviderProps {
  */
 export function EventStreamProvider({ children, liveUpdates = true }: EventStreamProviderProps): JSX.Element {
   const listeners = useRef(new Map<string, Set<Callback>>());
+  const todoListeners = useRef(new Set<Callback>());
   const liveUpdatesRef = useRef(liveUpdates);
 
   useEffect(() => {
@@ -48,10 +51,17 @@ export function EventStreamProvider({ children, liveUpdates = true }: EventStrea
       }
     };
 
+    const onTodo = () => {
+      if (!liveUpdatesRef.current) return;
+      todoListeners.current.forEach((callback) => callback());
+    };
+
     source.addEventListener('connector', onConnector as EventListener);
+    source.addEventListener('todo', onTodo);
 
     return () => {
       source.removeEventListener('connector', onConnector as EventListener);
+      source.removeEventListener('todo', onTodo);
       source.close();
     };
   }, []);
@@ -68,7 +78,14 @@ export function EventStreamProvider({ children, liveUpdates = true }: EventStrea
     };
   }, []);
 
-  return <EventStreamContext.Provider value={{ subscribe }}>{children}</EventStreamContext.Provider>;
+  const subscribeTodos = useCallback((callback: Callback) => {
+    todoListeners.current.add(callback);
+    return () => {
+      todoListeners.current.delete(callback);
+    };
+  }, []);
+
+  return <EventStreamContext.Provider value={{ subscribe, subscribeTodos }}>{children}</EventStreamContext.Provider>;
 }
 
 /** Runs `onUpdate` whenever this connector instance reports new data. */
@@ -87,4 +104,19 @@ export function useConnectorEvents(instanceId: string, onUpdate: Callback): void
     if (!context) return;
     return context.subscribe(instanceId, () => handler.current());
   }, [context, instanceId]);
+}
+
+/** Runs `onUpdate` whenever the signed-in user's own to-do lists change elsewhere (another tab, the Claude chat). */
+export function useTodoEvents(onUpdate: Callback): void {
+  const context = useContext(EventStreamContext);
+  const handler = useRef(onUpdate);
+
+  useEffect(() => {
+    handler.current = onUpdate;
+  }, [onUpdate]);
+
+  useEffect(() => {
+    if (!context) return;
+    return context.subscribeTodos(() => handler.current());
+  }, [context]);
 }

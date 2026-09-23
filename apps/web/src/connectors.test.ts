@@ -15,7 +15,7 @@ describe('the connectors the app registers', () => {
 
   it('registers every connector package in the workspace', () => {
     expect([...byId.keys()].sort()).toEqual(
-      ['calculator', 'calendar', 'chat', 'demo', 'google-ads', 'google-calendar', 'meta', 'notes', 'notion', 'overview', 'timer'].sort(),
+      ['calculator', 'calendar', 'chat', 'demo', 'google-ads', 'google-calendar', 'meta', 'notes', 'notion', 'overview', 'timer', 'todo'].sort(),
     );
   });
 
@@ -53,6 +53,14 @@ describe('the connectors the app registers', () => {
     expect(googleAds.category).toBe('external');
     expect(googleAds.auth).toBe('oauth2');
     expect(googleAds.capabilities).toEqual({ read: true, write: false, webhook: false });
+  });
+
+  it('keeps Tarefas a local, credential-free module with no connector data', () => {
+    const todo = byId.get('todo')!;
+    expect(todo.label).toBe('Tarefas');
+    expect(todo.category).toBe('local');
+    expect(todo.auth).toBe('none');
+    expect(todo.capabilities).toEqual({ read: true, write: false, webhook: false });
   });
 
   it('gives a writable connector the version read that undo depends on', () => {

@@ -51,9 +51,12 @@ export {
   CONNECTOR_CHANNEL,
   getRedis,
   publishConnectorEvent,
+  publishLiveEvent,
   subscribeToConnectorEvents,
   withRedisTimeout,
   type ConnectorUpdatedEvent,
+  type LiveEvent,
+  type TodoUpdatedEvent,
 } from './events';
 
 export { equalizeVerifyTiming, hashPassword, verifyPassword } from './password';

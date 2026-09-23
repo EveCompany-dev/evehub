@@ -1711,7 +1711,8 @@ body[data-rail='hidden'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0 0 0 / 0.45);
+  /* Fundo (desfoque + escurecimento) e animacao: regra compartilhada em
+     tokens.css, igual a paleta e ao cartao de configuracoes do widget. */
   padding: 16px;
 }
 
@@ -2670,7 +2671,7 @@ video.eve-month__chip-thumb {
   justify-content: center;
   align-items: flex-start;
   padding: 12vh 16px 16px;
-  background: rgb(0 0 0 / 0.45);
+  /* Fundo compartilhado: ver .eve-backdrop em tokens.css. */
 }
 
 .eve-palette {
@@ -5162,4 +5163,421 @@ video.eve-month__chip-thumb {
      base .eve-menu class's z-index: 20 instead and could render under
      unrelated page elements between those two values. */
   z-index: 71;
+}
+
+/* --- Tarefas (widget de to-do) ------------------------------------------- */
+
+.eve-todo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 100%;
+}
+
+.eve-todo__listbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.eve-todo__listselect {
+  max-width: 100%;
+  padding: 3px 24px 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.eve-todo__listselect:hover,
+.eve-todo__listselect:focus {
+  border-color: var(--border);
+  background: var(--surface-2);
+  outline: none;
+}
+
+.eve-todo__empty {
+  margin: 4px 2px 0;
+}
+
+.eve-todo__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.eve-todo__row {
+  position: relative;
+  border-radius: 8px;
+  outline: none;
+  /* Horizontal swipes are ours; vertical ones still scroll the widget. */
+  touch-action: pan-y;
+  overflow: hidden;
+}
+
+.eve-todo__content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 5px 6px 5px 2px;
+  border-radius: 8px;
+  background: var(--surface);
+  transition: background 120ms ease, transform 180ms var(--ease-brand);
+}
+
+.eve-todo__row.is-swiping .eve-todo__content {
+  transition: none;
+}
+
+.eve-todo__row:hover .eve-todo__content {
+  background: var(--surface-2);
+}
+
+.eve-todo__row:focus .eve-todo__content {
+  background: var(--accent-soft);
+}
+
+.eve-todo__row:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.eve-todo__row.is-dragging {
+  z-index: 5;
+  box-shadow: var(--shadow-float);
+}
+
+.eve-todo__row.is-pending {
+  opacity: 0.7;
+}
+
+/* Behind the row content: revealed as it slides left. */
+.eve-todo__swipe-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding-right: 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 22%, var(--surface));
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0;
+}
+
+.eve-todo__row.is-swiping .eve-todo__swipe-hint {
+  opacity: 1;
+}
+
+.eve-todo__row.is-armed .eve-todo__swipe-hint {
+  background: var(--danger);
+  color: #fff;
+}
+
+.eve-todo__handle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;
+  transition: opacity 120ms ease;
+}
+
+.eve-todo__row:hover .eve-todo__handle,
+.eve-todo__row:focus-within .eve-todo__handle,
+.eve-todo__handle:focus-visible {
+  opacity: 1;
+}
+
+.eve-todo__handle:active {
+  cursor: grabbing;
+}
+
+/* Touch screens have no hover: the handle stays visible. */
+@media (hover: none) {
+  .eve-todo__handle {
+    opacity: 0.6;
+  }
+}
+
+.eve-todo__check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 120ms ease, transform 100ms ease;
+}
+
+.eve-todo__check:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.eve-todo__check:active:not(:disabled) {
+  transform: scale(1.15);
+}
+
+.eve-todo__row.is-done .eve-todo__check {
+  color: var(--ok);
+}
+
+.eve-todo__text {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.eve-todo__row.is-done .eve-todo__text {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--text-dim) 70%, transparent);
+}
+
+.eve-todo__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  margin: 0 1px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 20px;
+  text-decoration: none;
+  vertical-align: baseline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eve-todo__chip:hover {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+.eve-todo__chip--page,
+.eve-todo__chip--person {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text);
+}
+
+.eve-todo__chip--page:hover,
+.eve-todo__chip--person:hover {
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+}
+
+.eve-todo__row.is-done .eve-todo__chip {
+  opacity: 0.7;
+}
+
+.eve-todo__missing {
+  color: var(--text-dim);
+  text-decoration: line-through dotted;
+}
+
+.eve-todo__due {
+  flex: none;
+  padding: 1px 6px;
+  margin-top: 1px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.eve-todo__editor {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.eve-todo__input {
+  width: 100%;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+
+.eve-todo__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+  color: var(--danger);
+}
+
+.eve-todo__confirm-text {
+  flex: 1;
+  font-weight: 600;
+}
+
+.eve-todo__confirm-btn {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12.5px;
+}
+
+/* Always there, never hidden behind a hover: the fastest way in. */
+.eve-todo__add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 6px 8px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.eve-todo__add:hover,
+.eve-todo__add:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.eve-todo__composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 4px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.eve-todo__composer .eve-todo__input {
+  height: 26px;
+  border-color: transparent;
+  background: transparent;
+  padding: 0;
+}
+
+.eve-todo__composer-icon {
+  color: var(--accent);
+}
+
+.eve-todo__picker {
+  position: fixed;
+  z-index: 95;
+  width: 280px;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+.eve-todo__picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.eve-todo__picker-item.is-active {
+  background: var(--surface-2);
+}
+
+.eve-todo__picker-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--accent);
+}
+
+.eve-todo__picker-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-todo__picker-kind {
+  flex: none;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.eve-todo__picker-empty {
+  padding: 8px;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.eve-todo__settings-form {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.eve-todo__settings-form .eve-input {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eve-todo__content,
+  .eve-todo__check,
+  .eve-todo__handle {
+    transition: none;
+  }
 }

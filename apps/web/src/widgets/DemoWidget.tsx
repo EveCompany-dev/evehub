@@ -1,7 +1,7 @@
 'use client';
 
 import { strings, UndoBanner, WidgetShell } from '@eve/ui';
-import { useState, type JSX } from 'react';
+import type { JSX } from 'react';
 import type { WidgetProps } from './types';
 import { useWidgetData } from './useWidgetData';
 import { StatCardsView } from './view/StatCardsView';
@@ -15,10 +15,9 @@ import { resolveFields } from './view/resolve-fields';
  * of its own — a live test of the `autoDetectFields` fallback path any future
  * connector gets for free before bothering to declare a real field schema.
  */
-export function DemoWidget({ instanceId, title, onRemove, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
+export function DemoWidget({ instanceId, title, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
-  const [showViewConfig, setShowViewConfig] = useState(false);
 
   const canWrite = Boolean(data?.instance.capabilities.write);
   const allFields = data?.fields ?? [];
@@ -36,23 +35,13 @@ export function DemoWidget({ instanceId, title, onRemove, viewConfig, onViewConf
       editable={canWrite && fields.some((field) => field.writable)}
       editing={editing.editing}
       onToggleEdit={editing.toggleEdit}
-      actions={[
-        { label: strings.view.configure, onSelect: () => setShowViewConfig((value) => !value) },
-        ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void editing.undo(lastEdit.id) }] : []),
-        { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: <ViewConfigMenu allFields={allFields} value={viewConfig} onChange={onViewConfigChange} />,
+      }}
+      onSyncNow={syncNow}
+      onUndoLast={lastEdit ? () => void editing.undo(lastEdit.id) : null}
       footerExtra={data ? data.records.length + ' clientes' : null}
     >
-      {showViewConfig && (
-        <ViewConfigMenu
-          allFields={allFields}
-          value={viewConfig}
-          onChange={onViewConfigChange}
-          onClose={() => setShowViewConfig(false)}
-        />
-      )}
-
       {editing.editing && (
         <div className="eve-alert eve-editbar eve-no-drag">
           <span>{editing.isDirty ? strings.edit.pendingChanges : strings.edit.editHint}</span>

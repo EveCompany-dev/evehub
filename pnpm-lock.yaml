@@ -95,6 +95,9 @@ importers:
       '@eve/connector-timer':
         specifier: workspace:*
         version: link:../../packages/connectors/timer
+      '@eve/connector-todo':
+        specifier: workspace:*
+        version: link:../../packages/connectors/todo
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -198,6 +201,9 @@ importers:
       '@eve/connector-timer':
         specifier: workspace:*
         version: link:../../packages/connectors/timer
+      '@eve/connector-todo':
+        specifier: workspace:*
+        version: link:../../packages/connectors/todo
       '@eve/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -428,6 +434,19 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/connectors/todo:
+    dependencies:
+      '@eve/connector-sdk':
+        specifier: workspace:*
+        version: link:../../connector-sdk
+      zod:
+        specifier: ^4.6.2
+        version: 4.6.2
+    devDependencies:
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/core:
     dependencies:
       '@eve/connector-sdk':
@@ -483,9 +502,15 @@ importers:
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.3.0
+        version: 19.3.0(@types/react@19.3.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

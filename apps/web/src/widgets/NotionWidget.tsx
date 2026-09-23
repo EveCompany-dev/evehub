@@ -1,8 +1,8 @@
 'use client';
 
 import type { NotionSnapshot } from '@eve/connector-notion/shared';
-import { strings, UndoBanner, WidgetShell } from '@eve/ui';
-import { useState, type JSX } from 'react';
+import { strings, UndoBanner, WidgetConnectionPlaceholder, WidgetShell } from '@eve/ui';
+import type { JSX } from 'react';
 import type { WidgetProps } from './types';
 import { useWidgetData } from './useWidgetData';
 import { StatCardsView } from './view/StatCardsView';
@@ -17,10 +17,9 @@ function snapshotOf(data: unknown): NotionSnapshot | null {
   return Array.isArray(snapshot.properties) ? snapshot : null;
 }
 
-export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
+export function NotionWidget({ instanceId, title, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
-  const [showViewConfig, setShowViewConfig] = useState(false);
 
   const snapshot = snapshotOf(data?.snapshot?.data);
   const canWrite = Boolean(data?.instance.capabilities.write);
@@ -39,23 +38,14 @@ export function NotionWidget({ instanceId, title, onRemove, viewConfig, onViewCo
       editable={canWrite && fields.some((field) => field.writable)}
       editing={editing.editing}
       onToggleEdit={editing.toggleEdit}
-      actions={[
-        { label: strings.view.configure, onSelect: () => setShowViewConfig((value) => !value) },
-        ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void editing.undo(lastEdit.id) }] : []),
-        { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: <ViewConfigMenu allFields={allFields} value={viewConfig} onChange={onViewConfigChange} />,
+        conexao: <WidgetConnectionPlaceholder />,
+      }}
+      onSyncNow={syncNow}
+      onUndoLast={lastEdit ? () => void editing.undo(lastEdit.id) : null}
       footerExtra={snapshot ? snapshot.rowCount + ' linhas' : null}
     >
-      {showViewConfig && (
-        <ViewConfigMenu
-          allFields={allFields}
-          value={viewConfig}
-          onChange={onViewConfigChange}
-          onClose={() => setShowViewConfig(false)}
-        />
-      )}
-
       {editing.editing && (
         <div className="eve-alert eve-editbar eve-no-drag">
           <span>{editing.isDirty ? strings.edit.pendingChanges : strings.edit.editHint}</span>

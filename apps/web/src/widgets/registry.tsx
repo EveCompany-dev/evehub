@@ -1,5 +1,18 @@
 'use client';
 
+import {
+  Bot,
+  Calculator,
+  CalendarDays,
+  Database,
+  FileText,
+  ListTodo,
+  Plug,
+  StickyNote,
+  Sunrise,
+  Timer,
+  type LucideIcon,
+} from '@eve/ui';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
 import type { WidgetProps } from './types';
@@ -47,6 +60,23 @@ const widgets: Record<string, ComponentType<WidgetProps>> = {
     ssr: false,
     loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
   }),
+  todo: dynamic(() => import('./TodoWidget').then((mod) => mod.TodoWidget), {
+    ssr: false,
+    loading: () => <div className="eve-widget-loading">carregando modulo...</div>,
+  }),
+};
+
+/** The icon at the top of each widget's settings card. */
+const icons: Record<string, LucideIcon> = {
+  demo: Database,
+  notion: FileText,
+  calculator: Calculator,
+  notes: StickyNote,
+  chat: Bot,
+  calendar: CalendarDays,
+  overview: Sunrise,
+  timer: Timer,
+  todo: ListTodo,
 };
 
 const genericWidget: ComponentType<WidgetProps> = dynamic(
@@ -65,4 +95,9 @@ const genericWidget: ComponentType<WidgetProps> = dynamic(
  */
 export function getWidget(connectorId: string): ComponentType<WidgetProps> {
   return widgets[connectorId] ?? genericWidget;
+}
+
+/** Connectors without their own icon (Meta, Google Ads, anything future) get the generic plug. */
+export function getWidgetIcon(connectorId: string): LucideIcon {
+  return icons[connectorId] ?? Plug;
 }

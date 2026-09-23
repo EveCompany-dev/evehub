@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 const HEARTBEAT_MS = 25_000;
 
 /**
- * Server-Sent Events stream of connector updates for the caller's workspace.
+ * Server-Sent Events stream of connector updates for the caller's workspace,
+ * plus change pings for the caller's own to-do lists.
  *
  * SSE rather than WebSocket: the traffic is one-directional and tiny, it
  * survives proxies without an upgrade handshake, and the browser reconnects on
@@ -40,6 +41,12 @@ export async function GET(request: Request): Promise<Response> {
 
       const removeListener = addConnectorListener((event) => {
         if (event.workspaceId !== user.workspaceId) return;
+        if (event.type === 'todo:updated') {
+          // Personal lists: only the owner's own tabs hear about them.
+          if (event.userId !== user.id) return;
+          send(`event: todo\ndata: ${JSON.stringify({ listId: event.listId })}\n\n`);
+          return;
+        }
         send(`event: connector\ndata: ${JSON.stringify(event)}\n\n`);
       });
 

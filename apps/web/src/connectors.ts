@@ -16,5 +16,6 @@ import '@eve/connector-notes';
 import '@eve/connector-notion';
 import '@eve/connector-overview';
 import '@eve/connector-timer';
+import '@eve/connector-todo';
 
 export { listConnectors, requireConnector } from '@eve/connector-sdk';

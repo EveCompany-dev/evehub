@@ -1,7 +1,8 @@
 'use client';
 
 import { targetLabel } from '@eve/connector-meta/shared';
-import { strings, WidgetShell } from '@eve/ui';
+import { readViewOption, withViewOption } from '@eve/core/dashboard';
+import { SettingsSection, SettingsToggle, strings, WidgetShell } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { PlatformIcon } from '../components/PlatformIcon';
@@ -40,7 +41,11 @@ function todayRange(): { from: string; to: string } {
  * No sync — both lists are fetched straight from this app's own APIs on
  * mount and every POLL_INTERVAL_MS, same pattern as the notification bell.
  */
-export function TodayWidget({ title, onRemove }: WidgetProps): JSX.Element {
+export function TodayWidget({ title, viewConfig, onViewConfigChange }: WidgetProps): JSX.Element {
+  // Stored in the dashboard config (viewConfig.options), so the choice follows the user across devices.
+  const showNotifications = readViewOption(viewConfig, 'showNotifications', true);
+  const showAgenda = readViewOption(viewConfig, 'showAgenda', true);
+
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
   const [posts, setPosts] = useState<ScheduledPostRow[]>([]);
   const [appointments, setAppointments] = useState<AgendaEventSummary[]>([]);
@@ -85,66 +90,93 @@ export function TodayWidget({ title, onRemove }: WidgetProps): JSX.Element {
   }, [load]);
 
   return (
-    <WidgetShell title={title} status="ok" actions={[{ label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true }]}>
+    <WidgetShell
+      title={title}
+      status="ok"
+      settings={{
+        geral: (
+          <SettingsSection title={strings.overview.sectionContent}>
+            <SettingsToggle
+              label={strings.overview.notifications}
+              hint={strings.overview.notificationsHint}
+              checked={showNotifications}
+              onChange={(next) => onViewConfigChange(withViewOption(viewConfig, 'showNotifications', next))}
+            />
+            <SettingsToggle
+              label={strings.overview.agenda}
+              hint={strings.overview.agendaHint}
+              checked={showAgenda}
+              onChange={(next) => onViewConfigChange(withViewOption(viewConfig, 'showAgenda', next))}
+            />
+          </SettingsSection>
+        ),
+      }}
+    >
       <div className="eve-no-drag eve-overview">
         {error && <p className="eve-alert eve-alert--error">{error}</p>}
         {loading ? (
           <p className="eve-dim">carregando...</p>
         ) : (
           <>
-            <section className="eve-overview__section">
-              <h4 className="eve-overview__title">Notificações</h4>
-              {notifications.length === 0 ? (
-                <p className="eve-dim">Nenhuma notificação pendente.</p>
-              ) : (
-                <ul className="eve-overview__list">
-                  {notifications.map((notification) => {
-                    const href = notificationHref(notification);
-                    const content = <p className="eve-overview__item-text">{notification.message}</p>;
-                    return (
-                      <li key={notification.id} className="eve-overview__item">
-                        {href ? (
-                          <Link href={href} className="eve-overview__item-link">
-                            {content}
-                          </Link>
-                        ) : (
-                          content
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
+            {!showNotifications && !showAgenda && <p className="eve-dim">{strings.overview.nothingShown}</p>}
 
-            <section className="eve-overview__section">
-              <h4 className="eve-overview__title">Agenda de hoje</h4>
-              {posts.length === 0 && appointments.length === 0 ? (
-                <p className="eve-dim">Nada agendado para hoje.</p>
-              ) : (
-                <ul className="eve-overview__list">
-                  {appointments.map((event) => (
-                    <li key={event.id} className="eve-overview__item">
-                      <Link href="/agenda" className="eve-overview__item-link eve-overview__agenda-row">
-                        <span className="eve-overview__item-text">{event.title}</span>
-                        <span className="eve-dim">{event.allDay ? 'dia todo' : formatTime(event.start)}</span>
-                      </Link>
-                    </li>
-                  ))}
-                  {posts.map((post) => (
-                    <li key={post.id} className="eve-overview__item">
-                      <Link href={`/scheduling?post=${post.id}`} className="eve-overview__item-link eve-overview__agenda-row">
-                        <PlatformIcon platform={post.platform} size={16} />
-                        <span className="eve-overview__item-text">
-                          {targetLabel({ platform: post.platform, postType: post.postType })} · {post.clientLabel}
-                        </span>
-                        <span className="eve-dim">{formatTime(post.scheduledFor)}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+            {showNotifications && (
+              <section className="eve-overview__section">
+                <h4 className="eve-overview__title">Notificações</h4>
+                {notifications.length === 0 ? (
+                  <p className="eve-dim">Nenhuma notificação pendente.</p>
+                ) : (
+                  <ul className="eve-overview__list">
+                    {notifications.map((notification) => {
+                      const href = notificationHref(notification);
+                      const content = <p className="eve-overview__item-text">{notification.message}</p>;
+                      return (
+                        <li key={notification.id} className="eve-overview__item">
+                          {href ? (
+                            <Link href={href} className="eve-overview__item-link">
+                              {content}
+                            </Link>
+                          ) : (
+                            content
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
+            )}
+
+            {showAgenda && (
+              <section className="eve-overview__section">
+                <h4 className="eve-overview__title">Agenda de hoje</h4>
+                {posts.length === 0 && appointments.length === 0 ? (
+                  <p className="eve-dim">Nada agendado para hoje.</p>
+                ) : (
+                  <ul className="eve-overview__list">
+                    {appointments.map((event) => (
+                      <li key={event.id} className="eve-overview__item">
+                        <Link href="/agenda" className="eve-overview__item-link eve-overview__agenda-row">
+                          <span className="eve-overview__item-text">{event.title}</span>
+                          <span className="eve-dim">{event.allDay ? 'dia todo' : formatTime(event.start)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                    {posts.map((post) => (
+                      <li key={post.id} className="eve-overview__item">
+                        <Link href={`/scheduling?post=${post.id}`} className="eve-overview__item-link eve-overview__agenda-row">
+                          <PlatformIcon platform={post.platform} size={16} />
+                          <span className="eve-overview__item-text">
+                            {targetLabel({ platform: post.platform, postType: post.postType })} · {post.clientLabel}
+                          </span>
+                          <span className="eve-dim">{formatTime(post.scheduledFor)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
           </>
         )}
       </div>

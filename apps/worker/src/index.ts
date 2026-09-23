@@ -11,6 +11,7 @@ import '@eve/connector-notes';
 import '@eve/connector-notion';
 import '@eve/connector-overview';
 import '@eve/connector-timer';
+import '@eve/connector-todo';
 
 import { getEnv, prisma, pruneSnapshots, runSync } from '@eve/core';
 import { requireConnector } from '@eve/connector-sdk';

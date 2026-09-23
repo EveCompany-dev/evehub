@@ -1,6 +1,6 @@
 'use client';
 
-import { Minus, Pause, Play, Plus, RotateCcw, strings, WidgetShell } from '@eve/ui';
+import { Minus, Pause, Play, Plus, RotateCcw, SettingsSection, SettingsToggle, strings, WidgetShell } from '@eve/ui';
 import { useEffect, useRef, useState, type JSX } from 'react';
 import { playAlertChime } from '../lib/alert-chime';
 import type { WidgetProps } from './types';
@@ -41,7 +41,7 @@ function writePomodoro(instanceId: string, on: boolean): void {
 }
 
 /** Focus/break countdown. The Pomodoro option pins it to 25 + 5 minutes and chains them. */
-export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.Element {
+export function TimerWidget({ instanceId, title }: WidgetProps): JSX.Element {
   const [pomodoro, setPomodoro] = useState(() => readPomodoro(instanceId));
   const [freeMinutes, setFreeMinutes] = useState({ focus: DEFAULT_FOCUS_MIN, break: DEFAULT_BREAK_MIN });
   const minutes = pomodoro ? { focus: POMODORO_FOCUS_MIN, break: POMODORO_BREAK_MIN } : freeMinutes;
@@ -92,10 +92,18 @@ export function TimerWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
     <WidgetShell
       title={title}
       status="ok"
-      actions={[
-        { label: 'Timer Pomodoro', checked: pomodoro, onSelect: togglePomodoro },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: (
+          <SettingsSection title={strings.widgetSettings.pageGeneral}>
+            <SettingsToggle
+              label={strings.timer.pomodoro}
+              hint={strings.timer.pomodoroHint}
+              checked={pomodoro}
+              onChange={togglePomodoro}
+            />
+          </SettingsSection>
+        ),
+      }}
     >
       <div className="eve-timer eve-no-drag">
         <button

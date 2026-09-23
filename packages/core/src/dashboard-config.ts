@@ -79,8 +79,8 @@ export const dashboardConfigSchema = z.object({
 });
 
 export type WidgetLayout = z.infer<typeof widgetLayoutSchema>;
-export { viewConfigSchema } from './widget-view';
-export type { ViewConfig } from './widget-view';
+export { readViewOption, viewConfigSchema, withViewOption } from './widget-view';
+export type { ViewConfig, ViewOptionValue } from './widget-view';
 export type WidgetSettings = z.infer<typeof widgetSettingsSchema>;
 export type DashboardConfig = z.infer<typeof dashboardConfigSchema>;
 
