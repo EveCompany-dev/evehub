@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState, type JSX, type ReactNode } f
 import { EMPTY_FILTERS, filterRows, type TableFilterState } from '../lib/table-filters';
 import { TAG_COLORS, TAG_COLOR_LABEL, guessTagColor, hashTagColor, tagColorFor } from '../lib/table-tags';
 import { dateColumns as pickDateColumns, type TableViewMode, type ViewPrefs } from '../lib/table-views';
-import { CalendarView } from './CalendarView';
-import { useContextMenu } from './ContextMenu';
+import { CalendarView, type CalendarMenuTarget } from './CalendarView';
+import { useContextMenu, type ContextMenuItem } from './ContextMenu';
 import type { DataColumn, DataColumnType, DataTableRowValue, DataTableSummary, TableClient, TableEnv } from './data-table-types';
 import { GalleryView } from './GalleryView';
 import { RowDetailModal } from './RowDetailModal';
@@ -36,6 +36,8 @@ export interface DataTableGridProps {
   showFilters?: boolean;
   /** An extra button on each row's page ("Agendar post" on a content row). */
   rowAction?: (row: DataTableRowValue) => ReactNode;
+  /** Right-click menu of the calendar view (the client page's "Agendar post"). */
+  calendarMenu?: (target: CalendarMenuTarget) => ContextMenuItem[];
 }
 
 type ColumnModalState = { mode: 'add' } | { mode: 'edit'; column: DataColumn } | null;
@@ -100,6 +102,7 @@ export function DataTableGrid({
   onRowsChange,
   showFilters = true,
   rowAction,
+  calendarMenu,
 }: DataTableGridProps): JSX.Element {
   const [rows, setRows] = useState<DataTableRowValue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -445,6 +448,7 @@ export function DataTableGrid({
             clientLabels={clientLabels}
             showClient={Boolean(clientKey) && !lockedClientId}
             onOpen={setOpenRowId}
+            menuFor={calendarMenu}
           />
         ) : (
           <div className="eve-empty">

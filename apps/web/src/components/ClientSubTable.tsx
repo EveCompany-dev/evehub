@@ -3,6 +3,8 @@
 import { type JSX, type ReactNode } from 'react';
 import type { TableViewMode } from '../lib/table-views';
 import { CollapsibleSection } from './CollapsibleSection';
+import type { CalendarMenuTarget } from './CalendarView';
+import type { ContextMenuItem } from './ContextMenu';
 import type { DataTableRowValue } from './data-table-types';
 import { DataTableGrid } from './DataTableGrid';
 import { useSystemTable, type SystemTableKindName } from './useSystemTable';
@@ -25,6 +27,8 @@ export interface ClientSubTableProps {
   onRowsChange?: () => void;
   /** An extra button on each row's page ("Agendar post"). */
   rowAction?: (row: DataTableRowValue) => ReactNode;
+  /** Right-click menu of the calendar view. */
+  calendarMenu?: (target: CalendarMenuTarget) => ContextMenuItem[];
 }
 
 /**
@@ -33,7 +37,7 @@ export interface ClientSubTableProps {
  * table of that kind, narrowed to this client. New rows are stamped with the
  * client automatically, so nobody picks it by hand.
  */
-export function ClientSubTable({ id, kind, title, hint, clientId, modes, defaultMode, addSignal, addDefaults, onRowsChange, rowAction }: ClientSubTableProps): JSX.Element {
+export function ClientSubTable({ id, kind, title, hint, clientId, modes, defaultMode, addSignal, addDefaults, onRowsChange, rowAction, calendarMenu }: ClientSubTableProps): JSX.Element {
   const { table, setTable, error } = useSystemTable(kind);
 
   return (
@@ -58,6 +62,7 @@ export function ClientSubTable({ id, kind, title, hint, clientId, modes, default
           addDefaults={addDefaults}
           onRowsChange={onRowsChange}
           rowAction={rowAction}
+          calendarMenu={calendarMenu}
         />
       )}
     </CollapsibleSection>

@@ -1294,6 +1294,25 @@ body[data-rail='hidden'] {
   max-width: 1100px;
 }
 
+/* Agendar Post on top of a client page: wide enough for the two columns. */
+.eve-modal.eve-composer-modal {
+  width: min(1140px, 100%);
+  max-height: 94vh;
+  gap: 12px;
+  background: var(--bg, var(--surface));
+}
+
+.eve-composer-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.eve-composer-modal .eve-composer {
+  max-width: none;
+}
+
 .eve-composer > .eve-card,
 .eve-composer > .eve-alert {
   margin: 0;

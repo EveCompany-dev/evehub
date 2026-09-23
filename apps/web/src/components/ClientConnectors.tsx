@@ -23,6 +23,9 @@ const STATUS_LABEL: Record<InstanceRow['status'], { text: string; color: string 
   disabled: { text: 'desligado', color: 'gray' },
 };
 
+/** Outside services that belong to the team, never to one client. */
+const TEAM_ONLY = new Set(['chat', 'google-calendar']);
+
 export interface ConnectorPickerProps {
   clientId: string;
   available: AvailableConnector[];
@@ -68,7 +71,9 @@ export function ConnectorPicker({ clientId, available, onConnected, onClose, int
     }
   };
 
-  const creatable = available.filter((connector) => connector.canCreate);
+  // Only real outside services a client has (Meta, Google Ads, Notion): no local widgets like Demo
+  // or Timer, and none of the team's own tools (the Claude assistant, the Google Agenda).
+  const creatable = available.filter((connector) => connector.canCreate && connector.category === 'external' && !TEAM_ONLY.has(connector.id));
 
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>
@@ -129,8 +134,7 @@ export function ClientConnectors({ clientId }: { clientId: string }): JSX.Elemen
         return;
       }
       setInstances(body.instances);
-      // A Google Agenda belongs to the team's Agenda, not to one client.
-      setAvailable((body.available ?? []).filter((connector) => connector.id !== 'google-calendar'));
+      setAvailable(body.available ?? []);
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

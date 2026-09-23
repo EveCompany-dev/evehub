@@ -599,36 +599,6 @@
   gap: 4px;
 }
 
-/* "Sem data (n)", top right like Notion's calendar toolbar. */
-.eve-calview__bar {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.eve-calview__undated {
-  appearance: none;
-  border: none;
-  background: none;
-  padding: 4px 6px;
-  border-radius: 6px;
-  color: var(--text-dim);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.eve-calview__undated:hover:not(:disabled) {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.eve-calview__undated:disabled {
-  cursor: default;
-  opacity: 0.6;
-}
-
 .eve-calview__day {
   display: flex;
   flex-direction: column;

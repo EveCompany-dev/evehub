@@ -178,6 +178,22 @@ export interface PostComposerProps {
   postId?: string;
   /** Schedule this Calendário de Conteúdo row ("Agendar post" on the row). */
   rowId?: string;
+  /**
+   * Opened on top of a client page (right-click on its content calendar):
+   * the client, and the day when one was clicked, come pre-picked, and a
+   * finished schedule calls back instead of leaving the page.
+   */
+  embedded?: { clientId: string; date?: Date; onDone: () => void };
+}
+
+/** A new post for the client (and day) the composer was opened from; a day already past falls back to half an hour from now. */
+function presetDraft(preset: { clientId: string; date?: Date }): PostDraft {
+  const day = preset.date ? new Date(preset.date.getFullYear(), preset.date.getMonth(), preset.date.getDate(), 10, 0) : null;
+  return {
+    ...emptyDraft(),
+    clientId: preset.clientId,
+    scheduledFor: day && day.getTime() > Date.now() + 10 * 60 * 1000 ? toLocalInputValue(day) : inHalfAnHour(),
+  };
 }
 
 /**
@@ -189,7 +205,7 @@ export interface PostComposerProps {
  * sub-pages — one post each, with its own date, caption and destinations —
  * scheduled together with one click.
  */
-export function PostComposer({ postId, rowId }: PostComposerProps): JSX.Element {
+export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JSX.Element {
   const router = useRouter();
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [accounts, setAccounts] = useState<MetaAccount[]>([]);
@@ -200,7 +216,7 @@ export function PostComposer({ postId, rowId }: PostComposerProps): JSX.Element 
   const [reused, setReused] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [drafts, setDrafts] = useState<PostDraft[]>(() => [emptyDraft()]);
+  const [drafts, setDrafts] = useState<PostDraft[]>(() => [embedded ? presetDraft(embedded) : emptyDraft()]);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -421,6 +437,10 @@ export function PostComposer({ postId, rowId }: PostComposerProps): JSX.Element 
         router.push(client ? `/clients/${client.id}` : '/');
         return;
       }
+      if (embedded) {
+        embedded.onDone();
+        return;
+      }
       setDrafts([emptyDraft()]);
       setActiveKey(null);
       setSource(null);
@@ -489,7 +509,7 @@ export function PostComposer({ postId, rowId }: PostComposerProps): JSX.Element 
         </div>
       )}
 
-      {!isEditing && failed.length > 0 && (
+      {!isEditing && !embedded && failed.length > 0 && (
         <section className="eve-card eve-scheduling__panel eve-scheduling__panel--alert">
           <h4 className="eve-card__title">Não publicados ({failed.length})</h4>
           <div className="eve-post-list">
