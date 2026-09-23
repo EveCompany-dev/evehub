@@ -80,6 +80,76 @@ export interface ConnectorContext<Config, Credentials> {
 }
 
 /**
+ * One appointment as a calendar connector stores it in `RemoteRecord.data`.
+ * Every calendar source (Google Agenda today, Outlook or others later)
+ * normalizes to this, so the Agenda do Time reads them all the same way.
+ */
+export interface CalendarEventData {
+  title: string;
+  description: string | null;
+  location: string | null;
+  /** ISO timestamp; for all-day events, midnight UTC of the first day. */
+  start: string;
+  /** ISO timestamp (exclusive for all-day events, like the sources send it); null when the source gives none. */
+  end: string | null;
+  allDay: boolean;
+  calendarId: string;
+  calendarName: string;
+  /** Hex color for the chip: the event's own color, else its calendar's. */
+  color: string | null;
+  attendees: { email: string; name: string | null; response: string | null }[];
+  organizerEmail: string | null;
+  /** Opens the event in the source app. */
+  link: string | null;
+  /** Shared by the copies of one event across calendars — how duplicates are spotted. */
+  uid: string | null;
+  /** Client tagged from Eve Hub (stored on the event itself), if any. */
+  clientId: string | null;
+  /** Marked private at the source: only "busy" is shown, never the details. */
+  private: boolean;
+  recurring: boolean;
+}
+
+/** What Eve Hub sends when creating or editing an appointment. */
+export interface CalendarEventInput {
+  calendarId: string;
+  title: string;
+  description: string | null;
+  start: string;
+  end: string | null;
+  allDay: boolean;
+  /** Invited by e-mail — the source sends the invitations. */
+  attendeeEmails: string[];
+  clientId: string | null;
+}
+
+export interface CalendarInfo {
+  id: string;
+  name: string;
+  color: string | null;
+  primary: boolean;
+}
+
+export type CalendarWriteResult =
+  | { ok: true; record: RemoteRecord }
+  /** Someone changed the event at the source first. Nothing was written. */
+  | { ok: false; conflict: true }
+  | { ok: false; conflict?: false; error: string };
+
+/**
+ * Optional second face of a connector: a calendar the Agenda do Time shows
+ * and writes to. `sync()` keeps returning every event as a record
+ * (`data: CalendarEventData`); these add what the generic patch-based
+ * `write()` can't express — creating, rescheduling and deleting events.
+ */
+export interface CalendarSource<Config, Credentials> {
+  listCalendars(ctx: ConnectorContext<Config, Credentials>): Promise<CalendarInfo[]>;
+  createEvent(ctx: ConnectorContext<Config, Credentials>, input: CalendarEventInput): Promise<CalendarWriteResult>;
+  updateEvent(ctx: ConnectorContext<Config, Credentials>, remoteId: string, input: CalendarEventInput, expectedVersion: string): Promise<CalendarWriteResult>;
+  deleteEvent(ctx: ConnectorContext<Config, Credentials>, remoteId: string): Promise<{ ok: true } | { ok: false; error: string }>;
+}
+
+/**
  * The one interface every integration implements.
  *
  * Deliberate change from the v0.0.2 draft: the React `Widget` and `ConfigForm`
@@ -139,6 +209,9 @@ export interface EveConnector<Config = unknown, Credentials = undefined> {
 
   /** Required when `capabilities.webhook` is true. */
   onWebhook?(ctx: ConnectorContext<Config, Credentials>, payload: unknown): Promise<void>;
+
+  /** Present on connectors that are a calendar the Agenda do Time can show (see CalendarSource). */
+  calendar?: CalendarSource<Config, Credentials>;
 }
 
 /**

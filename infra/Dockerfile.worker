@@ -16,6 +16,7 @@ COPY packages/connectors/calendar/package.json packages/connectors/calendar/
 COPY packages/connectors/chat/package.json packages/connectors/chat/
 COPY packages/connectors/demo/package.json packages/connectors/demo/
 COPY packages/connectors/google-ads/package.json packages/connectors/google-ads/
+COPY packages/connectors/google-calendar/package.json packages/connectors/google-calendar/
 COPY packages/connectors/meta/package.json packages/connectors/meta/
 COPY packages/connectors/notes/package.json packages/connectors/notes/
 COPY packages/connectors/notion/package.json packages/connectors/notion/

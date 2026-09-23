@@ -5,7 +5,9 @@ import { strings, WidgetShell } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { PlatformIcon } from '../components/PlatformIcon';
+import type { AgendaEventSummary } from '../components/agenda-types';
 import type { ScheduledPostRow } from '../components/scheduling-types';
+import { eventDays } from '../lib/agenda-feed';
 import type { NotificationSummary } from '../components/notification-types';
 import type { WidgetProps } from './types';
 
@@ -33,26 +35,30 @@ function todayRange(): { from: string; to: string } {
 
 /**
  * Two independent lists, one widget: unread notifications (job importance,
- * chat/DM mentions, failed posts, ...) and today's Agenda — for now that's
- * just today's scheduled posts, the only thing the Agenda holds; generic
- * events/tags land there later and this widget picks them up without
- * changes, since it's reading the same "what's on today" question either way.
+ * chat/DM mentions, failed posts, ...) and what is on today: the team's
+ * Google Agenda appointments (when one is connected) and the posts going out.
  * No sync — both lists are fetched straight from this app's own APIs on
  * mount and every POLL_INTERVAL_MS, same pattern as the notification bell.
  */
 export function TodayWidget({ title, onRemove }: WidgetProps): JSX.Element {
   const [notifications, setNotifications] = useState<NotificationSummary[]>([]);
   const [posts, setPosts] = useState<ScheduledPostRow[]>([]);
+  const [appointments, setAppointments] = useState<AgendaEventSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
       const { from, to } = todayRange();
-      const [notificationsRes, postsRes] = await Promise.all([
+      const [notificationsRes, postsRes, agendaRes] = await Promise.all([
         fetch('/api/notifications?limit=20', { cache: 'no-store' }),
         fetch(`/api/scheduling/posts?from=${from}&to=${to}`, { cache: 'no-store' }),
+        fetch(`/api/agenda/events?from=${from}&to=${to}`, { cache: 'no-store' }),
       ]);
+      // The team's Google Agenda for today; nothing when none is connected (or the tab is hidden).
+      const agendaBody = (await agendaRes.json().catch(() => ({}))) as { events?: AgendaEventSummary[] };
+      const today = eventDays({ start: new Date().toISOString(), end: null, allDay: false })[0];
+      setAppointments(agendaRes.ok ? (agendaBody.events ?? []).filter((event) => eventDays(event).includes(today!)) : []);
       const notificationsBody = (await notificationsRes.json().catch(() => ({}))) as { notifications?: NotificationSummary[] };
       const postsBody = (await postsRes.json().catch(() => ({}))) as { posts?: ScheduledPostRow[] };
 
@@ -113,10 +119,18 @@ export function TodayWidget({ title, onRemove }: WidgetProps): JSX.Element {
 
             <section className="eve-overview__section">
               <h4 className="eve-overview__title">Agenda de hoje</h4>
-              {posts.length === 0 ? (
+              {posts.length === 0 && appointments.length === 0 ? (
                 <p className="eve-dim">Nada agendado para hoje.</p>
               ) : (
                 <ul className="eve-overview__list">
+                  {appointments.map((event) => (
+                    <li key={event.id} className="eve-overview__item">
+                      <Link href="/agenda" className="eve-overview__item-link eve-overview__agenda-row">
+                        <span className="eve-overview__item-text">{event.title}</span>
+                        <span className="eve-dim">{event.allDay ? 'dia todo' : formatTime(event.start)}</span>
+                      </Link>
+                    </li>
+                  ))}
                   {posts.map((post) => (
                     <li key={post.id} className="eve-overview__item">
                       <Link href={`/scheduling?post=${post.id}`} className="eve-overview__item-link eve-overview__agenda-row">

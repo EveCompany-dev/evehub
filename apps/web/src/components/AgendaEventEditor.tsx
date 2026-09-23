@@ -1,53 +1,65 @@
 'use client';
 
 import { useState, type FormEvent, type JSX } from 'react';
-import type { AgendaEventSummary } from './agenda-types';
-import type { ClientOption } from './scheduling-types';
+import type { AgendaCalendar, AgendaEventSummary } from './agenda-types';
 import { memberLabel, type JobMember } from './job-types';
+import type { ClientOption } from './scheduling-types';
 import { useEscapeToClose } from './useEscapeToClose';
 
 export interface AgendaEventEditorProps {
+  calendars: AgendaCalendar[];
   clients: ClientOption[];
   members: JobMember[];
-  currentUserId: string;
-  /** null/undefined = creating a new event; a row = editing it. */
+  /** null/undefined = creating a new appointment; a row = editing it. */
   initial?: AgendaEventSummary | null;
   defaultDate?: Date;
   onClose: () => void;
   onSaved: () => void;
 }
 
+function pad(value: number): string {
+  return String(value).padStart(2, '0');
+}
+
 function toLocalInputValue(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-/** Notion-style event form: title, description, when, who's in it, which client it's for. */
-export function AgendaEventEditor({
-  clients,
-  members,
-  currentUserId,
-  initial,
-  defaultDate,
-  onClose,
-  onSaved,
-}: AgendaEventEditorProps): JSX.Element {
+/** An all-day event's last day, from Google's exclusive end ("" when it is a single day). */
+function lastDayOf(event: AgendaEventSummary): string {
+  if (!event.end) return '';
+  const last = new Date(`${event.end.slice(0, 10)}T00:00:00.000Z`);
+  last.setUTCDate(last.getUTCDate() - 1);
+  const day = last.toISOString().slice(0, 10);
+  return day > event.start.slice(0, 10) ? `${day}T09:00` : '';
+}
+
+/** Noon keeps an all-day date the same day in every time zone on its way to Google. */
+function dayToIso(value: string): string {
+  return new Date(`${value.slice(0, 10)}T12:00`).toISOString();
+}
+
+/**
+ * An appointment in the Agenda do Time, which is Google Agenda: saving writes
+ * to Google, and Google e-mails the invitations. A private event is shown
+ * read-only — it can only be seen and changed in Google itself.
+ */
+export function AgendaEventEditor({ calendars, clients, members, initial, defaultDate, onClose, onSaved }: AgendaEventEditorProps): JSX.Element {
   useEscapeToClose(onClose);
   const isEditing = Boolean(initial);
-  const canEdit = !isEditing || initial!.createdBy === currentUserId;
+  const readOnly = Boolean(initial?.private);
 
   const [title, setTitle] = useState(initial?.title ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
-  const [startAt, setStartAt] = useState(() => toLocalInputValue(initial ? new Date(initial.startAt) : (defaultDate ?? new Date())));
-  const [endAt, setEndAt] = useState(() => (initial?.endAt ? toLocalInputValue(new Date(initial.endAt)) : ''));
-  // Brand orange as the default rather than leaving this blank — an event
-  // with no color looked broken/unstyled on the calendar instead of just
-  // "the ordinary color everything starts as."
-  const [color, setColor] = useState(initial?.color ?? '#fa5300');
+  const [start, setStart] = useState(() =>
+    initial ? (initial.allDay ? `${initial.start.slice(0, 10)}T09:00` : toLocalInputValue(new Date(initial.start))) : toLocalInputValue(defaultDate ?? new Date()),
+  );
+  const [end, setEnd] = useState(() => (initial ? (initial.allDay ? lastDayOf(initial) : initial.end ? toLocalInputValue(new Date(initial.end)) : '') : ''));
+  const [calendarKey, setCalendarKey] = useState(initial?.calendarKey ?? calendars[0]?.key ?? '');
   const [clientId, setClientId] = useState(initial?.clientId ?? '');
   const [attendeeIds, setAttendeeIds] = useState<Set<string>>(
-    new Set(initial?.attendees.map((attendee) => attendee.user.id) ?? [currentUserId]),
+    () => new Set(members.filter((member) => initial?.attendeeEmails.includes(member.email.toLowerCase())).map((member) => member.id)),
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,27 +81,17 @@ export function AgendaEventEditor({
     const payload = {
       title: title.trim(),
       description: description.trim() || undefined,
-      startAt: new Date(startAt).toISOString(),
-      endAt: endAt ? new Date(endAt).toISOString() : null,
+      start: allDay ? dayToIso(start) : new Date(start).toISOString(),
+      end: end ? (allDay ? dayToIso(end) : new Date(end).toISOString()) : undefined,
       allDay,
-      color: color || null,
       clientId: clientId || null,
       attendeeIds: [...attendeeIds],
     };
 
     try {
       const response = isEditing
-        ? await fetch(`/api/agenda/events/${initial!.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          })
-        : await fetch('/api/agenda/events', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...payload, endAt: endAt ? new Date(endAt).toISOString() : undefined }),
-          });
-
+        ? await fetch(`/api/agenda/events/${initial!.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        : await fetch('/api/agenda/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...payload, calendarKey }) });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
         setError(body.error ?? `HTTP ${response.status}`);
@@ -106,9 +108,11 @@ export function AgendaEventEditor({
   const remove = async () => {
     if (!initial) return;
     setBusy(true);
+    setError(null);
     try {
       const response = await fetch(`/api/agenda/events/${initial.id}`, { method: 'DELETE' });
       if (response.ok) onSaved();
+      else setError(((await response.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${response.status}`);
     } finally {
       setBusy(false);
     }
@@ -117,34 +121,36 @@ export function AgendaEventEditor({
   return (
     <div className="eve-modal-backdrop" onClick={onClose}>
       <form className="eve-modal" onClick={(event) => event.stopPropagation()} onSubmit={(event) => void submit(event)}>
-        <h2 className="eve-card__title">{isEditing ? 'Editar evento' : 'Novo evento'}</h2>
+        <h2 className="eve-card__title">{readOnly ? 'Evento particular' : isEditing ? 'Editar evento' : 'Novo evento'}</h2>
 
         {error && <p className="eve-alert eve-alert--error">{error}</p>}
+        {readOnly && <p className="eve-dim">Está marcado como particular no Google Agenda: aqui aparece só como “Ocupado”.</p>}
+        {initial?.recurring && !readOnly && <p className="eve-setup__hint">Evento que se repete: a mudança vale só para esta data.</p>}
 
-        <label className="eve-field">
-          <span className="eve-field__label">Título</span>
-          <input
-            className="eve-input"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            disabled={!canEdit}
-            required
-          />
-        </label>
+        {!readOnly && (
+          <label className="eve-field">
+            <span className="eve-field__label">Título</span>
+            <input className="eve-input" value={title} onChange={(event) => setTitle(event.target.value)} required autoFocus={!isEditing} />
+          </label>
+        )}
 
-        <label className="eve-field">
-          <span className="eve-field__label">Descrição</span>
-          <textarea
-            className="eve-input eve-notes__textarea"
-            rows={3}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            disabled={!canEdit}
-          />
-        </label>
+        {!isEditing && calendars.length > 1 && (
+          <label className="eve-field">
+            <span className="eve-field__label">Agenda</span>
+            <select className="eve-input" value={calendarKey} onChange={(event) => setCalendarKey(event.target.value)}>
+              {calendars.map((calendar) => (
+                <option key={calendar.key} value={calendar.key}>
+                  {calendar.name}
+                  {calendar.accountEmail && calendar.accountEmail !== calendar.name ? ` (${calendar.accountEmail})` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {isEditing && <p className="eve-dim">Agenda: {initial!.calendarName}</p>}
 
         <label className="eve-check">
-          <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} disabled={!canEdit} />
+          <input type="checkbox" checked={allDay} onChange={(event) => setAllDay(event.target.checked)} disabled={readOnly} />
           <span>Dia inteiro</span>
         </label>
 
@@ -153,75 +159,73 @@ export function AgendaEventEditor({
           <input
             className="eve-input"
             type={allDay ? 'date' : 'datetime-local'}
-            value={allDay ? startAt.slice(0, 10) : startAt}
-            onChange={(event) => setStartAt(allDay ? `${event.target.value}T00:00` : event.target.value)}
-            disabled={!canEdit}
+            value={allDay ? start.slice(0, 10) : start}
+            onChange={(event) => setStart(allDay ? `${event.target.value}T09:00` : event.target.value)}
+            disabled={readOnly}
             required
           />
         </label>
 
         <label className="eve-field">
-          <span className="eve-field__label">Fim (opcional)</span>
+          <span className="eve-field__label">{allDay ? 'Último dia (opcional)' : 'Fim (opcional — sem fim, dura 1 hora)'}</span>
           <input
             className="eve-input"
             type={allDay ? 'date' : 'datetime-local'}
-            value={allDay ? endAt.slice(0, 10) : endAt}
-            onChange={(event) => setEndAt(allDay ? `${event.target.value}T00:00` : event.target.value)}
-            disabled={!canEdit}
+            value={allDay ? end.slice(0, 10) : end}
+            onChange={(event) => setEnd(event.target.value ? (allDay ? `${event.target.value}T09:00` : event.target.value) : '')}
+            disabled={readOnly}
           />
         </label>
 
-        <label className="eve-field">
-          <span className="eve-field__label">Cliente</span>
-          <select className="eve-input" value={clientId} onChange={(event) => setClientId(event.target.value)} disabled={!canEdit}>
-            <option value="">Nenhum</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!readOnly && (
+          <>
+            <label className="eve-field">
+              <span className="eve-field__label">Cliente</span>
+              <select className="eve-input" value={clientId} onChange={(event) => setClientId(event.target.value)}>
+                <option value="">Nenhum</option>
+                {clients.map((client) => (
+                  <option key={client.id} value={client.id}>
+                    {client.label}
+                  </option>
+                ))}
+              </select>
+              {initial?.clientId && !initial.clientTagged && <span className="eve-setup__hint">Reconhecido pelo nome no título. Salvar grava a tag no evento.</span>}
+            </label>
 
-        <label className="eve-field">
-          <span className="eve-field__label">Cor</span>
-          <input
-            className="eve-input"
-            type="text"
-            placeholder="#3B82F6"
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-            disabled={!canEdit}
-          />
-        </label>
+            <div className="eve-field">
+              <span className="eve-field__label">Convidar (o Google manda o convite)</span>
+              <div className="eve-agenda-editor__attendees">
+                {members.map((member) => (
+                  <label key={member.id} className="eve-check">
+                    <input type="checkbox" checked={attendeeIds.has(member.id)} onChange={() => toggleAttendee(member.id)} />
+                    <span>{memberLabel(member)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        <div className="eve-field">
-          <span className="eve-field__label">Participantes</span>
-          <div className="eve-agenda-editor__attendees">
-            {members.map((member) => (
-              <label key={member.id} className="eve-check">
-                <input
-                  type="checkbox"
-                  checked={attendeeIds.has(member.id)}
-                  onChange={() => toggleAttendee(member.id)}
-                  disabled={!canEdit}
-                />
-                <span>{memberLabel(member)}</span>
-              </label>
-            ))}
-          </div>
-        </div>
+            <label className="eve-field">
+              <span className="eve-field__label">Descrição</span>
+              <textarea className="eve-input eve-notes__textarea" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} />
+            </label>
+          </>
+        )}
 
         <div className="eve-profile__actions">
-          {canEdit && (
-            <button type="submit" className="eve-btn eve-btn--primary" disabled={busy}>
+          {!readOnly && (
+            <button type="submit" className="eve-btn eve-btn--primary" disabled={busy || (!isEditing && !calendarKey)}>
               {isEditing ? 'Salvar' : 'Criar evento'}
             </button>
           )}
-          {isEditing && canEdit && (
+          {isEditing && !readOnly && (
             <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
               Excluir
             </button>
+          )}
+          {initial?.link && (
+            <a className="eve-btn" href={initial.link} target="_blank" rel="noreferrer">
+              Abrir no Google Agenda
+            </a>
           )}
           <button type="button" className="eve-btn" onClick={onClose} disabled={busy}>
             Fechar

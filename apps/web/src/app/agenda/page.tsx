@@ -3,19 +3,22 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { JSX } from 'react';
 import { AgendaWorkspace } from '../../components/AgendaWorkspace';
-import { canViewScheduling } from '../../lib/permissions';
+import { hasCalendarConnection } from '../../lib/nav-access';
+import { canViewScheduling, canWriteCredentials } from '../../lib/permissions';
 import { getSessionUser } from '../../lib/session';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * The Agenda do Time (see AgendaWorkspace) — gated by the same tab as the
- * Calendário de Conteúdo and Agendar Post: they're the same feature area.
+ * The Agenda do Time (see AgendaWorkspace), behind the Agenda tab. It only
+ * exists once a Google Agenda is connected: before that, an admin lands on
+ * Conectores to connect one and everybody else back on the dashboard.
  */
 export default async function AgendaPage(): Promise<JSX.Element> {
   const user = await getSessionUser();
   if (!user) redirect('/login');
   if (!canViewScheduling(user)) redirect('/');
+  if (!(await hasCalendarConnection(user.workspaceId))) redirect(canWriteCredentials(user) ? '/connectors' : '/');
 
   return (
     <div className="eve-wide-page">
@@ -27,7 +30,7 @@ export default async function AgendaPage(): Promise<JSX.Element> {
       </header>
 
       <div className="eve-wide-page__body">
-        <AgendaWorkspace currentUserId={user.id} />
+        <AgendaWorkspace />
       </div>
     </div>
   );

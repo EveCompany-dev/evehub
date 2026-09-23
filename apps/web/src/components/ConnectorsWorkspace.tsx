@@ -51,6 +51,14 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
   const [setupConnector, setSetupConnector] = useState<ConnectorCatalogEntry | null>(null);
   const [expandedConnector, setExpandedConnector] = useState<ConnectorCatalogEntry | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Why "Conectar com Google" came back without connecting (?googleAgenda=, set by its OAuth routes).
+  const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Mount-time read of the URL, an external system like localStorage in SideRail.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGoogleNotice(new URLSearchParams(window.location.search).get('googleAgenda'));
+  }, []);
 
   useEscapeToClose(() => setExpandedConnector(null));
 
@@ -146,6 +154,7 @@ export function ConnectorsWorkspace({ isOwner }: ConnectorsWorkspaceProps): JSX.
 
   return (
     <div className="eve-connectors">
+      {googleNotice && <p className="eve-alert eve-alert--error">Google Agenda: {googleNotice}</p>}
       {error && <p className="eve-alert eve-alert--error">{error}</p>}
 
       {loading ? (

@@ -5,7 +5,8 @@ import { listConnectors } from '../connectors';
 import { DashboardShell, type AvailableConnector } from '../components/DashboardShell';
 import { DefaultPageRedirect } from '../components/DefaultPageRedirect';
 import { resolveLandingPage } from '../lib/navigation';
-import { canCreateInstance, getVisibleTabs } from '../lib/permissions';
+import { navKeys } from '../lib/nav-access';
+import { canCreateInstance } from '../lib/permissions';
 import { getSessionUser } from '../lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -39,7 +40,8 @@ export default async function DashboardPage(): Promise<JSX.Element> {
   }));
 
   const config = parseDashboardConfig(row?.dashboardConfig);
-  const landing = resolveLandingPage(config.defaultPage, [...getVisibleTabs(user)]);
+  const keys = await navKeys(user, user.workspaceId);
+  const landing = resolveLandingPage(config.defaultPage, keys);
 
   return (
     <>
@@ -52,7 +54,7 @@ export default async function DashboardPage(): Promise<JSX.Element> {
       initialConfig={config}
       initialInstances={instances}
       available={available}
-      visibleTabs={[...getVisibleTabs(user)]}
+      visibleTabs={keys}
     />
     </>
   );

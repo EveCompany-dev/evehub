@@ -129,7 +129,8 @@ export function ClientConnectors({ clientId }: { clientId: string }): JSX.Elemen
         return;
       }
       setInstances(body.instances);
-      setAvailable(body.available ?? []);
+      // A Google Agenda belongs to the team's Agenda, not to one client.
+      setAvailable((body.available ?? []).filter((connector) => connector.id !== 'google-calendar'));
       setError(null);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

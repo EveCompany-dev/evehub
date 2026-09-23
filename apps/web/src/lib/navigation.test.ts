@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { landingOptions, resolveLandingPage } from './navigation';
 
-const ALL_TABS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team'];
+// Every tab, plus the workspace having a calendar connected.
+const ALL_TABS = ['chat', 'jobs', 'tables', 'connectors', 'automations', 'scheduling', 'financial', 'team', 'calendar'];
 
 describe('landingOptions', () => {
   it('offers the pages the user can open', () => {
@@ -17,6 +18,13 @@ describe('landingOptions', () => {
     const hrefs = landingOptions(ALL_TABS).map((route) => route.href);
     expect(hrefs).not.toContain('/agenda?mine=1');
     expect(hrefs).not.toContain('/clients/calendar');
+  });
+
+  it('shows the Agenda do Time only once a calendar is connected', () => {
+    const withoutCalendar = ALL_TABS.filter((key) => key !== 'calendar');
+    expect(landingOptions(withoutCalendar).map((route) => route.href)).not.toContain('/agenda');
+    expect(landingOptions(withoutCalendar).map((route) => route.href)).toContain('/scheduling');
+    expect(resolveLandingPage('/agenda', withoutCalendar)).toBeNull();
   });
 
   it('hides what a cargo leaves out', () => {

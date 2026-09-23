@@ -1887,6 +1887,13 @@ body[data-rail='hidden'] {
   text-overflow: ellipsis;
 }
 
+/* Private in Google: only "Ocupado", muted so it reads as a blocked slot. */
+.eve-agenda-chip.is-private {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 /* Tag filters above the Agenda do Time, Notion-style: "Cliente ▾" until
    something is picked, then the picked pills themselves. */
 .eve-agenda__bar {

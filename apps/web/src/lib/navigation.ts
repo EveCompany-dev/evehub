@@ -6,9 +6,19 @@ export interface NavRoute {
   label: string;
   /** Tab that gates this route; omit for routes every authenticated user has. */
   tab?: TabKey;
+  /** Something the workspace must have switched on, on top of the tab (see NAV_FEATURES). */
+  feature?: NavFeature;
   /** Extra search terms for the Ctrl+K index. */
   keywords?: string[];
 }
+
+/**
+ * Workspace-level switches that show or hide a page for everybody, passed
+ * alongside the user's tabs in the same list: 'calendar' = at least one
+ * calendar (Google Agenda) is connected — the Agenda do Time only exists then.
+ */
+export const NAV_FEATURES = ['calendar'] as const;
+export type NavFeature = (typeof NAV_FEATURES)[number];
 
 /**
  * Every page, once.
@@ -26,7 +36,7 @@ export const NAV_ROUTES: NavRoute[] = [
   { href: '/tables', label: strings.nav.tables, tab: 'tables', keywords: ['tabela', 'planilha', 'dados', 'base'] },
   { href: '/connectors', label: strings.nav.connectors, tab: 'connectors', keywords: ['conexoes', 'integracoes', 'api', 'credenciais'] },
   { href: '/automations', label: strings.nav.automations, tab: 'automations', keywords: ['webhook', 'n8n', 'automacao', 'gatilho'] },
-  { href: '/agenda', label: strings.nav.scheduling, tab: 'scheduling', keywords: ['agenda do time', 'calendario', 'reuniao', 'compromisso', 'evento', 'time', 'equipe'] },
+  { href: '/agenda', label: strings.nav.scheduling, tab: 'scheduling', feature: 'calendar', keywords: ['agenda do time', 'calendario', 'reuniao', 'compromisso', 'evento', 'time', 'equipe'] },
   { href: '/scheduling', label: 'Agendar post', tab: 'scheduling', keywords: ['posts', 'publicacao', 'instagram', 'facebook', 'meta', 'agendar', 'carrossel', 'lote'] },
   { href: '/financial', label: strings.nav.financial, tab: 'financial', keywords: ['financeiro', 'verba', 'custo', 'receita'] },
   { href: '/team', label: strings.nav.team, tab: 'team', keywords: ['equipe', 'pessoas', 'membros', 'permissoes', 'senha'] },
@@ -59,6 +69,7 @@ export function resolveLandingPage(defaultPage: string | null | undefined, visib
   return landingOptions(visibleTabs).some((route) => route.href === page) ? page : null;
 }
 
-export function visibleRoutes(visibleTabs: readonly string[]): NavRoute[] {
-  return NAV_ROUTES.filter((route) => !route.tab || visibleTabs.includes(route.tab));
+/** `navKeys` = the user's tabs plus the workspace's switched-on features (see lib/nav-access.ts). */
+export function visibleRoutes(navKeys: readonly string[]): NavRoute[] {
+  return NAV_ROUTES.filter((route) => (!route.tab || navKeys.includes(route.tab)) && (!route.feature || navKeys.includes(route.feature)));
 }

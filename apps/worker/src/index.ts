@@ -5,6 +5,7 @@ import '@eve/connector-calendar';
 import '@eve/connector-chat';
 import '@eve/connector-demo';
 import '@eve/connector-google-ads';
+import '@eve/connector-google-calendar';
 import '@eve/connector-meta';
 import '@eve/connector-notes';
 import '@eve/connector-notion';

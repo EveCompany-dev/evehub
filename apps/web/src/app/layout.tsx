@@ -8,7 +8,8 @@ import { CustomCursor } from '../components/CustomCursor';
 import { DragZoomGuard } from '../components/DragZoomGuard';
 import { SideRail } from '../components/SideRail';
 import { TimerProvider } from '../components/TimerProvider';
-import { getVisibleTabs, toTabSubject, type TabKey } from '../lib/permissions';
+import { navKeys } from '../lib/nav-access';
+import { toTabSubject } from '../lib/permissions';
 import { getSessionUser } from '../lib/session';
 
 import '@eve/ui/tokens.css';
@@ -30,7 +31,8 @@ export const metadata: Metadata = {
 interface LayoutSession {
   theme: 'dark' | 'light' | null;
   isOwner: boolean | null;
-  visibleTabs: Set<TabKey>;
+  /** Tabs plus switched-on workspace features — see lib/nav-access.ts. */
+  navKeys: string[];
   railFullHide: boolean;
   cursorFollower: boolean;
 }
@@ -44,26 +46,26 @@ interface LayoutSession {
  */
 async function resolveSession(): Promise<LayoutSession> {
   const user = await getSessionUser();
-  if (!user) return { theme: null, isOwner: null, visibleTabs: new Set(), railFullHide: false, cursorFollower: true };
+  if (!user) return { theme: null, isOwner: null, navKeys: [], railFullHide: false, cursorFollower: true };
 
   const row = await prisma.user.findUnique({
     where: { id: user.id },
     select: { dashboardConfig: true, isOwner: true, role: { select: { tabs: true } } },
   });
-  if (!row) return { theme: null, isOwner: null, visibleTabs: new Set(), railFullHide: false, cursorFollower: true };
+  if (!row) return { theme: null, isOwner: null, navKeys: [], railFullHide: false, cursorFollower: true };
 
   const config = parseDashboardConfig(row.dashboardConfig);
   return {
     theme: config.theme === 'system' ? null : config.theme,
     isOwner: row.isOwner,
-    visibleTabs: getVisibleTabs(toTabSubject(row)),
+    navKeys: await navKeys(toTabSubject(row), user.workspaceId),
     railFullHide: config.railFullHide,
     cursorFollower: config.cursorFollower,
   };
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }): Promise<JSX.Element> {
-  const { theme, isOwner, visibleTabs, railFullHide, cursorFollower } = await resolveSession();
+  const { theme, isOwner, navKeys: keys, railFullHide, cursorFollower } = await resolveSession();
 
   return (
     // suppressHydrationWarning cobre so os atributos DESTE elemento: extensoes
@@ -93,7 +95,7 @@ export default async function RootLayout({ children }: { children: ReactNode }):
         {isOwner !== null ? (
           <TimerProvider>
             {children}
-            <SideRail visibleTabs={[...visibleTabs]} railFullHide={railFullHide} />
+            <SideRail visibleTabs={keys} railFullHide={railFullHide} />
             <BugReportPill />
           </TimerProvider>
         ) : (

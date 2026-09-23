@@ -15,7 +15,7 @@ describe('the connectors the app registers', () => {
 
   it('registers every connector package in the workspace', () => {
     expect([...byId.keys()].sort()).toEqual(
-      ['calculator', 'calendar', 'chat', 'demo', 'google-ads', 'meta', 'notes', 'notion', 'overview', 'timer'].sort(),
+      ['calculator', 'calendar', 'chat', 'demo', 'google-ads', 'google-calendar', 'meta', 'notes', 'notion', 'overview', 'timer'].sort(),
     );
   });
 
