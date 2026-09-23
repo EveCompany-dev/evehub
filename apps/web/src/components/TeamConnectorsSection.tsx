@@ -4,7 +4,7 @@ import { useEffect, useState, type JSX } from 'react';
 import { ConnectorsWorkspace } from './ConnectorsWorkspace';
 
 /**
- * The team's own tools — Notion, Google Agenda, Google Ads, the Claude
+ * The team's own tools — Notion, Google Agenda, the Claude
  * assistant — on the Equipe page, folded like Cargos. The clients' social
  * media accounts are connected on each client's page instead. Admin-only,
  * like every credential.

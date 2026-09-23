@@ -1,10 +1,10 @@
 /**
- * Who a connection belongs to. A client's connections are its social media
- * accounts (Meta: Instagram + Facebook) — what the client page offers.
- * Every other outside service (Notion, Google Agenda, Google Ads, the Claude
- * assistant) is the team's own, connected from the Equipe page.
+ * Who a connection belongs to. A client's connections are its own accounts:
+ * social media (Meta: Instagram + Facebook) and its Google Ads (ads data
+ * only) — what the client page offers. Every other outside service (Notion,
+ * Google Agenda, the Claude assistant) is the team's own, on the Equipe page.
  */
-export const CLIENT_CONNECTOR_IDS: ReadonlySet<string> = new Set(['meta']);
+export const CLIENT_CONNECTOR_IDS: ReadonlySet<string> = new Set(['meta', 'google-ads']);
 
 export function isClientConnector(connector: { id: string }): boolean {
   return CLIENT_CONNECTOR_IDS.has(connector.id);

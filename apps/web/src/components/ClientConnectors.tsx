@@ -69,7 +69,7 @@ export function ConnectorPicker({ clientId, available, onConnected, onClose, int
     }
   };
 
-  // A client's connections are its social media accounts; the team's tools are connected on Equipe.
+  // A client's connections are its own accounts (social media, Google Ads); the team's tools are on Equipe.
   const creatable = available.filter((connector) => connector.canCreate && isClientConnector(connector));
 
   return (
