@@ -423,7 +423,7 @@ export const strings = {
     notifications: 'Notificações',
     notificationsHint: 'Notificações não lidas: jobs importantes, menções, posts que falharam.',
     agenda: 'Agenda de hoje',
-    agendaHint: 'Os posts agendados para hoje.',
+    agendaHint: 'Os compromissos do Google Agenda e os posts agendados para hoje.',
     nothingShown: 'Todas as seções estão ocultas. Ligue alguma nas configurações (⋮).',
   },
 

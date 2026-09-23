@@ -1,4 +1,4 @@
-import { prisma, publishLiveEvent } from '@eve/core';
+import { prisma, publishLiveEvent, type Prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { visibleRoutes } from './navigation';
@@ -82,6 +82,15 @@ function ownListWhere(user: SessionUser, listId: string) {
 }
 
 /** The list, if it is this user's. Anyone else — another member, an admin — gets a 404, never a hint that it exists. */
+/**
+ * Serializes every write that renumbers a list's positions. Without it two
+ * quick adds (typing "a", Enter, "b", Enter) both read the same last position
+ * and land on the same slot.
+ */
+async function lockList(tx: Prisma.TransactionClient, listId: string): Promise<void> {
+  await tx.$executeRaw`SELECT 1 FROM "TodoList" WHERE id = ${listId} FOR UPDATE`;
+}
+
 export async function requireOwnList(user: SessionUser, listId: string) {
   const list = await prisma.todoList.findFirst({ where: ownListWhere(user, listId) });
   if (!list) throw new HttpError(404, strings.errors.notFound);
@@ -193,6 +202,7 @@ export async function addTodoItems(
   if (clean.length === 0) return [];
 
   const created = await prisma.$transaction(async (tx) => {
+    await lockList(tx, listId);
     let start: number;
     if (at === undefined) {
       const last = await tx.todoItem.findFirst({ where: { listId }, orderBy: { position: 'desc' }, select: { position: true } });
@@ -249,17 +259,21 @@ export async function updateTodoItem(user: SessionUser, itemId: string, patch: T
 /** Rewrites the manual order. Ids not in this list are ignored; items left out keep their relative order after the given ones. */
 export async function reorderTodoItems(user: SessionUser, listId: string, orderedIds: string[]): Promise<void> {
   await requireOwnList(user, listId);
-  const items = await prisma.todoItem.findMany({
-    where: { listId },
-    orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
-    select: { id: true },
+  await prisma.$transaction(async (tx) => {
+    await lockList(tx, listId);
+    const items = await tx.todoItem.findMany({
+      where: { listId },
+      orderBy: [{ position: 'asc' }, { createdAt: 'asc' }],
+      select: { id: true },
+    });
+    const known = new Set(items.map((item) => item.id));
+    const given = [...new Set(orderedIds)].filter((id) => known.has(id));
+    const rest = items.map((item) => item.id).filter((id) => !given.includes(id));
+    const order = [...given, ...rest];
+    for (const [position, id] of order.entries()) {
+      await tx.todoItem.update({ where: { id }, data: { position } });
+    }
   });
-  const known = new Set(items.map((item) => item.id));
-  const given = [...new Set(orderedIds)].filter((id) => known.has(id));
-  const rest = items.map((item) => item.id).filter((id) => !given.includes(id));
-  const order = [...given, ...rest];
-
-  await prisma.$transaction(order.map((id, position) => prisma.todoItem.update({ where: { id }, data: { position } })));
   await notifyChanged(user, listId);
 }
 
@@ -270,10 +284,14 @@ export async function reorderTodoItems(user: SessionUser, listId: string, ordere
 
 export async function deleteTodoItem(user: SessionUser, itemId: string): Promise<TodoItemDto> {
   const item = await requireOwnItem(user, itemId);
-  await prisma.$transaction([
-    prisma.todoItem.delete({ where: { id: item.id } }),
-    prisma.todoItem.updateMany({ where: { listId: item.listId, position: { gt: item.position } }, data: { position: { decrement: 1 } } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    await lockList(tx, item.listId);
+    // Re-read inside the lock: a concurrent add or reorder may have moved it.
+    const current = await tx.todoItem.findUnique({ where: { id: item.id }, select: { position: true } });
+    if (!current) return;
+    await tx.todoItem.delete({ where: { id: item.id } });
+    await tx.todoItem.updateMany({ where: { listId: item.listId, position: { gt: current.position } }, data: { position: { decrement: 1 } } });
+  });
   await notifyChanged(user, item.listId);
   return toItemDto(item);
 }

@@ -176,6 +176,20 @@ describe.skipIf(!dbUp)('personal to-do lists', () => {
     expect(after.map((row) => row.position)).toEqual([0, 1, 2]);
   });
 
+  it('gives every task its own slot when several are added at once', async () => {
+    session.user = owner;
+    const created = await listsRoute.POST(json('POST', { name: 'Rapida' }));
+    const fastListId = ((await created.json()) as { list: { id: string } }).list.id;
+
+    // What typing "a", Enter, "b", Enter... does: the requests overlap.
+    const texts = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const responses = await Promise.all(texts.map((text) => itemsRoute.POST(json('POST', { text }), params(fastListId))));
+    expect(responses.every((response) => response.status === 201)).toBe(true);
+
+    const rows = await prisma.todoItem.findMany({ where: { listId: fastListId }, orderBy: { position: 'asc' } });
+    expect(rows.map((row) => row.position)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
   it('resolves mentions only inside the workspace', async () => {
     session.user = owner;
     const text = `Ver @[Vazado](job:${foreignJobId}) e /[Jobs](page:/jobs) e /[Log](page:/activity)`;
