@@ -1,0 +1,126 @@
+name: Deploy
+
+# Runs deploy.sh on the VPS over SSH. This sandbox and most agent sessions
+# can't open SSH connections; GitHub's runners can, so deploys go through here.
+#
+# Two ways in:
+#   - by hand: Actions -> Deploy -> Run workflow
+#   - on its own: after CI passes on a push to main (a merged PR)
+#
+# Repo secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_SSH_KEY      private key of a deploy-only key pair (ssh-keygen -t ed25519)
+#   VPS_HOST         e.g. evecompany.cloud
+#   VPS_USER         the SSH user
+#   VPS_PATH         the directory on the VPS that holds deploy.sh
+#   VPS_PORT         optional, defaults to 22
+#   VPS_KNOWN_HOSTS  optional but recommended: output of `ssh-keyscan -H <host>`
+#                    taken once from a trusted machine. Without it the host key
+#                    is trusted on first contact on every run.
+#
+# Until the secrets exist, the automatic run skips with a notice instead of
+# failing every merge.
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+# One deploy at a time; a newer one waits instead of racing the running one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # Automatic runs only for a green CI on a push to main, never for PR runs.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    # A GitHub environment, so required reviewers can be added later without touching this file.
+    environment: production
+    timeout-minutes: 30
+
+    env:
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PATH: ${{ secrets.VPS_PATH }}
+      VPS_PORT: ${{ secrets.VPS_PORT }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+
+    steps:
+      - name: Check the deploy secrets
+        id: secrets
+        run: |
+          missing=()
+          for name in VPS_SSH_KEY VPS_HOST VPS_USER VPS_PATH; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              echo "::error::Missing repo secrets: ${missing[*]}"
+              exit 1
+            fi
+            echo "::notice::Deploy skipped: missing repo secrets ${missing[*]}"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up SSH
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          port="${VPS_PORT:-22}"
+          if [ -n "$VPS_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::VPS_KNOWN_HOSTS is not set; trusting the host key on first contact."
+            ssh-keyscan -p "$port" -H "$VPS_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            Port $port
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            ServerAliveInterval 30
+          EOF
+
+      - name: Run deploy.sh on the VPS
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          # VPS_PATH is expanded here and quoted for the remote shell; a login
+          # shell so deploy.sh sees the same PATH (docker, node, pnpm) as a person would.
+          ssh vps "bash -lc 'cd $(printf %q "$VPS_PATH") && ./deploy.sh'"
+
+      - name: Smoke test
+        if: steps.secrets.outputs.ready == 'true'
+        run: |
+          # The app can take a moment to come back up after deploy.sh returns.
+          for attempt in $(seq 1 20); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "https://$VPS_HOST/login" || true)
+            if [ "$status" = "200" ]; then
+              echo "https://$VPS_HOST/login answered 200 (attempt $attempt)"
+              exit 0
+            fi
+            echo "attempt $attempt: HTTP $status, retrying in 15s"
+            sleep 15
+          done
+          echo "::error::https://$VPS_HOST/login did not answer 200 after the deploy"
+          exit 1
+
+      - name: Remove the key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

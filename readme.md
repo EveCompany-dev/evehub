@@ -137,6 +137,17 @@ quando o Google aposentar a versao, a sync passa a dizer exatamente isso.
 | `pnpm services:up` / `services:down` | postgres + redis |
 | `pnpm stack:up` | tudo em container (profile `full`) |
 
+## Deploy
+
+`.github/workflows/deploy.yml` roda o `deploy.sh` da VPS por SSH: sozinho
+depois que o CI passa num push para `main`, ou na mao em Actions -> Deploy ->
+Run workflow. No fim ele confere se `https://<VPS_HOST>/login` responde 200.
+
+Precisa dos secrets do repo `VPS_SSH_KEY` (chave so de deploy),
+`VPS_HOST`, `VPS_USER` e `VPS_PATH` (a pasta do `deploy.sh`); `VPS_PORT` e
+`VPS_KNOWN_HOSTS` (saida de `ssh-keyscan -H <host>`) sao opcionais. Sem os
+secrets o deploy automatico e pulado com um aviso, nao falha.
+
 ---
 
 ## Estrutura
