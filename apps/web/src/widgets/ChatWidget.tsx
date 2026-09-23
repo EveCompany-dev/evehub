@@ -1,8 +1,8 @@
 'use client';
 
 import type { ChatMessage } from '@eve/connector-chat/shared';
-import { strings, WidgetShell } from '@eve/ui';
-import { useEffect, useRef, useState, type FormEvent, type JSX } from 'react';
+import { DevBadge, SettingsRow, SettingsSection, strings, WidgetShell } from '@eve/ui';
+import { useEffect, useId, useRef, useState, type FormEvent, type JSX } from 'react';
 import { linkify } from '../components/Linkify';
 import type { WidgetProps } from './types';
 
@@ -11,7 +11,7 @@ import type { WidgetProps } from './types';
  * dragging other widgets in as context. Those are explicitly future work; this
  * is deliberately just a chat box talking to one API route.
  */
-export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.Element {
+export function ChatWidget({ instanceId, title }: WidgetProps): JSX.Element {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -95,10 +95,18 @@ export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
     <WidgetShell
       title={title}
       status="ok"
-      actions={[
-        { label: strings.chat.clear, onSelect: () => void clear() },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: (
+          <SettingsSection title={strings.widgetSettings.pageGeneral}>
+            <ClearConversationRow disabled={messages.length === 0} onClear={() => void clear()} />
+          </SettingsSection>
+        ),
+        estilo: (
+          <SettingsSection title={strings.widgetSettings.pageStyle}>
+            <ChatColorRow />
+          </SettingsSection>
+        ),
+      }}
     >
       <div className="eve-chat">
         <div className="eve-chat__list eve-no-drag" ref={listRef}>
@@ -130,5 +138,47 @@ export function ChatWidget({ instanceId, title, onRemove }: WidgetProps): JSX.El
         </form>
       </div>
     </WidgetShell>
+  );
+}
+
+/** Clearing wipes the whole history, so it asks once, inline. */
+function ClearConversationRow({ disabled, onClear }: { disabled: boolean; onClear: () => void }): JSX.Element {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <SettingsRow label={strings.chat.clear} hint={confirming ? strings.chat.clearConfirm : strings.chat.clearHint}>
+      {confirming ? (
+        <>
+          <button type="button" className="eve-btn" onClick={() => setConfirming(false)}>
+            {strings.widgetSettings.cancel}
+          </button>
+          <button
+            type="button"
+            className="eve-btn eve-btn--danger-solid"
+            autoFocus
+            onClick={() => {
+              setConfirming(false);
+              onClear();
+            }}
+          >
+            {strings.chat.clearYes}
+          </button>
+        </>
+      ) : (
+        <button type="button" className="eve-btn eve-btn--danger" disabled={disabled} onClick={() => setConfirming(true)}>
+          {strings.chat.clear}
+        </button>
+      )}
+    </SettingsRow>
+  );
+}
+
+/** Placeholder: the chat colour is planned, not built — shown disabled so the page has its shape. */
+function ChatColorRow(): JSX.Element {
+  const id = useId();
+  return (
+    <SettingsRow label={strings.chat.colorLabel} hint={strings.chat.colorHint} htmlFor={id} badge={<DevBadge />}>
+      <input id={id} type="color" className="eve-color-input" defaultValue="#fa5300" disabled />
+    </SettingsRow>
   );
 }

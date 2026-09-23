@@ -245,15 +245,6 @@ export const strings = {
     alertsBottom: 'Avisos embaixo',
   },
 
-  view: {
-    configure: 'Personalizar visualização',
-    kindTable: 'Tabela',
-    kindStatCards: 'Cartões',
-    fieldsTitle: 'Campos visíveis',
-    close: 'Fechar',
-    reset: 'Mostrar todos',
-  },
-
   palette: {
     placeholder: 'Buscar módulo, ação ou cliente...',
     empty: 'Nada encontrado.',
@@ -370,6 +361,68 @@ export const strings = {
     sending: 'Enviando...',
     empty: 'Converse com o Claude — ele pode consultar seus jobs, tabelas, clientes e (se você tiver acesso) o financeiro.',
     clear: 'Limpar conversa',
+    clearHint: 'Apaga o histórico deste widget. O Claude esquece o que foi dito.',
+    clearConfirm: 'Apagar toda a conversa?',
+    clearYes: 'Apagar',
+    colorLabel: 'Cor do chat',
+    colorHint: 'A cor dos balões das suas mensagens.',
     notConfigured: 'ANTHROPIC_API_KEY não configurada. Adicione a chave no .env para usar o chat.',
+  },
+
+  /** O cartão de configurações que abre no ⋮ de qualquer widget. */
+  widgetSettings: {
+    open: 'Configurações do widget',
+    subtitle: 'Configurações do widget',
+    close: 'Fechar',
+    pagesLabel: 'Seções das configurações',
+    pageGeneral: 'Geral',
+    pageStyle: 'Estilo',
+    pageConnection: 'Conexão',
+    inDevelopment: 'Em desenvolvimento',
+    nothingHere: 'Este módulo não tem outras opções.',
+    actionsSection: 'Ações',
+    lock: 'Travar posição',
+    lockHint: 'Não deixa arrastar nem redimensionar este widget.',
+    syncNow: 'Sincronizar agora',
+    syncing: 'Sincronizando...',
+    undoLast: 'Desfazer última edição',
+    remove: 'Remover do painel',
+    removeConfirm: 'Remover este widget do painel? Os dados dele continuam salvos.',
+    removeYes: 'Remover',
+    cancel: 'Cancelar',
+    connectionTitle: 'Cliente e conexão',
+    connectionHint:
+      'Vai permitir fixar este widget em um cliente ou em uma conta conectada específica, em vez de seguir a seleção global.',
+    connectionPlaceholder: 'Escolher cliente ou conta...',
+  },
+
+  view: {
+    configure: 'Personalizar visualização',
+    kindLabel: 'Formato',
+    kindTable: 'Tabela',
+    kindStatCards: 'Cartões',
+    fieldsTitle: 'Campos visíveis',
+    fieldsHint: 'Marque o que aparece e use as setas para mudar a ordem.',
+    close: 'Fechar',
+    reset: 'Mostrar todos',
+    noFields: 'Nenhum campo disponível ainda — sincronize o módulo primeiro.',
+  },
+
+  notes: {
+    alertsBottomHint: 'Mostra os avisos de desfazer, conflito e erro embaixo do texto, em vez de em cima.',
+  },
+
+  timer: {
+    pomodoro: 'Modo Pomodoro',
+    pomodoroHint: '25 minutos de foco e 5 de intervalo, encadeados. Desligado, você escolhe os minutos.',
+  },
+
+  overview: {
+    sectionContent: 'O que mostrar',
+    notifications: 'Notificações',
+    notificationsHint: 'Notificações não lidas: jobs importantes, menções, posts que falharam.',
+    agenda: 'Agenda de hoje',
+    agendaHint: 'Os posts agendados para hoje.',
+    nothingShown: 'Todas as seções estão ocultas. Ligue alguma nas configurações (⋮).',
   },
 } as const;

@@ -1,14 +1,14 @@
 'use client';
 
 import type { DashboardConfig, ViewConfig, WidgetLayout } from '@eve/core/dashboard';
-import { strings } from '@eve/ui';
+import { strings, WidgetChromeContext } from '@eve/ui';
 import type { JSX, MouseEvent as ReactMouseEvent } from 'react';
 import GridLayout, { useContainerWidth, type Layout } from 'react-grid-layout';
 import { createScaledStrategy } from 'react-grid-layout/core';
 import type { AvailableConnector } from './DashboardShell';
 import { useContextMenu } from './ContextMenu';
 import { currentUiZoom } from '../lib/ui-scale';
-import { getWidget } from '../widgets/registry';
+import { getWidget, getWidgetIcon } from '../widgets/registry';
 import { WidgetErrorBoundary } from '../widgets/WidgetErrorBoundary';
 
 /** Below this width a 12-column grid stops being usable, so widgets stack. */
@@ -64,13 +64,24 @@ export function DashboardGrid({
 
     return (
       <WidgetErrorBoundary title={title} onRemove={() => onRemove(instance.id)}>
-        <Widget
-          instanceId={instance.id}
-          title={title}
-          onRemove={() => onRemove(instance.id)}
-          viewConfig={settings?.viewConfig ?? null}
-          onViewConfigChange={(next) => onViewConfigChange(instance.id, next)}
-        />
+        {/* What the settings card (⋮) offers on every widget without the widget
+            wiring it: the icon, lock/unlock and "Remover do painel". */}
+        <WidgetChromeContext.Provider
+          value={{
+            icon: getWidgetIcon(instance.connectorId),
+            locked: item.locked,
+            onToggleLock: () => onToggleWidgetLock(instance.id),
+            onRemove: () => onRemove(instance.id),
+          }}
+        >
+          <Widget
+            instanceId={instance.id}
+            title={title}
+            onRemove={() => onRemove(instance.id)}
+            viewConfig={settings?.viewConfig ?? null}
+            onViewConfigChange={(next) => onViewConfigChange(instance.id, next)}
+          />
+        </WidgetChromeContext.Provider>
       </WidgetErrorBoundary>
     );
   };

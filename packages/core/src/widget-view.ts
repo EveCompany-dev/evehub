@@ -12,6 +12,30 @@ import { z } from 'zod';
 export const viewConfigSchema = z.object({
   kind: z.enum(['table', 'stat-cards']).default('table'),
   fields: z.array(z.string()).nullable().default(null),
+  /**
+   * A widget's own settings from its settings card (Resumo do dia's
+   * sections, the list a Tarefas widget shows, ...). Lives here, in the
+   * user's dashboard config, so it follows them across devices — unlike the
+   * older per-browser localStorage flags. Keys are owned by each widget;
+   * values stay flat and small on purpose.
+   */
+  options: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
 });
 
 export type ViewConfig = z.infer<typeof viewConfigSchema>;
+
+export type ViewOptionValue = string | number | boolean | null;
+
+/** Returns a copy of `view` (or a default view) with one option set — the rest of the view untouched. */
+export function withViewOption(view: ViewConfig | null, key: string, value: ViewOptionValue): ViewConfig {
+  const base: ViewConfig = view ?? { kind: 'table', fields: null };
+  return { ...base, options: { ...base.options, [key]: value } };
+}
+
+/** Reads one option, falling back when it is unset or holds a value of another type. */
+export function readViewOption<T extends ViewOptionValue>(view: ViewConfig | null, key: string, fallback: T): T {
+  const value = view?.options?.[key];
+  if (value === undefined) return fallback;
+  if (fallback !== null && value !== null && typeof value !== typeof fallback) return fallback;
+  return value as T;
+}

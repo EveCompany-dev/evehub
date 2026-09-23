@@ -1,6 +1,6 @@
 'use client';
 
-import { strings, WidgetShell } from '@eve/ui';
+import { WidgetShell } from '@eve/ui';
 import { useState, type JSX } from 'react';
 import type { WidgetProps } from './types';
 
@@ -20,7 +20,7 @@ function apply(a: number, b: number, operator: Operator): number {
 }
 
 /** No sync, no persistence, no config — just a four-function calculator. */
-export function CalculatorWidget({ title, onRemove }: WidgetProps): JSX.Element {
+export function CalculatorWidget({ title }: WidgetProps): JSX.Element {
   const [display, setDisplay] = useState('0');
   const [stored, setStored] = useState<number | null>(null);
   const [operator, setOperator] = useState<Operator | null>(null);
@@ -70,11 +70,8 @@ export function CalculatorWidget({ title, onRemove }: WidgetProps): JSX.Element 
   const toggleSign = () => setDisplay(String(Number(display) * -1));
 
   return (
-    <WidgetShell
-      title={title}
-      status="ok"
-      actions={[{ label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true }]}
-    >
+    // No options of its own: the settings card (⋮) shows only lock and remove.
+    <WidgetShell title={title} status="ok">
       <div className="eve-calc eve-no-drag">
         <div className="eve-calc__display">{display}</div>
         <div className="eve-calc__grid">

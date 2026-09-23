@@ -1,6 +1,6 @@
 'use client';
 
-import { strings, UndoBanner, WidgetShell } from '@eve/ui';
+import { SettingsSection, SettingsToggle, strings, UndoBanner, WidgetShell } from '@eve/ui';
 import { useState, type JSX } from 'react';
 import { useLocalFlag } from '../lib/use-local-flag';
 import { renderRichText } from '../components/RichText';
@@ -21,7 +21,7 @@ import { useCellEditing } from './view/useCellEditing';
  * draft/save plumbing is independent of its own `editing` flag, so it still
  * drives the save here even though that flag itself goes unused.
  */
-export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.Element {
+export function NotesWidget({ instanceId, title }: WidgetProps): JSX.Element {
   const { data, loading, error, refresh, syncNow } = useWidgetData(instanceId);
   const editing = useCellEditing(instanceId, data, refresh);
   const [editingText, setEditingText] = useState(false);
@@ -104,12 +104,20 @@ export function NotesWidget({ instanceId, title, onRemove }: WidgetProps): JSX.E
       status={data?.instance.status ?? (loading ? 'syncing' : 'error')}
       statusMessage={data?.instance.statusMessage ?? error}
       lastSyncedAt={data?.instance.lastSyncedAt ?? null}
-      actions={[
-        { label: strings.edit.alertsBottom, checked: alertsBottom, onSelect: () => setAlertsBottom(!alertsBottom) },
-        ...(lastEdit ? [{ label: strings.edit.undoLast, onSelect: () => void editing.undo(lastEdit.id) }] : []),
-        { label: strings.dashboard.syncNow, onSelect: () => void syncNow() },
-        { label: strings.dashboard.removeWidget, onSelect: onRemove, danger: true },
-      ]}
+      settings={{
+        geral: (
+          <SettingsSection title={strings.widgetSettings.pageGeneral}>
+            <SettingsToggle
+              label={strings.edit.alertsBottom}
+              hint={strings.notes.alertsBottomHint}
+              checked={alertsBottom}
+              onChange={setAlertsBottom}
+            />
+          </SettingsSection>
+        ),
+      }}
+      onSyncNow={syncNow}
+      onUndoLast={lastEdit ? () => void editing.undo(lastEdit.id) : null}
     >
       {alertsBottom ? (
         <div className="eve-notes eve-notes--bottom">

@@ -1585,7 +1585,8 @@ body[data-rail='hidden'] {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgb(0 0 0 / 0.45);
+  /* Fundo (desfoque + escurecimento) e animacao: regra compartilhada em
+     tokens.css, igual a paleta e ao cartao de configuracoes do widget. */
   padding: 16px;
 }
 
@@ -2587,7 +2588,7 @@ video.eve-month__chip-thumb {
   justify-content: center;
   align-items: flex-start;
   padding: 12vh 16px 16px;
-  background: rgb(0 0 0 / 0.45);
+  /* Fundo compartilhado: ver .eve-backdrop em tokens.css. */
 }
 
 .eve-palette {

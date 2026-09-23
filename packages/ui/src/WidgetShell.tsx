@@ -1,12 +1,20 @@
 'use client';
 
-import { useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { useRef, useState, type ComponentType, type JSX, type ReactNode } from 'react';
+import type { LucideProps } from 'lucide-react';
 import { formatRelativeTime } from './relative-time';
 import { StatusPill, type ConnectorStatusValue } from './StatusPill';
 import { strings } from './strings';
 import { useNow } from './useNow';
-import { Check, EllipsisVertical, Pencil, X } from './icons';
+import { EllipsisVertical, Pencil, X } from './icons';
+import { useWidgetChrome } from './widget-chrome';
+import { visibleSettingsPages, type WidgetSettingsPages } from './widget-settings-pages';
+import { WidgetSettingsDialog } from './WidgetSettingsDialog';
 
+/**
+ * An item of the old ⋮ dropdown. Still accepted as a fallback while widgets
+ * move to `settings`: the items render on the settings card's Geral page.
+ */
 export interface WidgetAction {
   label: string;
   onSelect: () => void;
@@ -22,7 +30,23 @@ export interface WidgetShellProps {
   statusMessage?: string | null;
   lastSyncedAt?: string | null;
   readOnly?: boolean;
+  /** @deprecated Pass `settings` (and `onSyncNow`/`onUndoLast`) instead. */
   actions?: WidgetAction[];
+  /**
+   * The pages of this widget's settings card, opened from the ⋮ button. Pass
+   * content for the pages that apply (`geral`, `estilo`, `conexao`); a page
+   * left empty is not shown. Lock and "remover do painel" come from the grid
+   * (WidgetChromeContext) and need nothing here.
+   */
+  settings?: WidgetSettingsPages;
+  /** Offers "Sincronizar agora" in the card, for widgets backed by a sync. */
+  onSyncNow?: () => void | Promise<void>;
+  /** Offers "Desfazer ultima edicao" in the card — pass it only while there is something to undo. */
+  onUndoLast?: (() => void) | null;
+  /** Overrides the grid's remove action, for a shell rendered outside the grid. */
+  onRemove?: () => void;
+  /** Overrides the icon the grid picked for this widget's connector. */
+  icon?: ComponentType<LucideProps>;
   footerExtra?: ReactNode;
   children: ReactNode;
 
@@ -40,8 +64,8 @@ export interface WidgetShellProps {
 
 /**
  * The common chrome every connector widget sits inside: title, health, the
- * three-dot menu, and the "atualizado ha X min" footer. The connector owns
- * only the body.
+ * three-dot button that opens the widget's settings card, and the
+ * "atualizado ha X min" footer. The connector owns only the body.
  */
 export function WidgetShell({
   title,
@@ -50,36 +74,28 @@ export function WidgetShell({
   lastSyncedAt,
   readOnly = false,
   actions = [],
+  settings,
+  onSyncNow,
+  onUndoLast,
+  onRemove,
+  icon,
   footerExtra,
   children,
   editable = false,
   editing = false,
   onToggleEdit,
 }: WidgetShellProps): JSX.Element {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const chrome = useWidgetChrome();
 
   // null on the server and on the very first client render, then it ticks.
   const now = useNow();
   const relative = now === null ? null : formatRelativeTime(lastSyncedAt ?? null, now);
 
-  useEffect(() => {
-    if (!menuOpen) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKeyDown);
-    };
-  }, [menuOpen]);
+  const remove = onRemove ?? chrome.onRemove;
+  const hasSettings =
+    visibleSettingsPages(settings, actions.length).length > 0 || Boolean(onSyncNow || onUndoLast || remove || chrome.onToggleLock);
 
   return (
     <section className="eve-widget">
@@ -100,40 +116,36 @@ export function WidgetShell({
           </button>
         )}
 
-        {actions.length > 0 && (
-          // eve-no-drag keeps the grid from treating a menu click as a drag.
-          <div className="eve-widget__menu eve-no-drag" ref={menuRef}>
+        {hasSettings && (
+          // eve-no-drag keeps the grid from treating the click as a drag.
+          <div className="eve-widget__menu eve-no-drag">
             <button
+              ref={menuButtonRef}
               type="button"
-              className="eve-btn eve-btn--icon"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label="Acoes do widget"
-              onClick={() => setMenuOpen((open) => !open)}
+              className={settingsOpen ? 'eve-btn eve-btn--icon is-active' : 'eve-btn eve-btn--icon'}
+              aria-haspopup="dialog"
+              aria-expanded={settingsOpen}
+              aria-label={strings.widgetSettings.open}
+              title={strings.widgetSettings.open}
+              onClick={() => setSettingsOpen(true)}
             >
               <EllipsisVertical size={14} aria-hidden="true" />
             </button>
 
-            {menuOpen && (
-              <div className="eve-menu" role="menu">
-                {actions.map((action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
-                    aria-checked={action.checked}
-                    className={action.danger ? 'eve-menu__item eve-menu__item--danger' : 'eve-menu__item'}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      action.onSelect();
-                    }}
-                  >
-                    <span className="eve-menu__label">{action.label}</span>
-                    {action.checked && <Check size={14} aria-hidden="true" />}
-                  </button>
-                ))}
-              </div>
-            )}
+            <WidgetSettingsDialog
+              open={settingsOpen}
+              title={title}
+              icon={icon ?? chrome.icon}
+              pages={settings}
+              legacyActions={actions}
+              locked={chrome.locked}
+              onToggleLock={chrome.onToggleLock}
+              onSyncNow={onSyncNow}
+              onUndoLast={onUndoLast}
+              onRemove={remove}
+              onClose={() => setSettingsOpen(false)}
+              returnFocusRef={menuButtonRef}
+            />
           </div>
         )}
       </header>
