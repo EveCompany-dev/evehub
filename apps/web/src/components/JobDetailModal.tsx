@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarDays, Clock, FileText, Folder, ListChecks, MessageCircle, Paperclip, strings, Users, X } from '@eve/ui';
+import { CalendarDays, CircleCheck, Clock, FileText, Folder, ListChecks, MessageCircle, Paperclip, strings, Trash2, Users, X } from '@eve/ui';
 import Link from 'next/link';
 import { cloneElement, isValidElement, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
 import { ConfirmButton } from './ConfirmButton';
@@ -9,6 +9,7 @@ import { linkify } from './Linkify';
 import { renderRichText } from './RichText';
 import { useFormattingToolbar } from './useFormattingToolbar';
 import {
+  isJobPerson,
   memberInitials,
   memberLabel,
   type AttachmentSummary,
@@ -27,12 +28,16 @@ export interface JobDetailModalProps {
   job: JobSummary;
   members: JobMember[];
   currentUserId: string;
+  /** Admins delete (to the trash) and reopen concluded jobs. */
+  isAdmin: boolean;
   runningEntry: TimeEntrySummary | null;
   onStartTimer: (taskId: string | null) => void;
   onStopTimer: () => void;
   onClose: () => void;
   onJobChange: (job: JobSummary) => void;
   onJobDeleted: (jobId: string) => void;
+  /** The job was concluded (or reopened) — the board drops it or takes it back. */
+  onJobConcludedChange: (job: JobSummary) => void;
 }
 
 type Tab = 'details' | 'timesheet';
@@ -121,12 +126,14 @@ export function JobDetailModal({
   job,
   members,
   currentUserId,
+  isAdmin,
   runningEntry,
   onStartTimer,
   onStopTimer,
   onClose,
   onJobChange,
   onJobDeleted,
+  onJobConcludedChange,
 }: JobDetailModalProps): JSX.Element {
   useEscapeToClose(onClose);
   const [tab, setTab] = useState<Tab>('details');
@@ -192,6 +199,25 @@ export function JobDetailModal({
         return;
       }
       onJobChange(body.job);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
+  };
+
+  const setConcluded = async (concluded: boolean) => {
+    setError(null);
+    try {
+      const response = await fetch(`/api/jobs/${job.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concluded }),
+      });
+      const body = (await response.json().catch(() => ({}))) as { job?: JobSummary; error?: string };
+      if (!response.ok || !body.job) {
+        setError(body.error ?? `HTTP ${response.status}`);
+        return;
+      }
+      onJobConcludedChange(body.job);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
@@ -367,6 +393,8 @@ export function JobDetailModal({
       : memberLabel(creator)
     : null;
 
+  const canConclude = isAdmin || isJobPerson(job, currentUserId);
+
   const isGeneralRunning = runningEntry?.jobId === job.id && runningEntry?.taskId === null;
   const isTaskRunning = (taskId: string) => runningEntry?.jobId === job.id && runningEntry?.taskId === taskId;
   const toggleGeneralTimer = () => (isGeneralRunning ? onStopTimer() : onStartTimer(null));
@@ -505,6 +533,19 @@ export function JobDetailModal({
               </span>
               <LocalizedDateInput value={job.dueDate} onChange={(iso) => void patchJob({ dueDate: iso })} />
             </label>
+
+            <div className="eve-field">
+              <span className="eve-field__label eve-field__label--icon">
+                <PeopleIcon /> {strings.jobs.responsible}
+              </span>
+              <MemberSelect
+                members={members}
+                value={job.responsibleId}
+                placeholder={strings.jobs.noResponsible}
+                noneLabel={strings.jobs.noResponsible}
+                onChange={(userId) => void patchJob({ responsibleId: userId })}
+              />
+            </div>
 
             {job.clientId && (
               <label className="eve-field">
@@ -737,13 +778,27 @@ export function JobDetailModal({
         )}
 
         <div className="eve-profile__actions">
-          <ConfirmButton
-            confirmLabel={strings.jobs.deleteJobConfirm}
-            question="As tarefas, comentários e o tempo registrado vão junto."
-            onConfirm={() => void deleteJob()}
-          >
-            {strings.jobs.deleteJob}
-          </ConfirmButton>
+          {job.concludedAt
+            ? isAdmin && (
+                <button type="button" className="eve-btn" onClick={() => void setConcluded(false)}>
+                  {strings.jobs.reopen}
+                </button>
+              )
+            : canConclude && (
+                <button type="button" className="eve-btn eve-btn--ok-solid" title={strings.jobs.concludeHint} onClick={() => void setConcluded(true)}>
+                  <CircleCheck size={16} aria-hidden="true" /> {strings.jobs.conclude}
+                </button>
+              )}
+          {isAdmin && (
+            <ConfirmButton
+              className="eve-btn eve-btn--danger-solid"
+              confirmLabel={strings.jobs.deleteJobConfirm}
+              question={strings.jobs.deleteJobQuestion}
+              onConfirm={() => void deleteJob()}
+            >
+              <Trash2 size={16} aria-hidden="true" /> {strings.jobs.deleteJob}
+            </ConfirmButton>
+          )}
           <button type="button" className="eve-btn" onClick={onClose}>
             {strings.jobs.close}
           </button>

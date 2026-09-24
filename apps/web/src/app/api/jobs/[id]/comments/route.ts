@@ -14,7 +14,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    await requireJob(id, user.workspaceId);
+    await requireJob(id, user);
 
     const comments = await prisma.jobComment.findMany({
       where: { jobId: id },
@@ -30,7 +30,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   return handle(async () => {
     const user = await requireUser();
     const { id } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
 
     const body = createSchema.safeParse(await request.json());
     if (!body.success) return fail(400, strings.errors.invalidPayload);

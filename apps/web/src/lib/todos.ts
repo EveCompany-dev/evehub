@@ -1,6 +1,7 @@
 import { prisma, publishLiveEvent, type Prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
+import { visibleJobsWhere } from './jobs';
 import { visibleRoutes } from './navigation';
 import { getVisibleTabs } from './permissions';
 import { HttpError, type SessionUser } from './session';
@@ -360,7 +361,7 @@ export async function searchMentions(user: SessionUser, trigger: '@' | '/', quer
   const [jobs, clients, projects, tables, people] = await Promise.all([
     kinds.has('job')
       ? prisma.job.findMany({
-          where: { workspaceId: ws, ...(contains ? { title: contains } : {}) },
+          where: { ...visibleJobsWhere(user), ...(contains ? { title: contains } : {}) },
           orderBy: { updatedAt: 'desc' },
           take,
           select: { id: true, title: true, column: { select: { name: true } } },
@@ -435,7 +436,7 @@ export async function resolveTodoTokens(user: SessionUser, tokens: TodoToken[]):
 
   await Promise.all([
     lookup('job', async (ids) =>
-      (await prisma.job.findMany({ where: { workspaceId: ws, id: { in: ids } }, select: { id: true, title: true } })).map((row) => ({
+      (await prisma.job.findMany({ where: { ...visibleJobsWhere(user), id: { in: ids } }, select: { id: true, title: true } })).map((row) => ({
         id: row.id,
         label: row.title,
       })),

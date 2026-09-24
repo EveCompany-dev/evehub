@@ -168,6 +168,7 @@ model User {
   editLogs          EditLog[]
   scheduledPosts    ScheduledPost[]
   createdJobs       Job[]                @relation("JobCreator")
+  responsibleJobs   Job[]                @relation("JobResponsible")
   createdProjects   Project[]
   jobCollaborations JobCollaborator[]
   assignedTasks     JobTask[]
@@ -687,6 +688,23 @@ model Job {
   createdBy     String
   createdByUser User   @relation("JobCreator", fields: [createdBy], references: [id])
 
+  /// Quem responde pelo job. Os colaboradores sao os "envolvidos"; o
+  /// responsavel e um so e nao precisa estar entre eles.
+  responsibleId String?
+  responsible   User?   @relation("JobResponsible", fields: [responsibleId], references: [id], onDelete: SetNull)
+
+  /// "Concluir" tira o job do quadro sem apagar nada: so os admins veem os
+  /// concluidos (filtro Concluidos) e so eles reabrem. A coluna fica como
+  /// estava, para o job voltar ao mesmo lugar se for reaberto.
+  concludedAt DateTime?
+  concludedBy String?
+
+  /// Lixeira: apagar um job so marca deletedAt. Os admins restauram em ate
+  /// 7 dias (JOB_TRASH_DAYS em lib/jobs.ts); depois disso ele e apagado de
+  /// verdade, com tarefas, comentarios, horas e anexos.
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -699,6 +717,8 @@ model Job {
 
   @@index([workspaceId, columnId, position])
   @@index([projectId])
+  @@index([responsibleId])
+  @@index([workspaceId, deletedAt])
 }
 
 model JobCollaborator {

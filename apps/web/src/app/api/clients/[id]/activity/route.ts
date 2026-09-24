@@ -1,6 +1,6 @@
 import { prisma } from '@eve/core';
 import { handle, ok } from '../../../../../lib/api';
-import { requireClient } from '../../../../../lib/jobs';
+import { requireClient, visibleJobsWhere } from '../../../../../lib/jobs';
 import { requireUser } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -30,7 +30,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const [jobs, attachments, posts, chat, comments] = await Promise.all([
       prisma.job.findMany({
-        where: { clientId: id },
+        where: { ...visibleJobsWhere(user), clientId: id },
         orderBy: { updatedAt: 'desc' },
         take: 100,
         select: {
@@ -44,7 +44,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         },
       }),
       prisma.attachment.findMany({
-        where: { task: { job: { clientId: id } } },
+        where: { task: { job: { ...visibleJobsWhere(user), clientId: id } } },
         orderBy: { createdAt: 'desc' },
         take: LIMIT,
         select: { id: true, filename: true, url: true, size: true, createdAt: true, task: { select: { title: true, job: { select: { id: true, title: true } } } } },
@@ -66,7 +66,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       searchMentions
         ? prisma.jobComment.findMany({
             // Comments on this client's own jobs are already under "Jobs"; the interesting ones are elsewhere.
-            where: { body: nameFilter, job: { workspaceId: user.workspaceId, NOT: { clientId: id } } },
+            where: { body: nameFilter, job: { ...visibleJobsWhere(user), NOT: { clientId: id } } },
             orderBy: { createdAt: 'desc' },
             take: LIMIT,
             select: { id: true, body: true, createdAt: true, job: { select: { id: true, title: true } }, author: { select: { name: true, email: true } } },

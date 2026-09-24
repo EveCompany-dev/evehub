@@ -3,7 +3,7 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
-import { requireProject } from '../../../../lib/jobs';
+import { requireProject, visibleJobsWhere } from '../../../../lib/jobs';
 import { PROJECT_JOBS_INCLUDE } from '../../../../lib/projects';
 import { requireUser } from '../../../../lib/session';
 
@@ -25,7 +25,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const [client, jobs] = await Promise.all([
       prisma.client.findUnique({ where: { id: project.clientId }, select: { id: true, name: true } }),
       prisma.job.findMany({
-        where: { projectId: id },
+        where: { ...visibleJobsWhere(user), projectId: id },
         orderBy: { createdAt: 'desc' },
         include: PROJECT_JOBS_INCLUDE,
       }),

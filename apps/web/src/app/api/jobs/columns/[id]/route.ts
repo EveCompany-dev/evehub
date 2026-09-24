@@ -69,9 +69,15 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     const { id } = await context.params;
     const column = await requireColumn(id, user.workspaceId);
 
-    const jobCount = await prisma.job.count({ where: { columnId: id } });
+    // Concluded and trashed jobs keep their column (so they can come back to
+    // it) and would be deleted with it, so they count too.
+    const [jobCount, hiddenCount] = await Promise.all([
+      prisma.job.count({ where: { columnId: id } }),
+      prisma.job.count({ where: { columnId: id, OR: [{ concludedAt: { not: null } }, { deletedAt: { not: null } }] } }),
+    ]);
     if (jobCount > 0) {
-      return fail(409, `Essa coluna ainda tem ${jobCount} job(s). Mova ou apague-os antes de remover a coluna.`);
+      const hidden = hiddenCount > 0 ? ` (${hiddenCount} entre concluídos e apagados)` : '';
+      return fail(409, `Essa coluna ainda tem ${jobCount} job(s)${hidden}. Mova ou apague-os antes de remover a coluna.`);
     }
 
     await prisma.jobColumn.delete({ where: { id } });

@@ -26,7 +26,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { strings } from '@eve/ui';
+import { Plus, strings } from '@eve/ui';
 import { useSearchParams } from 'next/navigation';
 import {
   useCallback,
@@ -36,13 +36,17 @@ import {
   type JSX,
   type MouseEvent as ReactMouseEvent,
 } from 'react';
+import { ConfirmButton } from './ConfirmButton';
 import { useContextMenu } from './ContextMenu';
+import { JobCreateModal } from './JobCreateModal';
 import { JobDetailModal } from './JobDetailModal';
-import { hexToRgba, memberInitials, memberLabel, type JobColumnSummary, type JobMember, type JobSummary } from './job-types';
+import { hexToRgba, memberInitials, memberLabel, type JobColumnSummary, type JobMember, type JobSummary, type JobsView } from './job-types';
 import { useTimer } from './TimerProvider';
 
 export interface JobsBoardProps {
   currentUserId: string;
+  /** Admins see the Concluídos and Apagados lists and can delete, reopen and restore. */
+  isAdmin: boolean;
 }
 
 interface ColumnsResponse {
@@ -150,6 +154,7 @@ function JobCardBody({ job }: { job: JobSummary }): JSX.Element {
         {job.title}
       </p>
       <div className="eve-job-card__meta">
+        {job.client && <span className="eve-job-card__client">{job.client.name}</span>}
         {dueDate && <span className="eve-job-card__due">{dueDate}</span>}
         {job.tasks.length > 0 && (
           <span className="eve-job-card__tasks">
@@ -157,8 +162,17 @@ function JobCardBody({ job }: { job: JobSummary }): JSX.Element {
           </span>
         )}
       </div>
-      {job.collaborators.length > 0 && (
+      {(job.responsible || job.collaborators.length > 0) && (
         <div className="eve-job-card__avatars">
+          {job.responsible && (
+            <span
+              className="eve-avatar eve-avatar--fallback eve-job-card__responsible"
+              style={{ width: 22, height: 22, fontSize: 10 }}
+              title={`${strings.jobs.responsible}: ${memberLabel(job.responsible)}`}
+            >
+              {memberInitials(job.responsible)}
+            </span>
+          )}
           {job.collaborators.map((collaborator) => (
             <span
               key={collaborator.id}
@@ -220,6 +234,65 @@ function JobCard({ job, onOpen }: JobCardProps): JSX.Element {
     >
       <JobCardBody job={job} />
     </div>
+  );
+}
+
+function formatDay(value: string | null | undefined): string {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleDateString('pt-BR');
+  } catch {
+    return '';
+  }
+}
+
+interface JobsListViewProps {
+  view: Exclude<JobsView, 'active'>;
+  jobs: JobSummary[];
+  loading: boolean;
+  onOpen: (jobId: string) => void;
+  onReopen: (jobId: string) => void;
+  onRestore: (jobId: string) => void;
+  onPurge: (jobId: string) => void;
+}
+
+/** Concluídos and Apagados (admin-only): a plain list, newest first, with the one action each needs. */
+function JobsListView({ view, jobs, loading, onOpen, onReopen, onRestore, onPurge }: JobsListViewProps): JSX.Element {
+  if (loading) return <p className="eve-dim">Carregando...</p>;
+  if (jobs.length === 0) {
+    return <p className="eve-dim">{view === 'trash' ? strings.jobs.listEmptyTrash : strings.jobs.listEmptyConcluded}</p>;
+  }
+  return (
+    <ul className="eve-jobs__list">
+      {jobs.map((job) => (
+        <li key={job.id} className="eve-jobs__list-item">
+          <button type="button" className="eve-jobs__list-title" disabled={view === 'trash'} onClick={() => onOpen(job.id)}>
+            {job.title}
+          </button>
+          {job.client && <span className="eve-dim">{job.client.name}</span>}
+          {job.responsible && <span className="eve-dim">{memberLabel(job.responsible)}</span>}
+          <span className="eve-dim">
+            {view === 'trash' ? strings.jobs.trashExpires(formatDay(job.trashExpiresAt)) : strings.jobs.concludedOn(formatDay(job.concludedAt))}
+          </span>
+          <span className="eve-jobs__list-actions">
+            {view === 'concluded' ? (
+              <button type="button" className="eve-btn" onClick={() => onReopen(job.id)}>
+                {strings.jobs.reopen}
+              </button>
+            ) : (
+              <>
+                <button type="button" className="eve-btn" onClick={() => onRestore(job.id)}>
+                  {strings.jobs.restore}
+                </button>
+                <ConfirmButton confirmLabel={strings.jobs.purgeConfirm} question={strings.jobs.purgeQuestion} onConfirm={() => onPurge(job.id)}>
+                  {strings.jobs.purge}
+                </ConfirmButton>
+              </>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -352,7 +425,7 @@ function BoardColumn({
   );
 }
 
-export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
+export function JobsBoard({ currentUserId, isAdmin }: JobsBoardProps): JSX.Element {
   const [columns, setColumns] = useState<JobColumnSummary[]>([]);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
   const [members, setMembers] = useState<JobMember[]>([]);
@@ -364,6 +437,11 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
   const [newColumnName, setNewColumnName] = useState('');
   const [addingColumn, setAddingColumn] = useState(false);
   const [manageMode, setManageMode] = useState(false);
+  const [view, setView] = useState<JobsView>('active');
+  const [listJobs, setListJobs] = useState<JobSummary[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [creating, setCreating] = useState<{ columnId?: string; title?: string } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const { runningEntry, startTimer, stopTimer } = useTimer();
 
   const menu = useContextMenu();
@@ -411,6 +489,30 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
     void load();
   }, [load]);
 
+  const loadList = useCallback(async (which: Exclude<JobsView, 'active'>) => {
+    setListLoading(true);
+    try {
+      const response = await fetch(`/api/jobs?view=${which}`, { cache: 'no-store' });
+      const body = (await response.json().catch(() => ({}))) as JobsResponse;
+      if (!response.ok || !body.jobs) {
+        setError(body.error ?? `HTTP ${response.status}`);
+        setListJobs([]);
+        return;
+      }
+      setListJobs(body.jobs);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setListLoading(false);
+    }
+  }, []);
+
+  const changeView = (next: JobsView) => {
+    setView(next);
+    setOpenJobId(null);
+    if (next !== 'active') void loadList(next);
+  };
+
   // Deep-link from a notification ("...?job=<id>"): open it once the board
   // has loaded, but only the first time it appears — closing the modal
   // afterward shouldn't keep reopening it while the query param is still in
@@ -421,24 +523,40 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
   const deepLinkJobId = searchParams.get('job');
   // '' = every client, '__none__' = jobs without one, otherwise a client id.
   const [clientFilter, setClientFilter] = useState<string>(() => searchParams.get('client') ?? '');
+  // '' = everyone, '__none__' = no responsável, otherwise a member id.
+  const [responsibleFilter, setResponsibleFilter] = useState<string>('');
+  // '' = everyone, otherwise a member who is among the envolvidos.
+  const [involvedFilter, setInvolvedFilter] = useState<string>('');
   const [deepLinkApplied, setDeepLinkApplied] = useState(false);
   if (deepLinkJobId && !deepLinkApplied && jobs.some((job) => job.id === deepLinkJobId)) {
     setOpenJobId(deepLinkJobId);
     setDeepLinkApplied(true);
   }
 
+  const shownJobs = view === 'active' ? jobs : listJobs;
+
   const clientOptions = useMemo(() => {
     const byId = new Map<string, string>();
-    for (const job of jobs) if (job.client) byId.set(job.client.id, job.client.name);
+    for (const job of shownJobs) if (job.client) byId.set(job.client.id, job.client.name);
     // Keep the filtered-to client selectable even when it currently has no job (a stale link).
     if (clientFilter && clientFilter !== '__none__' && !byId.has(clientFilter)) byId.set(clientFilter, 'Cliente');
     return [...byId.entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
-  }, [jobs, clientFilter]);
+  }, [shownJobs, clientFilter]);
 
-  const visibleJobs = useMemo(() => {
-    if (!clientFilter) return jobs;
-    return jobs.filter((job) => (clientFilter === '__none__' ? !job.clientId : job.clientId === clientFilter));
-  }, [jobs, clientFilter]);
+  const filterJobs = useCallback(
+    (list: JobSummary[]) =>
+      list.filter((job) => {
+        if (clientFilter && (clientFilter === '__none__' ? job.clientId : job.clientId !== clientFilter)) return false;
+        if (responsibleFilter && (responsibleFilter === '__none__' ? job.responsibleId : job.responsibleId !== responsibleFilter)) return false;
+        if (involvedFilter && !job.collaborators.some((collaborator) => collaborator.userId === involvedFilter)) return false;
+        return true;
+      }),
+    [clientFilter, responsibleFilter, involvedFilter],
+  );
+
+  const visibleJobs = useMemo(() => filterJobs(jobs), [filterJobs, jobs]);
+  const visibleListJobs = useMemo(() => filterJobs(listJobs), [filterJobs, listJobs]);
+  const hasFilter = Boolean(clientFilter || responsibleFilter || involvedFilter);
 
   const jobsByColumn = useMemo(() => {
     const map = new Map<string, JobSummary[]>();
@@ -465,7 +583,35 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
 
   const activeJob = activeId ? jobs.find((job) => job.id === activeId) ?? null : null;
   const activeColumn = activeId ? columns.find((column) => column.id === activeId) ?? null : null;
-  const openJob = openJobId ? jobs.find((job) => job.id === openJobId) ?? null : null;
+  const openJob = openJobId ? shownJobs.find((job) => job.id === openJobId) ?? null : null;
+
+  const lifecycle = async (jobId: string, request: { url: string; method: string; body?: unknown }): Promise<boolean> => {
+    setError(null);
+    try {
+      const response = await fetch(request.url, {
+        method: request.method,
+        ...(request.body !== undefined ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request.body) } : {}),
+      });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? `HTTP ${response.status}`);
+        return false;
+      }
+      setListJobs((current) => current.filter((job) => job.id !== jobId));
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+      return false;
+    }
+  };
+
+  const reopenJob = async (jobId: string) => {
+    if (await lifecycle(jobId, { url: `/api/jobs/${jobId}`, method: 'PATCH', body: { concluded: false } })) void load();
+  };
+  const restoreJob = async (jobId: string) => {
+    if (await lifecycle(jobId, { url: `/api/jobs/${jobId}/restore`, method: 'POST' })) void load();
+  };
+  const purgeJob = (jobId: string) => void lifecycle(jobId, { url: `/api/jobs/${jobId}?permanent=1`, method: 'DELETE' });
 
   const addColumn = async () => {
     if (!newColumnName.trim()) return;
@@ -521,6 +667,12 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     }
+  };
+
+  const onCreated = (created: JobSummary[]) => {
+    setCreating(null);
+    if (view === 'active') setJobs((current) => [...current, ...created]);
+    setNotice(strings.jobs.createdJobs(created.length));
   };
 
   const addJob = async (columnId: string, title: string) => {
@@ -703,7 +855,27 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
         </p>
       )}
 
+      {notice && (
+        <p className="eve-alert">
+          {notice} <button type="button" className="eve-btn" onClick={() => setNotice(null)}>{strings.edit.dismiss}</button>
+        </p>
+      )}
+
       <div className="eve-jobs__toolbar">
+        <button type="button" className="eve-btn eve-btn--primary eve-jobs__add-button" onClick={() => setCreating({})}>
+          <Plus size={16} aria-hidden="true" /> {strings.jobs.addJob}
+        </button>
+
+        {isAdmin && (
+          <div className="eve-jobs__views" role="group" aria-label="Lista de jobs">
+            {(['active', 'concluded', 'trash'] as const).map((option) => (
+              <button key={option} type="button" aria-pressed={view === option} onClick={() => changeView(option)}>
+                {option === 'active' ? strings.jobs.viewActive : option === 'concluded' ? strings.jobs.viewConcluded : strings.jobs.viewTrash}
+              </button>
+            ))}
+          </div>
+        )}
+
         <label className="eve-jobs__filter">
           <span className="eve-dim">Cliente</span>
           <select className="eve-input" value={clientFilter} aria-label="Filtrar jobs por cliente" onChange={(event) => setClientFilter(event.target.value)}>
@@ -713,12 +885,43 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
                 {name}
               </option>
             ))}
-            {jobs.some((job) => !job.clientId) && <option value="__none__">Sem cliente</option>}
+            {shownJobs.some((job) => !job.clientId) && <option value="__none__">Sem cliente</option>}
           </select>
         </label>
-        {clientFilter && (
-          <button type="button" className="eve-btn" onClick={() => setClientFilter('')}>
-            Limpar filtro
+        <label className="eve-jobs__filter">
+          <span className="eve-dim">{strings.jobs.filterResponsible}</span>
+          <select className="eve-input" value={responsibleFilter} aria-label="Filtrar jobs por responsável" onChange={(event) => setResponsibleFilter(event.target.value)}>
+            <option value="">{strings.jobs.everyone}</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {memberLabel(member)}
+              </option>
+            ))}
+            <option value="__none__">{strings.jobs.noResponsible}</option>
+          </select>
+        </label>
+        <label className="eve-jobs__filter">
+          <span className="eve-dim">{strings.jobs.filterInvolved}</span>
+          <select className="eve-input" value={involvedFilter} aria-label="Filtrar jobs por envolvido" onChange={(event) => setInvolvedFilter(event.target.value)}>
+            <option value="">{strings.jobs.everyone}</option>
+            {members.map((member) => (
+              <option key={member.id} value={member.id}>
+                {memberLabel(member)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {hasFilter && (
+          <button
+            type="button"
+            className="eve-btn"
+            onClick={() => {
+              setClientFilter('');
+              setResponsibleFilter('');
+              setInvolvedFilter('');
+            }}
+          >
+            Limpar filtros
           </button>
         )}
         {manageMode && (
@@ -731,6 +934,17 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
         )}
       </div>
 
+      {view !== 'active' ? (
+        <JobsListView
+          view={view}
+          jobs={visibleListJobs}
+          loading={listLoading}
+          onOpen={setOpenJobId}
+          onReopen={(jobId) => void reopenJob(jobId)}
+          onRestore={(jobId) => void restoreJob(jobId)}
+          onPurge={purgeJob}
+        />
+      ) : (
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetectionStrategy}
@@ -826,6 +1040,7 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
           )}
         </DragOverlay>
       </DndContext>
+      )}
 
       {menu.render()}
 
@@ -834,15 +1049,41 @@ export function JobsBoard({ currentUserId }: JobsBoardProps): JSX.Element {
           job={openJob}
           members={members}
           currentUserId={currentUserId}
+          isAdmin={isAdmin}
           runningEntry={runningEntry}
           onStartTimer={(taskId) => startTimer(openJob.id, taskId)}
           onStopTimer={stopTimer}
           onClose={() => setOpenJobId(null)}
-          onJobChange={(updated) => setJobs((current) => current.map((job) => (job.id === updated.id ? updated : job)))}
+          onJobChange={(updated) => {
+            setJobs((current) => current.map((job) => (job.id === updated.id ? updated : job)));
+            setListJobs((current) => current.map((job) => (job.id === updated.id ? updated : job)));
+          }}
           onJobDeleted={(jobId) => {
             setJobs((current) => current.filter((job) => job.id !== jobId));
+            setListJobs((current) => current.filter((job) => job.id !== jobId));
             setOpenJobId(null);
           }}
+          onJobConcludedChange={(updated) => {
+            setOpenJobId(null);
+            if (updated.concludedAt) {
+              setJobs((current) => current.filter((job) => job.id !== updated.id));
+              setNotice(`${strings.jobs.conclude}: ${updated.title}`);
+            } else {
+              setListJobs((current) => current.filter((job) => job.id !== updated.id));
+              void load();
+            }
+          }}
+        />
+      )}
+
+      {creating && (
+        <JobCreateModal
+          columns={columns}
+          members={members}
+          initialColumnId={creating.columnId}
+          initialTitle={creating.title}
+          onClose={() => setCreating(null)}
+          onCreated={onCreated}
         />
       )}
     </div>
