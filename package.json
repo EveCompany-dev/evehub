@@ -1,6 +1,6 @@
 {
   "name": "eve-hub",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "private": true,
   "description": "Eve Hub — central de visualizacao e acao da EveCompany",
   "packageManager": "pnpm@10.34.5",

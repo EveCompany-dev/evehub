@@ -4,9 +4,11 @@ Central de visualizacao e acao da EveCompany. Cada modulo da dashboard e uma
 integracao de verdade — le, escreve, sincroniza, falha isolado e se recupera
 sozinho — em vez de um card bonito plugado em dado estatico.
 
-**Versao atual: v0.0.3** — fundacao completa (monorepo, Connector SDK, banco,
-autenticacao, grid de widgets) com um connector de demonstracao no lugar das
-integracoes reais. Notion, Meta Ads e Google Ads entram em v0.0.4.
+**Versao atual: v0.1.0** — em uso diario pelo time: clientes com calendario de
+conteudo e agendamento de posts no Meta, Agenda do Time no Google Agenda, jobs,
+tabelas, financeiro, chat, tarefas, equipe com registro de atividades, e os
+connectors Notion, Meta, Google Ads e Google Agenda. O que mudou desde a
+fundacao (v0.0.3) esta em [`CHANGELOG.md`](CHANGELOG.md).
 
 ## A dashboard
 
@@ -143,14 +145,20 @@ quando o Google aposentar a versao, a sync passa a dizer exatamente isso.
 
 ```
 apps/
-  web/          Next.js (App Router) — dashboard, API, autenticacao
-  worker/       processo separado — fila BullMQ de sync e retencao
+  web/          Next.js (App Router) — paginas, API, autenticacao
+  worker/       processo separado — sync (BullMQ), publicacao de posts, retencao
 packages/
   connector-sdk/   a interface EveConnector + registry
   core/            banco, cifra, eventos, orquestracao de sync e escrita
   ui/              design system (tokens do prototipo v0.0.1) + strings pt-BR
   connectors/
-    demo/          connector de referencia, sem credenciais
+    meta/             Instagram/Facebook: leitura e publicacao de posts
+    notion/           databases do Notion, leitura e escrita com undo
+    google-ads/       desempenho de campanhas, somente leitura
+    google-calendar/  a Agenda do Time (Google Agenda)
+    chat/             assistente (Claude)
+    todo/ notes/ timer/ calculator/ calendar/ overview/   modulos locais
+    demo/             connector de referencia, sem credenciais
 infra/
   prisma/       schema, migrations, seed
   Dockerfile.*  imagens de web e worker
@@ -213,6 +221,12 @@ mudar mais nada. `packages/connectors/google-calendar` e a referencia.
   Ate 2026-09-22 o cargo *somava* abas a um conjunto padrao; a migration
   `role_tabs_allow_list` reescreveu os cargos existentes sem mudar o que
   ninguem via. A tag Social Media nao libera mais nada sozinha.
+- **Uploads ficam fora de `public/`** (`apps/web/.uploads`, ou `UPLOADS_DIR`) e
+  so saem pela rota `app/uploads/[...path]`, que decide o Content-Type, manda
+  `nosniff` e exige login — menos `post-media`, que o Meta baixa pela URL. Em
+  `public/` o Next serviria um `.svg` enviado por alguem como documento do
+  proprio app. Uma instalacao antiga tem `public/uploads` movido sozinho no
+  primeiro uso.
 - **So entra quem foi cadastrado.** O Google do dominio nao cria conta sozinho
   (exceto para os e-mails de admin); um admin cadastra a pessoa na tela de Equipe.
 - **Apagar conta funciona mesmo com trabalho no workspace.** Depois de desativar,
@@ -258,11 +272,13 @@ Sintoma de symlink quebrado do pnpm. Rode
 `node node_modules/eslint/bin/eslint.js -v`; se falhar, apague `node_modules` e
 reinstale. Nao suba o pnpm para 12.x (ver decisoes acima).
 
-## Limites conhecidos (v0.0.3)
+## Limites conhecidos (v0.1.0)
 
-- Escrita cobre campos de primeiro nivel do registro. Caminhos aninhados chegam
-  com o connector do Notion.
+- Escrita cobre campos de primeiro nivel do registro; caminhos aninhados nao.
 - Cada aba aberta mantem uma conexao SSE. Um subscriber Redis por processo ja
   resolve o custo no servidor; acima de ~100 abas simultaneas vale reavaliar.
-- O seletor global de cliente esta plumbado (`ClientProvider`) mas vazio — entra
-  quando existirem clientes reais para selecionar.
+- Publicar post depende do worker: sem ele rodando, nada sai, e um post que
+  ficou em "publicando" (worker reiniciado no meio) nao e retomado. Ver
+  [`docs/handoff-scheduling.md`](docs/handoff-scheduling.md).
+- Arquivos enviados (anexos, avatares, logos) so abrem logado, exceto a midia
+  de post agendado, que o Meta baixa pela URL.
