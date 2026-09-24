@@ -78,6 +78,9 @@ ativa a versão certa sozinho).
 cp .env.example .env
 # Gere duas chaves e cole no .env, uma em CREDENTIALS_KEY e outra em AUTH_SECRET:
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+# Preencha POSTGRES_PASSWORD, POSTGRES_APP_PASSWORD e REDIS_PASSWORD (sem elas
+# o docker compose nao sobe) e repita as de Postgres e Redis em DATABASE_URL
+# e REDIS_URL. Valores sem simbolos: openssl rand -hex 32
 
 pnpm install
 pnpm services:up      # Postgres e Redis em containers
@@ -88,7 +91,9 @@ pnpm db:seed          # cria o workspace, o primeiro admin e um módulo de exemp
 pnpm dev              # app em http://localhost:3000, mais o worker
 ```
 
-Entre com o `SEED_OWNER_EMAIL` e a `SEED_OWNER_PASSWORD` do seu `.env`.
+Entre com o `SEED_OWNER_EMAIL` e a `SEED_OWNER_PASSWORD` do seu `.env`. O seed
+recusa a senha de exemplo do `.env.example` e senhas com menos de 12
+caracteres.
 
 O banco e o Redis rodam em container; o app e o worker rodam direto na
 máquina, porque o Next dentro de container é lento no Windows. Para subir tudo
@@ -164,16 +169,31 @@ docker compose --profile full up -d --build
 ```
 
 - **Configuração:** um `.env` na raiz do servidor, a partir do
-  `.env.example`. Em produção, preencha também `AUTH_URL` com o domínio real.
-- **Banco e Redis** escutam só no próprio servidor (`127.0.0.1`). Para abrir o
+  `.env.example`. Em produção o app **não sobe** sem `PUBLIC_BASE_URL` e
+  `AUTH_URL` (o domínio real, em https, os dois iguais) e sem
+  `ALLOWED_EMAIL_DOMAIN`. O `docker compose` não roda sem `POSTGRES_PASSWORD`,
+  `POSTGRES_APP_PASSWORD` e `REDIS_PASSWORD`.
+- **Banco:** web e worker conectam como `evehub_app`, que lê e grava dados mas
+  não muda o schema. O superusuário `eve` só é usado pelos passos de preparo
+  (`db-init`, que cria/atualiza o `evehub_app`, e `migrate`). As URLs de
+  conexão dos containers são montadas pelo `docker-compose.yml` a partir das
+  senhas; o `DATABASE_URL`/`REDIS_URL` do `.env` só vale fora do Docker.
+  Trocar a senha do `eve` num volume existente exige também
+  `ALTER USER eve WITH PASSWORD '...'` dentro do Postgres.
+- **Rede:** app, banco e Redis escutam só no próprio servidor (`127.0.0.1`). O
+  proxy reverso (Caddy) é a única porta pública e cuida do https. Para abrir o
   banco do seu computador, use um túnel SSH, não abra a porta.
 - **Uploads** ficam num volume (`uploads_data`), fora da imagem. Rodando fora
   do Docker, eles ficam em `apps/web/.uploads`.
-- **Atualizando:** traga o código novo, aplique as migrations
-  (`pnpm db:deploy` com o `DATABASE_URL` de produção) e suba de novo com o
-  comando acima.
+- **Atualizando:** traga o código novo e rode o comando acima. As migrations
+  são aplicadas sozinhas pelo serviço `migrate` antes de web e worker subirem;
+  se uma falhar, os dois não sobem (`docker compose logs migrate` mostra o
+  motivo).
+- **Seed** (só na primeira instalação):
+  `docker compose --profile full run --rm migrate node_modules/.bin/tsx infra/prisma/seed.ts`
 - **O worker precisa estar de pé:** é ele que sincroniza as integrações e
-  publica os posts agendados.
+  publica os posts agendados. Num deploy ele tem até 3 minutos para terminar
+  o que está publicando antes de ser encerrado.
 
 ---
 

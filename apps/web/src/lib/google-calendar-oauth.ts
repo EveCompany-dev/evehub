@@ -28,13 +28,17 @@ export function googleOAuthClient(): OAuthClient | null {
 }
 
 /**
- * The address the browser actually used: PUBLIC_BASE_URL when set, else what
- * the proxy (Caddy) says, else the request's own. Google compares the
- * redirect URI character by character, so web:3000 behind Caddy won't do.
+ * The address the browser actually used. In production that is always
+ * PUBLIC_BASE_URL (getEnv() refuses to start without it): request headers are
+ * whatever the client sent, and the OAuth redirect must not follow them. Only
+ * in dev, with it unset, does this fall back to what the proxy says, then the
+ * request's own origin. Google compares the redirect URI character by
+ * character, so web:3000 behind Caddy won't do.
  */
 export function publicOrigin(request: Request): string {
-  const configured = getEnv().PUBLIC_BASE_URL;
-  if (configured) return new URL(configured).origin;
+  const env = getEnv();
+  if (env.PUBLIC_BASE_URL) return new URL(env.PUBLIC_BASE_URL).origin;
+  if (env.NODE_ENV === 'production') throw new Error('PUBLIC_BASE_URL is required in production.');
   const own = new URL(request.url);
   const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host');
   const proto = request.headers.get('x-forwarded-proto') ?? own.protocol.replace(':', '');
