@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, MessageSquareQuote, Pencil, Plug, Search, SquareKanban, X } from '@eve/ui';
+import { AtSign, CalendarDays, FileText, Files, IdCard, Lightbulb, Link2, Megaphone, MessageSquareQuote, Pencil, Plug, Search, SquareKanban, X } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX, type ReactNode } from 'react';
 import { pickProfile, PROFILE_FIELDS } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
@@ -40,6 +40,7 @@ const MENU: { target: string; label: string; icon: ReactNode }[] = [
   { target: 'referencias', label: 'Referências', icon: <Search size={16} aria-hidden="true" /> },
   { target: 'postagens', label: 'Postagens', icon: <FileText size={16} aria-hidden="true" /> },
   { target: 'calendario', label: 'Calendário de Conteúdo', icon: <CalendarDays size={16} aria-hidden="true" /> },
+  { target: 'trafego', label: 'Tráfego Pago', icon: <Megaphone size={16} aria-hidden="true" /> },
   { target: 'jobs', label: 'Jobs', icon: <SquareKanban size={16} aria-hidden="true" /> },
   { target: 'arquivos', label: 'Arquivos', icon: <Files size={16} aria-hidden="true" /> },
   { target: 'mencoes', label: 'Menções', icon: <MessageSquareQuote size={16} aria-hidden="true" /> },
@@ -256,6 +257,7 @@ export function ClientDetailWorkspace({ clientId, canSchedule }: ClientDetailWor
         rowAction={rowAction}
         calendarMenu={calendarMenu}
       />
+      <ClientSubTable id="trafego" kind="traffic" title="Tráfego Pago" clientId={clientId} modes={['table']} defaultMode="table" />
 
       <ClientActivity clientId={clientId} />
 
