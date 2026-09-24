@@ -6,10 +6,21 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: eve
-      POSTGRES_PASSWORD: eve
+      # Overridable, but the default stays `eve`: Postgres bakes the password
+      # into the data directory at initdb, so changing it here would lock the
+      # app out of an existing pgdata volume.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eve}
       POSTGRES_DB: evehub
     ports:
-      - '5432:5432'
+      # Bound to loopback ON PURPOSE. `- '5432:5432'` publishes on every
+      # interface, so with these dev credentials anyone who can reach this
+      # machine on the network reads and writes the whole database, bypassing
+      # every check in the app. This host holds CREDENTIALS_KEY, AUTH_SECRET
+      # and the clients' ad tokens (see scripts/remote-access/REMOTE-ACCESS.md),
+      # so it is not a machine to leave a trivially-authenticated Postgres open
+      # on. Reach it from another machine over the Tailscale/SSH tunnel, not by
+      # republishing this port.
+      - '127.0.0.1:5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +34,10 @@ services:
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes']
     ports:
-      - '6379:6379'
+      # Loopback only, same reasoning as Postgres above — and more pressing
+      # here, because this Redis has no password at all: it holds login
+      # rate-limit counters, chat history and the SSE pub/sub.
+      - '127.0.0.1:6379:6379'
     volumes:
       - redisdata:/data
     healthcheck:

@@ -11,16 +11,26 @@ import path from 'node:path';
  * processes already run on the same machine and this worker's own cwd
  * (apps/worker) sits right next to apps/web.
  */
-const UPLOAD_ROOT = getEnv().UPLOADS_DIR ?? path.resolve(process.cwd(), '../web/public/uploads');
+const UPLOAD_ROOT = getEnv().UPLOADS_DIR ?? path.resolve(process.cwd(), '../web/.uploads');
 
+/**
+ * Mirrors resolveUploadPath in apps/web/src/lib/uploads.ts — both forms go
+ * through `URL` so `..` is collapsed before it reaches the filesystem, and the
+ * result is checked for containment. Kept as its own copy because the worker
+ * cannot import from apps/web; if a third caller appears, move it to
+ * @eve/core rather than copying it again.
+ */
 function deletableUploadPath(url: string): string | null {
+  let pathname: string;
   try {
-    const pathname = url.startsWith('/') ? url : new URL(url).pathname;
-    if (!pathname.startsWith('/uploads/')) return null;
-    return path.join(UPLOAD_ROOT, pathname.slice('/uploads/'.length));
+    pathname = new URL(url, 'http://uploads.invalid').pathname;
   } catch {
     return null;
   }
+  if (!pathname.startsWith('/uploads/')) return null;
+
+  const resolved = path.resolve(UPLOAD_ROOT, pathname.slice('/uploads/'.length));
+  return resolved.startsWith(UPLOAD_ROOT + path.sep) ? resolved : null;
 }
 
 /**

@@ -31,6 +31,15 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (body.data.label) data.label = body.data.label;
 
     if (body.data.config !== undefined) {
+      // A credentialed connector's config is what its stored secret gets aimed
+      // at. Writing the secret was owner-only; re-pointing it was not — so a
+      // member could set a Meta instance's pageId to a Page of their choosing
+      // and POST /sync, exercising the owner's token against it, then read the
+      // result back through GET /data. Same gate as the credential itself.
+      if (connector.auth !== 'none' && !canWriteCredentials(user)) {
+        throw new HttpError(403, strings.errors.notOwner);
+      }
+
       const config = connector.configSchema.safeParse(body.data.config);
       if (!config.success) {
         return fail(400, `Configuração inválida: ${config.error.issues.map((i) => i.message).join('; ')}`);

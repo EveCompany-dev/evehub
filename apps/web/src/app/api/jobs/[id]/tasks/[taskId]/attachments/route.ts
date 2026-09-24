@@ -3,7 +3,7 @@ import { logActivity, quoted } from '../../../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../../../lib/api';
 import { JOB_MEMBER_SELECT, requireJob, requireTask } from '../../../../../../../lib/jobs';
 import { requireUser } from '../../../../../../../lib/session';
-import { saveUpload, UploadError } from '../../../../../../../lib/uploads';
+import { ATTACHMENT_TYPES, saveUpload, UploadError } from '../../../../../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
@@ -24,7 +24,7 @@ export async function POST(
     if (!(file instanceof File)) return fail(400, 'Nenhum arquivo enviado.');
 
     try {
-      const saved = await saveUpload(file, 'attachments', { maxBytes: MAX_BYTES });
+      const saved = await saveUpload(file, 'attachments', { maxBytes: MAX_BYTES, allowedTypes: ATTACHMENT_TYPES });
       const attachment = await prisma.attachment.create({
         data: { taskId, uploadedBy: user.id, filename: file.name, url: saved.url, size: saved.size },
         include: { uploader: { select: JOB_MEMBER_SELECT } },

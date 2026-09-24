@@ -5,12 +5,15 @@ import { fail, handle, ok } from '../../../lib/api';
 import { BUG_REPORT_RECIPIENT, sendBugReportEmail } from '../../../lib/bug-report-email';
 import { notify } from '../../../lib/notifications';
 import { requireUser } from '../../../lib/session';
+import { UPLOAD_URL_PATTERN } from '../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
 const attachmentSchema = z.object({
   filename: z.string().min(1).max(200),
-  url: z.string().min(1).max(2000),
+  // Must name a real upload — same reason as the chat routes: the stored value
+  // is read back by deleteUpload.
+  url: z.string().regex(UPLOAD_URL_PATTERN, 'Anexo invalido.'),
   size: z.number().int().nonnegative(),
 });
 

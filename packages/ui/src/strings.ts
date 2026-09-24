@@ -269,6 +269,8 @@ export const strings = {
     invalidPayload: 'Requisição inválida.',
     pageCrashed: 'Essa página travou. O resto do app continua normal — tente de novo.',
     notCommentAuthor: 'Você só pode apagar seus próprios comentários.',
+    /** The only thing an unhandled 500 says to the browser — the detail goes to the server log. */
+    unexpected: 'Algo deu errado do nosso lado. Tente de novo; se continuar, avise a equipe.',
   },
 
   jobs: {

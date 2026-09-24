@@ -6,12 +6,15 @@ import { fail, handle, ok } from '../../../../lib/api';
 import { notify } from '../../../../lib/notifications';
 import { TEAM_MESSAGE_INCLUDE } from '../../../../lib/team-chat';
 import { requireUser } from '../../../../lib/session';
+import { UPLOAD_URL_PATTERN } from '../../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
 const attachmentSchema = z.object({
   filename: z.string().min(1).max(200),
-  url: z.string().min(1).max(2000),
+  // Must name a real upload. This value is handed back to deleteUpload when the
+  // message is deleted, so a free-form string here is a delete primitive.
+  url: z.string().regex(UPLOAD_URL_PATTERN, 'Anexo invalido.'),
   size: z.number().int().nonnegative(),
 });
 
