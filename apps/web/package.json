@@ -31,25 +31,21 @@
     "@eve/core": "workspace:*",
     "@eve/ui": "workspace:*",
     "@node-rs/argon2": "^2.2.1",
-    "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "ioredis": "^6.0.0",
     "next": "^16.3.4",
     "next-auth": "5.0.0-beta.32",
-    "nodemailer": "^8.0.11",
+    "nodemailer": "^10.0.10",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-grid-layout": "^2.2.4",
     "zod": "^4.6.2"
   },
   "devDependencies": {
-    "@types/node": "^22.20.2",
-    "@types/nodemailer": "^8.0.2",
+    "@types/node": "^22.20.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "^16.3.4",
     "typescript": "^6.0.3",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.1"
   }
 }

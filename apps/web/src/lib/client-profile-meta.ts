@@ -51,10 +51,6 @@ export const PROFILE_FIELDS: ProfileField[] = [
   { key: 'country', label: 'País', group: 'address', input: 'text', placeholder: 'Brasil' },
 ];
 
-export function emptyProfile(): ClientProfile {
-  return Object.fromEntries(PROFILE_KEYS.map((key) => [key, null])) as ClientProfile;
-}
-
 /** Copies the registration fields out of an API client object (missing ones become null). */
 export function pickProfile(source: object): ClientProfile {
   const record = source as Record<string, unknown>;

@@ -796,12 +796,6 @@ body[data-rail='hidden'] {
   overflow-y: auto;
 }
 
-.eve-datatable__toolbar {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .eve-datatable td .eve-cell {
   display: block;
   min-height: 20px;
@@ -1264,12 +1258,6 @@ body[data-rail='hidden'] {
   letter-spacing: 0.04em;
 }
 
-.eve-post-editor__type-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
 /* Too narrow for two columns: stack them, preview under the form, and
    `stretch` so the stacked children fill the card instead of shrinking to
    their content width. */
@@ -1444,28 +1432,6 @@ body[data-rail='hidden'] {
   .eve-manyfiles__options {
     grid-template-columns: 1fr;
   }
-}
-
-.eve-segmented {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-}
-
-.eve-segmented__btn {
-  appearance: none;
-  border: none;
-  background: none;
-  padding: 6px 14px;
-  font-size: 13px;
-  cursor: pointer;
-  color: var(--text-dim);
-}
-
-.eve-segmented__btn.is-active {
-  background: var(--accent);
-  color: var(--accent-contrast);
 }
 
 /* --- post preview — deliberately mimics the real Instagram/Facebook look,
@@ -1833,47 +1799,11 @@ body[data-rail='hidden'] {
   overflow-y: auto;
 }
 
-.eve-month__chip {
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 11px;
-  text-align: left;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.eve-month__chip.is-published {
-  border-left: 3px solid #2e9e5b;
-}
-
-.eve-month__chip.is-failed {
-  border-left: 3px solid var(--danger);
-}
-
-.eve-month__chip.is-publishing {
-  border-left: 3px solid var(--text-dim);
-}
-
 /* --- scheduling: chips, filters and side panels --------------------------
    A chip has to stay readable inside a calendar cell, so it is a single
    no-wrap row: thumbnail, platform mark, time, then the client name taking
    whatever width is left. The name is the only part allowed to ellipsize —
    time and platform are what make a chip identifiable at a glance. */
-
-.eve-month__chip {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.eve-month__chip svg {
-  flex: none;
-}
 
 /* --- agenda: event chips + attendee picker --------------------------------
    Same footprint as .eve-month__chip (calendar cells are the same size
@@ -1972,50 +1902,6 @@ body[data-rail='hidden'] {
   border-radius: var(--radius-card);
 }
 
-.eve-month__chip-thumb {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  object-fit: cover;
-}
-
-.eve-month__chip-time {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.85;
-}
-
-.eve-month__chip-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* The one thing that must survive the ellipsis: a post that did not go out. */
-.eve-month__chip-bang {
-  flex: none;
-  margin-left: auto;
-  font-weight: 700;
-}
-
-/* The "!" that pulls someone into the posts view when something failed. */
-.eve-tab-alert {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  margin-left: 6px;
-  padding: 0 4px;
-  border-radius: var(--radius-pill);
-  background: var(--danger);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
-
 .eve-scheduling__panel {
   display: flex;
   flex-direction: column;
@@ -2063,10 +1949,6 @@ body[data-rail='hidden'] {
   border-radius: 6px;
   object-fit: cover;
   background: var(--surface);
-}
-
-.eve-post-row__thumb--empty {
-  border: 1px dashed var(--border);
 }
 
 .eve-post-row__body {
@@ -2268,23 +2150,8 @@ body[data-rail='hidden'] {
   display: block;
 }
 
-video.eve-post-row__thumb,
-video.eve-month__chip-thumb {
+video.eve-post-row__thumb {
   object-fit: cover;
-}
-
-/* Visually hidden but still read aloud — the icon toggles carry their label
-   this way instead of a visible caption. */
-.eve-sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border: 0;
 }
 
 /* --- chat -------------------------------------------------------------- */
@@ -2452,12 +2319,6 @@ video.eve-month__chip-thumb {
   border-bottom: 0;
 }
 
-.eve-table__num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
 .eve-cell {
   display: inline-flex;
   align-items: center;
@@ -2476,15 +2337,6 @@ video.eve-month__chip-thumb {
 }
 
 /* --- stats ------------------------------------------------------------ */
-
-.eve-stats {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding-bottom: 10px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
 
 .eve-stat {
   display: flex;
@@ -2518,18 +2370,6 @@ video.eve-month__chip-thumb {
 }
 
 /* --- config de visualizacao --------------------------------------------- */
-
-.eve-viewconfig {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.eve-viewconfig__row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 
 .eve-viewconfig__fields {
   list-style: none;
@@ -3117,7 +2957,7 @@ video.eve-month__chip-thumb {
   border-radius: 50%;
 }
 
-/* --- carrossel do Instagram (PostEditor) --------------------------------- */
+/* --- carrossel do Instagram (PostComposer) --------------------------------- */
 
 .eve-carousel {
   display: flex;
@@ -3788,37 +3628,6 @@ video.eve-month__chip-thumb {
   min-width: 0;
 }
 
-.eve-projects-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.eve-projects-grid__card {
-  display: block;
-  padding: 16px;
-  border-radius: var(--radius-card);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  box-shadow: var(--shadow-card);
-  color: inherit;
-  text-decoration: none;
-}
-
-.eve-projects-grid__card:hover {
-  border-color: var(--accent);
-}
-
-.eve-projects-grid__desc {
-  font-size: 12px;
-  color: var(--text-dim);
-  margin: 4px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 .eve-projectpage__head {
   display: flex;
   align-items: center;
@@ -3976,13 +3785,6 @@ video.eve-month__chip-thumb {
 
 .eve-jobs__task-title {
   flex: 1;
-}
-
-.eve-jobs__task-assignee {
-  width: auto;
-  max-width: 160px;
-  height: 28px;
-  font-size: 12px;
 }
 
 .eve-jobs__task-uploading {

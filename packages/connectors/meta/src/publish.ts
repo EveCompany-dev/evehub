@@ -263,7 +263,7 @@ export async function pollInstagramContainerReady(
  * One image's container inside a carousel — `is_carousel_item: true` is what
  * tells Meta this container is a slide, not a standalone post; it never gets
  * published on its own, only referenced by createInstagramCarouselContainer's
- * `children`. Carousels are image-only in this app (see PostEditor's
+ * `children`. Carousels are image-only in this app (see PostComposer's
  * carousel mode), so unlike the single-post containers above there is no
  * video_url branch here.
  */

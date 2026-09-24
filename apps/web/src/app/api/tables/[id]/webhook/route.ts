@@ -3,16 +3,11 @@ import { prisma } from '@eve/core';
 import { strings } from '@eve/ui';
 import { logActivity, quoted } from '../../../../../lib/activity';
 import { handle, ok } from '../../../../../lib/api';
+import { requireTable } from '../../../../../lib/data-tables';
 import { canManageAutomations } from '../../../../../lib/permissions';
 import { HttpError, requireUser } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
-
-async function requireTable(id: string, workspaceId: string) {
-  const table = await prisma.dataTable.findUnique({ where: { id } });
-  if (!table || table.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
-  return table;
-}
 
 /**
  * Generates (or rotates) the table's webhook token. The old token stops working

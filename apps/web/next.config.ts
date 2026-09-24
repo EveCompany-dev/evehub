@@ -14,10 +14,7 @@ const nextConfig: NextConfig = {
   // Workspace packages ship TypeScript source rather than a build artifact,
   // so Next compiles them as part of the app. No build step to keep in sync.
   transpilePackages: ['@eve/core', '@eve/ui', '@eve/connector-sdk', '@eve/connector-demo'],
-  experimental: {
-    // Keeps the native argon2 binding and the pg driver out of the bundler.
-    serverActions: { bodySizeLimit: '1mb' },
-  },
+  // Keeps the native argon2 binding, the pg driver and ioredis out of the bundler.
   serverExternalPackages: ['@node-rs/argon2', 'pg', 'ioredis', '@prisma/adapter-pg'],
 };
 

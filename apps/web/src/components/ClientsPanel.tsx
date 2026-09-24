@@ -7,6 +7,7 @@ import { clientAccent, readableOn } from '../lib/table-tags';
 import { ClientAvatar } from './TagPill';
 import { ClientBrandEditor, type BrandClient } from './ClientBrandEditor';
 import { Pencil } from '@eve/ui';
+import { fold } from '../lib/fold';
 
 interface ClientApiEntry {
   source: 'local' | 'notion';
@@ -16,13 +17,6 @@ interface ClientApiEntry {
   color?: string | null;
   icon?: string | null;
   logoUrl?: string | null;
-}
-
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
 }
 
 /**

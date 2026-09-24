@@ -1,4 +1,4 @@
-import type { JSX, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // www.example.com still counts as a link even without a scheme — people paste
 // bare domains constantly and expect them to just work.
@@ -65,8 +65,4 @@ export function linkify(text: string): ReactNode[] {
   });
 
   return nodes;
-}
-
-export function Linkify({ text }: { text: string }): JSX.Element {
-  return <>{linkify(text)}</>;
 }

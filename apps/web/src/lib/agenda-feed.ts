@@ -1,4 +1,5 @@
 import type { AgendaEventSummary } from '../components/agenda-types';
+import { fold } from './fold';
 
 /**
  * The Agenda do Time's pure rules: which days an appointment sits on, the tag
@@ -68,13 +69,6 @@ export function dedupeEvents<T extends { uid: string | null; start: string }>(ev
     seen.add(key);
     return true;
   });
-}
-
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
 }
 
 /**

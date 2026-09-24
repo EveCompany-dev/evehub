@@ -1,6 +1,6 @@
 'use client';
 
-import { Plug, strings } from '@eve/ui';
+import { Plug } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import type { AvailableConnector } from './DashboardShell';
 import { isTeamConnector } from '../lib/connector-scope';

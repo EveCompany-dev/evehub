@@ -20,7 +20,7 @@ const FACEBOOK_GRACE_MS = 15 * 60 * 1000;
 
 /**
  * Gap enforced between consecutive publish calls TO THE SAME Instagram
- * account within one tick. "Postar agora" (apps/web PostEditor) sets
+ * account within one tick. "Postar agora" (apps/web PostComposer) sets
  * scheduledFor to "now" and lets this same loop pick it up on the next
  * tick — same as any other scheduled post — precisely so a burst of manual
  * posts and a burst of coincidentally-due scheduled ones both land here and
@@ -154,7 +154,7 @@ export async function processDuePosts(): Promise<{ instagram: number; facebook: 
         throw new Error('Instancia do Meta sem ID da conta do Instagram configurado.');
       }
 
-      // Carrossel: 2-10 imagens em mediaUrls (ver PostEditor's carousel mode).
+      // Carrossel: 2-10 imagens em mediaUrls (ver o modo carrossel do PostComposer).
       // Sempre feed — Stories e Reels nunca tem mediaUrls preenchido.
       const carouselUrls = Array.isArray(post.mediaUrls) ? (post.mediaUrls as unknown[]).filter((url): url is string => typeof url === 'string') : null;
 

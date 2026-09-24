@@ -3,6 +3,7 @@
 import { useMemo, useState, type JSX, type ReactNode } from 'react';
 import { Popover } from './Popover';
 import { Check } from '@eve/ui';
+import { fold } from '../lib/fold';
 
 export interface Choice {
   id: string;
@@ -23,13 +24,6 @@ export interface ChoicePopoverProps {
   onCreate?: (label: string) => void | Promise<void>;
   createNoun?: string;
   emptyText?: string;
-}
-
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
 }
 
 /**

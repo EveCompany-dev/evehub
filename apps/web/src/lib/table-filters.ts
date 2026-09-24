@@ -1,5 +1,6 @@
 import type { DataColumn, DataTableRowValue } from '../components/data-table-types';
 import { displayDate } from './table-dates';
+import { fold } from './fold';
 
 /** Filter token for "this cell is empty" — offered next to the real values so blanks can be found too. */
 export const EMPTY_TOKEN = '__empty__';
@@ -18,13 +19,6 @@ export interface TableFilterState {
 }
 
 export const EMPTY_FILTERS: TableFilterState = { search: '', filters: [] };
-
-function fold(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
-}
 
 /** Columns whose values are a closed set the user can tick off (as opposed to free text). */
 export function isFacetColumn(column: DataColumn): boolean {

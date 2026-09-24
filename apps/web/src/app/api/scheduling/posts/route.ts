@@ -13,18 +13,11 @@ import {
 } from '@eve/connector-meta';
 import { strings } from '@eve/ui';
 import { z } from 'zod';
-import { logActivity, quoted, whenLabel } from '../../../../lib/activity';
+import { logActivity, postLabel, whenLabel } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
 import { findContentRow, linkPostsToContent } from '../../../../lib/content-rows';
 import { canViewScheduling } from '../../../../lib/permissions';
 import { HttpError, requireInstance, requireUser } from '../../../../lib/session';
-
-const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
-const TYPE_LABEL: Record<string, string> = { feed: 'feed', story: 'story', reel: 'reel' };
-
-function postLabel(post: { platform: string; postType: string; clientLabel: string }): string {
-  return `${PLATFORM_LABEL[post.platform] ?? post.platform} ${TYPE_LABEL[post.postType] ?? post.postType} de ${quoted(post.clientLabel)}`;
-}
 
 export const runtime = 'nodejs';
 

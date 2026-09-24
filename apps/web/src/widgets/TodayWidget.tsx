@@ -9,21 +9,13 @@ import { PlatformIcon } from '../components/PlatformIcon';
 import type { AgendaEventSummary } from '../components/agenda-types';
 import type { ScheduledPostRow } from '../components/scheduling-types';
 import { eventDays } from '../lib/agenda-feed';
-import type { NotificationSummary } from '../components/notification-types';
+import { notificationHref, type NotificationSummary } from '../components/notification-types';
 import type { WidgetProps } from './types';
 
 const POLL_INTERVAL_MS = 30_000;
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-/** Where a notification's own link goes — same rule NotificationBell uses, without the app-wide job/DM link falling through the bell's own component. */
-function notificationHref(notification: NotificationSummary): string | null {
-  if (notification.jobId) return `/jobs?job=${notification.jobId}`;
-  if (notification.type === 'teamMessageMention' || notification.type === 'directMessage') return '/chat';
-  if (notification.type === 'scheduledPostFailed') return '/scheduling';
-  return null;
 }
 
 function todayRange(): { from: string; to: string } {

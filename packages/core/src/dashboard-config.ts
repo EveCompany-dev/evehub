@@ -16,10 +16,9 @@ export const widgetSettingsSchema = z.object({
   /** Overrides the connector's own label for this user only. */
   title: z.string().optional(),
   /**
-   * Pins this widget to one client regardless of the global client selector.
-   * Empty for now — the selector itself lands in v0.0.4 — but the plumbing
-   * exists from day one because retrofitting it across every connector later
-   * is the expensive version of this change.
+   * Pins this widget to one client or connected account. Nothing sets it yet:
+   * it is what the widget settings' Conexão page (WidgetConnectionPlaceholder,
+   * "Em desenvolvimento") will write.
    */
   clientOverride: z.string().nullable().default(null),
   /** null = the widget's own default view (today: a plain table). */
@@ -37,7 +36,6 @@ export const dashboardConfigSchema = z.object({
   layout: z.array(widgetLayoutSchema).default([]),
   widgets: z.record(z.string(), widgetSettingsSchema).default({}),
   theme: z.enum(['dark', 'light', 'system']).default('system'),
-  activeClient: z.string().nullable().default(null),
   /** Trava arrastar/redimensionar, para nao desmontar o layout sem querer. */
   locked: z.boolean().default(false),
   /** URL da imagem de fundo da dashboard. null = sem imagem. */
@@ -88,7 +86,6 @@ export const emptyDashboardConfig: DashboardConfig = {
   layout: [],
   widgets: {},
   theme: 'system',
-  activeClient: null,
   locked: false,
   backgroundImage: null,
   backgroundColor: null,
