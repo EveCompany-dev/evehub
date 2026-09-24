@@ -48,7 +48,8 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
 
   // 404 rather than 401 for an unauthenticated request: the response should not
   // confirm whether a given upload URL exists.
-  if (!PUBLIC_SUBDIRS.has(segments[0]!) && !(await getSessionUser())) {
+  const isPublic = PUBLIC_SUBDIRS.has(segments[0]!);
+  if (!isPublic && !(await getSessionUser())) {
     return new Response('Not found', { status: 404 });
   }
 
@@ -78,8 +79,11 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     headers: {
       'Content-Type': known ?? 'application/octet-stream',
       'Content-Length': String(size),
-      // Uploaded files are named with a random id and never reused — safe to cache indefinitely.
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      // Uploaded files are named with a random id and never reused — safe to
+      // cache indefinitely. But only post media may sit in a shared cache (a
+      // CDN or proxy in front of the app): anything behind the login above is
+      // `private`, or the cache would serve it to people without a session.
+      'Cache-Control': `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`,
       // Don't let a browser second-guess the type above and execute the file.
       'X-Content-Type-Options': 'nosniff',
       // `inline` for the image and video types the app renders directly

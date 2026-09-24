@@ -1,6 +1,6 @@
 import { fail, handle, ok } from '../../../../lib/api';
 import { requireUser } from '../../../../lib/session';
-import { ATTACHMENT_TYPES, saveUpload, UploadError } from '../../../../lib/uploads';
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_TYPES, saveUpload, UploadError } from '../../../../lib/uploads';
 
 export const runtime = 'nodejs';
 
@@ -15,7 +15,7 @@ export async function POST(request: Request): Promise<Response> {
     if (!(file instanceof File)) return fail(400, 'Nenhum arquivo enviado.');
 
     try {
-      const saved = await saveUpload(file, 'direct-chat', { maxBytes: MAX_BYTES, allowedTypes: ATTACHMENT_TYPES });
+      const saved = await saveUpload(file, 'direct-chat', { maxBytes: MAX_BYTES, allowedTypes: ATTACHMENT_TYPES, allowedExtensions: ATTACHMENT_EXTENSIONS });
       return ok({ filename: file.name, url: saved.url, size: saved.size });
     } catch (error) {
       if (error instanceof UploadError) return fail(400, error.message);

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { resetEnvCache } from '@eve/core';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { resolveUploadPath, UPLOAD_URL_PATTERN } from './uploads';
+import { ATTACHMENT_EXTENSIONS, ATTACHMENT_TYPES, isAllowedType, resolveUploadPath, UPLOAD_URL_PATTERN } from './uploads';
 
 const ROOT = path.join(path.sep, 'srv', 'eve-uploads');
 
@@ -65,5 +65,29 @@ describe('UPLOAD_URL_PATTERN', () => {
     expect(UPLOAD_URL_PATTERN.test('https://attacker.example/uploads/team-chat/x.png')).toBe(false);
     expect(UPLOAD_URL_PATTERN.test('javascript:alert(1)')).toBe(false);
     expect(UPLOAD_URL_PATTERN.test('/uploads/team-chat/not-a-uuid.png')).toBe(false);
+  });
+});
+
+describe('isAllowedType', () => {
+  const allowed = (type: string, name: string) => isAllowedType({ type, name }, ATTACHMENT_TYPES, ATTACHMENT_EXTENSIONS);
+
+  it('accepts a listed type', () => {
+    expect(allowed('application/pdf', 'contrato.pdf')).toBe(true);
+  });
+
+  it('accepts a design file or archive the browser sent without a type', () => {
+    expect(allowed('', 'arte.psd')).toBe(true);
+    expect(allowed('application/octet-stream', 'pack.rar')).toBe(true);
+  });
+
+  it('refuses SVG and HTML however they are labelled', () => {
+    expect(allowed('image/svg+xml', 'x.svg')).toBe(false);
+    expect(allowed('', 'x.svg')).toBe(false);
+    expect(allowed('text/html', 'x.html')).toBe(false);
+    expect(allowed('application/octet-stream', 'x.html')).toBe(false);
+  });
+
+  it('does not let a known extension excuse an unlisted type', () => {
+    expect(allowed('text/html', 'x.pdf')).toBe(false);
   });
 });

@@ -11,12 +11,13 @@ import { graphRequest } from './graph-client';
  * injection rather than SSRF, but the caller still decided which Graph call
  * the owner's token made. Notion's databaseId is the pattern being copied here.
  */
-const graphId = z.string().regex(/^\d{1,25}$/, 'Use apenas o ID numerico, sem barras nem parametros.');
+const graphId = z.string().trim().regex(/^\d{1,25}$/, 'Use apenas o ID numerico, sem barras nem parametros.');
 
 const configSchema = z.object({
   pageId: graphId,
   /** Necessario so para publicar no Instagram; a Pagina sozinha ja basta pro Facebook. */
-  instagramBusinessAccountId: graphId.optional(),
+  // An empty field was stored as '' by older setups; it means "not set".
+  instagramBusinessAccountId: z.preprocess((value) => (typeof value === 'string' && value.trim() === '' ? undefined : value), graphId.optional()),
 });
 
 const credentialsSchema = z.object({

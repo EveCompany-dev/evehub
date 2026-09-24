@@ -121,6 +121,9 @@ export const ATTACHMENT_TYPES = [
   'application/x-tar',
 ];
 
+/** Extensions accepted when the browser sends no specific type (see isAllowedType). */
+export const ATTACHMENT_EXTENSIONS = ['.psd', '.ai', '.eps', '.zip', '.rar', '.7z', '.gz', '.tar', '.pdf', '.csv', '.txt', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+
 export class UploadError extends Error {}
 
 /**
@@ -130,6 +133,19 @@ export class UploadError extends Error {}
  * This is the backstop; the per-route `allowedTypes` is the real gate.
  */
 const EXECUTABLE_EXTENSIONS = new Set(['.svg', '.svgz', '.html', '.htm', '.xhtml', '.xml', '.js', '.mjs']);
+
+/**
+ * Browsers often send no type, or the generic `application/octet-stream`, for
+ * files the OS has no registration for — .psd, .ai, .rar and .7z among them.
+ * Those are accepted by extension instead. That is safe here: the serving
+ * route hands back anything outside its image/video map as a download.
+ */
+export function isAllowedType(file: { type: string; name: string }, types: string[], extensions: string[]): boolean {
+  if (types.includes(file.type)) return true;
+  if (file.type !== '' && file.type !== 'application/octet-stream') return false;
+  const ext = safeExtension(file.name);
+  return ext !== '' && extensions.includes(ext);
+}
 
 function safeExtension(filename: string): string {
   const ext = path.extname(filename).toLowerCase().replace(/[^a-z0-9.]/g, '');
@@ -152,13 +168,13 @@ export interface SavedUpload {
 export async function saveUpload(
   file: File,
   subdir: string,
-  options: { maxBytes: number; allowedTypes?: string[] },
+  options: { maxBytes: number; allowedTypes?: string[]; allowedExtensions?: string[] },
 ): Promise<SavedUpload> {
   if (file.size === 0) throw new UploadError('Arquivo vazio.');
   if (file.size > options.maxBytes) {
     throw new UploadError(`Arquivo maior que o limite de ${Math.round(options.maxBytes / 1024 / 1024)}MB.`);
   }
-  if (options.allowedTypes && !options.allowedTypes.includes(file.type)) {
+  if (options.allowedTypes && !isAllowedType(file, options.allowedTypes, options.allowedExtensions ?? [])) {
     throw new UploadError('Tipo de arquivo não permitido.');
   }
 
