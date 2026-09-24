@@ -49,9 +49,12 @@ Dois calendarios, cada um com um trabalho:
 
 | Arquivo | Conteudo |
 |---|---|
-| [`dashboard-evecompany-planejamento.md`](dashboard-evecompany-planejamento.md) | **O que** construir — backlog completo do produto |
-| [`eve-hub-v0.0.2-arquitetura.md`](eve-hub-v0.0.2-arquitetura.md) | **Como** construir — principios de arquitetura |
-| [`eve-hub-v0.0.3-escopo.md`](eve-hub-v0.0.3-escopo.md) | Escopo desta versao + correcoes ao modelo de dados |
+| [`docs/dashboard-evecompany-planejamento.md`](docs/dashboard-evecompany-planejamento.md) | **O que** construir — backlog completo do produto |
+| [`docs/eve-hub-v0.0.2-arquitetura.md`](docs/eve-hub-v0.0.2-arquitetura.md) | **Como** construir — principios de arquitetura |
+| [`docs/eve-hub-v0.0.3-escopo.md`](docs/eve-hub-v0.0.3-escopo.md) | Escopo da v0.0.3 (fundacao) + correcoes ao modelo de dados |
+| [`docs/eve-dashboard-prototype.html`](docs/eve-dashboard-prototype.html) | Prototipo visual v0.0.1 (de onde vieram os tokens de `packages/ui`) |
+| [`docs/handoff-scheduling.md`](docs/handoff-scheduling.md) | Proximo trabalho: publicacao de posts confiavel |
+| [`CHANGELOG.md`](CHANGELOG.md) | O que entrou em cada versao |
 
 ---
 
