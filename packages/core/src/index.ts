@@ -67,11 +67,23 @@ export {
   CONTENT_STATUS,
   CONTENT_TIME_ZONE,
   contentDate,
+  contentRowChanges,
   contentRowPatch,
   contentStatusFor,
   refreshContentRow,
   type ContentPostState,
 } from './content-posts';
+export {
+  isWorkerPublished,
+  markFailed,
+  markPublished,
+  publishPost,
+  STALE_PUBLISHING_MS,
+  type MarkablePost,
+  type MetaPublishApi,
+  type PublishOptions,
+  type PublishOutcome,
+} from './publish-post';
 export { connectorAlertFor, connectorAlertMessage, raiseConnectorAlert, type ConnectorAlert } from './connector-alerts';
 export {
   listUndoableEdits,

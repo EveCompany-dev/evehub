@@ -1,4 +1,4 @@
-import { graphRequest, MetaGraphError } from './graph-client';
+import { graphRequest, isUnknownOutcomeError, MetaGraphError } from './graph-client';
 import { mediaKindFromUrl, type MediaKind } from './shared';
 
 /**
@@ -217,38 +217,52 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export type ContainerStatus = 'EXPIRED' | 'ERROR' | 'FINISHED' | 'IN_PROGRESS' | 'PUBLISHED';
+
+/** A container's current `status_code`; null when Meta reports none. */
+export async function getInstagramContainerStatus(token: string, creationId: string): Promise<ContainerStatus | null> {
+  const response = await graphRequest<{ status_code?: string }>(token, `/${creationId}`, {
+    params: { fields: 'status_code' },
+  });
+  return (response.status_code as ContainerStatus | undefined) ?? null;
+}
+
+/** The container is still processing when the poll budget ran out — try again later with the same container. */
+export class ContainerNotReadyError extends MetaGraphError {
+  constructor() {
+    super('O container do Instagram não ficou pronto a tempo.', 504);
+    this.name = 'ContainerNotReadyError';
+  }
+}
+
 /**
  * Container creation is asynchronous by contract even for images. Polls
  * `status_code` until the container is ready, rather than calling
  * `media_publish` on one that isn't.
  *
- * The image budget (12 × 5s ≈ 55s of waiting) is deliberately under the
- * worker's 60s SCHEDULING_INTERVAL_MS: a large image routinely takes longer
- * than a couple of seconds, and the old 6 × 2s ≈ 12s budget failed those
- * posts for being slow rather than broken. Video has to be transcoded first,
- * which blows past any 60s budget, so it gets its own longer one (24 × 5s
- * ≈ 115s) and deliberately runs past one worker tick. Re-entrancy is safe
- * either way — the row is flipped to `publishing` before we get here and the
- * due-post query only picks up `scheduled` ones.
+ * Resolves with the status it stopped on: FINISHED (ready to publish) or
+ * PUBLISHED (an earlier run already got it live — the caller must record it,
+ * never call `media_publish` a second time).
+ *
+ * The image budget is 12 × 5s ≈ 55s of waiting; video has to be transcoded
+ * first, so it gets 24 × 5s ≈ 115s. Running out is not a failure of the
+ * post: the container keeps processing on Meta's side, and the next attempt
+ * picks the same container up again (see @eve/core's publish-post).
  */
 export async function pollInstagramContainerReady(
   token: string,
   creationId: string,
   kind: MediaKind = 'image',
-): Promise<void> {
+): Promise<'FINISHED' | 'PUBLISHED'> {
   const attempts = kind === 'video' ? VIDEO_POLL_ATTEMPTS : POLL_ATTEMPTS;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const response = await graphRequest<{ status_code?: string }>(token, `/${creationId}`, {
-      params: { fields: 'status_code' },
-    });
+    const status = await getInstagramContainerStatus(token, creationId);
 
-    // PUBLISHED means a previous run already got it live — treat it as done
-    // instead of falling through to a second media_publish call.
-    if (response.status_code === 'FINISHED' || response.status_code === 'PUBLISHED') return;
-    if (response.status_code === 'ERROR') {
+    if (status === 'FINISHED' || status === 'PUBLISHED') return status;
+    if (status === 'ERROR') {
       throw new MetaGraphError('O Instagram rejeitou o processamento da midia.', 422);
     }
-    if (response.status_code === 'EXPIRED') {
+    if (status === 'EXPIRED') {
       throw new MetaGraphError('O container do Instagram expirou antes de ser publicado.', 410);
     }
 
@@ -256,7 +270,7 @@ export async function pollInstagramContainerReady(
     if (attempt < attempts - 1) await sleep(POLL_DELAY_MS);
   }
 
-  throw new MetaGraphError('O container do Instagram não ficou pronto a tempo.', 504);
+  throw new ContainerNotReadyError();
 }
 
 /**
@@ -310,3 +324,24 @@ export async function publishInstagramContainer(
   });
   return { mediaId: response.id };
 }
+
+/**
+ * Everything @eve/core's publishPost needs from this connector, as one
+ * object: the worker and the "Postar agora" route pass it in, tests pass fakes.
+ */
+export const metaPublishApi = {
+  assertMediaUrlIsPublic,
+  mediaKindFromUrl,
+  createInstagramContainer,
+  createInstagramStoryContainer,
+  createInstagramReelContainer,
+  createInstagramCarouselItemContainer,
+  createInstagramCarouselContainer,
+  getInstagramContainerStatus,
+  pollInstagramContainerReady,
+  publishInstagramContainer,
+  publishFacebookStory,
+  fetchPermalink,
+  isStillProcessing: (error: unknown): boolean => error instanceof ContainerNotReadyError,
+  isUnknownOutcomeError,
+};

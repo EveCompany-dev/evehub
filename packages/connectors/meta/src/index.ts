@@ -1,9 +1,12 @@
 // Importing this package registers the connector as a side effect.
 export { metaConnector, type MetaConfig, type MetaCredentials } from './connector';
-export { MetaGraphError } from './graph-client';
+export { isMissingObjectError, isUnknownOutcomeError, MetaGraphError } from './graph-client';
 export {
   assertMediaUrlIsPublic,
   checkFacebookPostStatus,
+  ContainerNotReadyError,
+  getInstagramContainerStatus,
+  metaPublishApi,
   createInstagramCarouselContainer,
   createInstagramCarouselItemContainer,
   createInstagramContainer,
@@ -17,6 +20,7 @@ export {
   scheduleFacebookPost,
   type FacebookScheduleResult,
   type FacebookStoryResult,
+  type ContainerStatus,
   type InstagramContainerResult,
 } from './publish';
 export {

@@ -1,4 +1,4 @@
-import { prisma, type PostStatus, type Prisma } from './prisma';
+import { prisma, type PostStatus } from './prisma';
 
 /**
  * A Calendário de Conteúdo row and the posts scheduled from it are one thing:
@@ -73,14 +73,37 @@ function asObject(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
-/** Re-reads a content row's posts and writes whatever its Status/date/link should now say. */
-export async function refreshContentRow(rowId: string): Promise<void> {
-  const row = await prisma.dataTableRow.findUnique({
-    where: { id: rowId },
-    select: { data: true, scheduledPosts: { select: { status: true, scheduledFor: true, permalink: true } } },
-  });
-  if (!row) return;
+/** Only the keys `contentRowPatch` would change, or null when none. */
+export function contentRowChanges(data: Record<string, unknown>, posts: readonly ContentPostState[]): Record<string, unknown> | null {
+  const next = contentRowPatch(data, posts);
+  if (!next) return null;
+  const changes: Record<string, unknown> = {};
+  for (const key of Object.keys(next)) if (next[key] !== data[key]) changes[key] = next[key];
+  return Object.keys(changes).length > 0 ? changes : null;
+}
 
-  const patch = contentRowPatch(asObject(row.data), row.scheduledPosts);
-  if (patch) await prisma.dataTableRow.update({ where: { id: rowId }, data: { data: patch as Prisma.InputJsonValue } });
+/**
+ * Re-reads a content row's posts and writes whatever its Status/date/link
+ * should now say.
+ *
+ * The row is locked and re-read inside the transaction, and only the keys
+ * this function owns are merged into it (`data || changes`). Writing back the
+ * whole JSON it read earlier would erase an edit someone made to the title or
+ * script in between.
+ */
+export async function refreshContentRow(rowId: string): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    const rows = await tx.$queryRaw<{ data: unknown }[]>`SELECT "data" FROM "DataTableRow" WHERE "id" = ${rowId} FOR UPDATE`;
+    const row = rows[0];
+    if (!row) return;
+
+    const posts = await tx.scheduledPost.findMany({
+      where: { contentRowId: rowId },
+      select: { status: true, scheduledFor: true, permalink: true },
+    });
+    const changes = contentRowChanges(asObject(row.data), posts);
+    if (!changes) return;
+
+    await tx.$executeRaw`UPDATE "DataTableRow" SET "data" = "data" || ${JSON.stringify(changes)}::jsonb, "updatedAt" = now() WHERE "id" = ${rowId}`;
+  });
 }
