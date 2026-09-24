@@ -16,6 +16,7 @@ import type { DataTableRowValue } from './data-table-types';
 import { PostComposer } from './PostComposer';
 import type { ClientDetail } from './project-types';
 import { ClientAvatar, TagPill } from './TagPill';
+import { WorkerStatusBanner } from './WorkerStatusBanner';
 
 interface LinkedRowGroup {
   table: { id: string; name: string };
@@ -244,6 +245,7 @@ export function ClientDetailWorkspace({ clientId, canSchedule }: ClientDetailWor
         onRowsChange={onPostsChange}
         rowAction={rowAction}
       />
+      {canSchedule && <WorkerStatusBanner />}
       <ClientSubTable
         key={`cal-${contentVersion.calendar}`}
         id="calendario"

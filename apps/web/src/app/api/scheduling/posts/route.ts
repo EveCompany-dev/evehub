@@ -117,6 +117,14 @@ export async function POST(request: Request): Promise<Response> {
 
     const instance = await requireInstance(body.data.connectorInstanceId, user);
     if (instance.connectorId !== 'meta') return fail(400, 'A instância informada não é uma conexão do Meta.');
+    if (instance.status === 'disabled') return fail(400, 'Esta conexão do Meta está desativada.');
+
+    // Checked before anything reaches Meta: a post for a client that doesn't
+    // exist here would be live with nothing to show it under.
+    const client = await prisma.client.findFirst({ where: { id: body.data.client.id, workspaceId: user.workspaceId }, select: { id: true } });
+    if (!client) return fail(400, strings.scheduling.unknownClient);
+    // A connection that belongs to one client publishes only that client's posts.
+    if (instance.clientId && instance.clientId !== client.id) return fail(400, 'Esta conta do Meta é de outro cliente.');
 
     let config: MetaConfig;
     let credentials: MetaCredentials;
@@ -202,37 +210,45 @@ export async function POST(request: Request): Promise<Response> {
           continue;
         }
 
-        let scheduled;
+        // The row first, then Meta: if Meta accepts and something fails after,
+        // there is still a row that knows about it. The reverse order left a
+        // live post with no record, and a retry scheduled it twice.
+        const row = await prisma.scheduledPost.create({
+          data: {
+            workspaceId: user.workspaceId,
+            connectorInstanceId: instance.id,
+            ...clientFields,
+            platform: 'facebook',
+            postType: 'feed',
+            caption: body.data.caption,
+            mediaUrl: body.data.mediaUrl,
+            scheduledFor,
+            status: 'scheduled',
+            createdBy: user.id,
+          },
+        });
+
         try {
-          scheduled = await scheduleFacebookPost(
+          const scheduled = await scheduleFacebookPost(
             credentials.pageAccessToken,
             config.pageId,
             body.data.mediaUrl,
             body.data.caption,
             Math.floor(scheduledFor.getTime() / 1000),
           );
+          created.push(await prisma.scheduledPost.update({ where: { id: row.id }, data: { metaPostId: scheduled.postId } }));
         } catch (error) {
-          errors.push(`${label}: ${error instanceof Error ? error.message : String(error)}`);
-          continue;
+          const message = error instanceof Error ? error.message : String(error);
+          // Kept, as failed: Meta may have accepted it even if we never heard
+          // back, and editing this row (not a new one) is how it gets retried.
+          created.push(
+            await prisma.scheduledPost.update({
+              where: { id: row.id },
+              data: { status: 'failed', statusMessage: `O Meta não confirmou o agendamento: ${message}`.slice(0, 500) },
+            }),
+          );
+          errors.push(`${label}: ${message} O post ficou em "Não publicados" — confira no Facebook antes de tentar de novo.`);
         }
-
-        created.push(
-          await prisma.scheduledPost.create({
-            data: {
-              workspaceId: user.workspaceId,
-              connectorInstanceId: instance.id,
-              ...clientFields,
-              platform: 'facebook',
-              postType: 'feed',
-              caption: body.data.caption,
-              mediaUrl: body.data.mediaUrl,
-              scheduledFor,
-              status: 'scheduled',
-              metaPostId: scheduled.postId,
-              createdBy: user.id,
-            },
-          }),
-        );
         continue;
       }
 

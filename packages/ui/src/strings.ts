@@ -420,6 +420,17 @@ export const strings = {
     pomodoroHint: '25 minutos de foco e 5 de intervalo, encadeados. Desligado, você escolhe os minutos.',
   },
 
+  scheduling: {
+    notYourPost: 'Só quem criou este post (ou um admin) pode mudar, cancelar ou publicar.',
+    workerDown: 'O agendador está parado — posts não serão publicados.',
+    stillPublishing: 'Este post está sendo publicado agora. Espere terminar para mudar ou cancelar.',
+    alreadyPublished: 'Este post já foi publicado.',
+    facebookFeedPublishesItself: 'Post do feed do Facebook é publicado pelo próprio Meta no horário agendado. Para mudar, edite o horário.',
+    unknownClient: 'Esse cliente não existe neste workspace.',
+    published: 'Publicado.',
+    processing: 'O Instagram ainda está processando a mídia. O agendador termina a publicação em instantes.',
+    takenByWorker: 'O agendador já está publicando este post.',
+  },
   overview: {
     sectionContent: 'O que mostrar',
     notifications: 'Notificações',
