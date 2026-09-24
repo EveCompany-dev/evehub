@@ -129,6 +129,27 @@ export function durationMinutes(start: string, end: string | null): number {
   return Math.max(0, Math.round((endMs - startMs) / 60_000));
 }
 
+/**
+ * The running clock for the timer popup, as "1:23" / "2:04:59", derived from
+ * ONE floored total.
+ *
+ * Kept next to `durationMinutes` on purpose, because the two are easy to
+ * confuse and mixing them was a real bug: the popup used to take its minutes
+ * from `durationMinutes` (which ROUNDS, correctly, for the "05m" summary
+ * below) and its seconds from a separate floor. At :30 the minute rounded up
+ * while the seconds still counted from the old one, so the clock ran
+ * 1:30…1:59 and then snapped back to 1:00…1:29 — every minute displayed
+ * twice. Rounding is right for a summary and wrong for a ticking clock.
+ */
+export function formatElapsed(start: string, end: string | null): string {
+  const endMs = end ? new Date(end).getTime() : Date.now();
+  const total = Math.max(0, Math.floor((endMs - new Date(start).getTime()) / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor(total / 60) % 60;
+  const ss = String(total % 60).padStart(2, '0');
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${ss}` : `${minutes}:${ss}`;
+}
+
 /** Elapsed time between two ISO timestamps (or now, if `end` is null — a running entry), as "1h 05m" / "05m". */
 export function formatDuration(start: string, end: string | null): string {
   const totalMinutes = durationMinutes(start, end);

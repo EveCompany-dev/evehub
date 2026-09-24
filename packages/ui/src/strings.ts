@@ -301,6 +301,9 @@ export const strings = {
     unassigned: 'Sem responsável',
     deleteTask: 'Apagar tarefa',
     deleteJob: 'Apagar job',
+    /** Second step of the in-app confirm — deleting takes tasks, comments and recorded time with it. */
+    deleteJobConfirm: 'Apagar mesmo',
+    cancel: 'Cancelar',
     attachFile: 'Anexar arquivo',
     uploadingFile: 'Enviando arquivo...',
     removeAttachment: 'Remover anexo',
@@ -337,6 +340,11 @@ export const strings = {
     timerRestart: 'Reiniciar cronômetro',
     timerCollapse: 'Recolher (arraste para mover)',
     timerExpand: 'Expandir (arraste para mover)',
+    // Billable client time: a start or stop that failed has to say so, not
+    // leave the UI showing the opposite of what the server recorded.
+    timerStartFailed: 'Não foi possível iniciar o cronômetro. O tempo NÃO está sendo contado — tente de novo.',
+    timerStopFailed: 'Não foi possível parar o cronômetro. Ele CONTINUA rodando no servidor — tente de novo.',
+    timerStopping: 'Parando...',
 
     columnColorsTitle: 'Cor dos status',
     columnColorsHint:

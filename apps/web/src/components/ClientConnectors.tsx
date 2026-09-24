@@ -4,6 +4,7 @@ import { Plug, Plus, Trash2 } from '@eve/ui';
 import Link from 'next/link';
 import { useCallback, useEffect, useState, type JSX } from 'react';
 import { isClientConnector } from '../lib/connector-scope';
+import { ConfirmButton } from './ConfirmButton';
 import { ConnectorSetup } from './ConnectorSetup';
 import type { AvailableConnector } from './DashboardShell';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -145,7 +146,7 @@ export function ClientConnectors({ clientId }: { clientId: string }): JSX.Elemen
   }, [load]);
 
   const remove = async (instance: InstanceRow) => {
-    if (!window.confirm(`Remover o conector “${instance.label}”? Os widgets que usam ele deixam de receber dados.`)) return;
+    setError(null);
     const response = await fetch(`/api/instances/${instance.id}`, { method: 'DELETE' });
     if (!response.ok) {
       const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -179,9 +180,15 @@ export function ClientConnectors({ clientId }: { clientId: string }): JSX.Elemen
                 <span className="eve-pill__text">{STATUS_LABEL[instance.status].text}</span>
               </span>
               {instance.lastSyncedAt && <span className="eve-dim">sincronizado {new Date(instance.lastSyncedAt).toLocaleString('pt-BR')}</span>}
-              <button type="button" className="eve-btn eve-btn--icon eve-clientpage__end" aria-label={`Remover ${instance.label}`} onClick={() => void remove(instance)}>
+              <ConfirmButton
+                className="eve-btn eve-btn--icon eve-clientpage__end"
+                ariaLabel={`Remover ${instance.label}`}
+                confirmLabel="Remover"
+                question="Os widgets que usam este conector deixam de receber dados."
+                onConfirm={() => void remove(instance)}
+              >
                 <Trash2 size={14} aria-hidden="true" />
-              </button>
+              </ConfirmButton>
             </li>
           ))}
         </ul>

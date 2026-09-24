@@ -1,5 +1,6 @@
 'use client';
 
+import { strings, X } from '@eve/ui';
 import { createContext, useCallback, useContext, useEffect, useState, type JSX, type ReactNode } from 'react';
 import { FloatingTimer } from './FloatingTimer';
 import type { TimeEntrySummary } from './job-types';
@@ -7,6 +8,8 @@ import type { TimeEntrySummary } from './job-types';
 export interface TimerContextValue {
   /** The caller's actually-running timer, or null. Drives play/pause state anywhere in the app. */
   runningEntry: TimeEntrySummary | null;
+  /** True while a start or stop is in flight, so a button can show it hasn't landed yet. */
+  pending: boolean;
   startTimer: (jobId: string, taskId: string | null) => void;
   stopTimer: () => void;
 }
@@ -25,6 +28,8 @@ const POLL_INTERVAL_MS = 60_000;
 export function TimerProvider({ children }: { children: ReactNode }): JSX.Element {
   const [runningEntry, setRunningEntry] = useState<TimeEntrySummary | null>(null);
   const [displayEntry, setDisplayEntry] = useState<TimeEntrySummary | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadRunningEntry = useCallback(async () => {
     try {
@@ -52,6 +57,8 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [loadRunningEntry]);
 
   const startTimer = useCallback((jobId: string, taskId: string | null) => {
+    setPending(true);
+    setError(null);
     void (async () => {
       try {
         const response = await fetch(`/api/jobs/${jobId}/time-entries`, {
@@ -59,22 +66,37 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ taskId }),
         });
-        const body = (await response.json().catch(() => ({}))) as { entry?: TimeEntrySummary };
-        if (response.ok && body.entry) {
-          setRunningEntry(body.entry);
-          setDisplayEntry(body.entry);
+        const body = (await response.json().catch(() => ({}))) as { entry?: TimeEntrySummary; error?: string };
+        if (!response.ok || !body.entry) {
+          setError(body.error ?? strings.jobs.timerStartFailed);
+          return;
         }
+        setRunningEntry(body.entry);
+        setDisplayEntry(body.entry);
       } catch {
-        // The page that triggered this shows its own error banner via its
-        // own fetch calls elsewhere; the timer state simply won't change.
+        setError(strings.jobs.timerStartFailed);
+      } finally {
+        setPending(false);
       }
     })();
   }, []);
 
+  /**
+   * Stops the running entry — and does NOT clear local state until the server
+   * says it happened.
+   *
+   * This used to set `runningEntry` to null before sending the request and
+   * swallow every failure, so a stop that never reached the server looked
+   * exactly like one that worked: the icon flipped to "stopped" while the
+   * entry stayed open and kept accruing. The 60s poll below then quietly put
+   * the still-running entry back. That is billable client time, so a failure
+   * here has to be loud and has to leave the timer visibly running.
+   */
   const stopTimer = useCallback(() => {
     if (!runningEntry) return;
     const entry = runningEntry;
-    setRunningEntry(null);
+    setPending(true);
+    setError(null);
     void (async () => {
       try {
         const response = await fetch(`/api/jobs/${entry.jobId}/time-entries/${entry.id}`, {
@@ -82,10 +104,17 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stop: true }),
         });
-        const body = (await response.json().catch(() => ({}))) as { entry?: TimeEntrySummary };
-        if (response.ok && body.entry) setDisplayEntry(body.entry);
+        const body = (await response.json().catch(() => ({}))) as { entry?: TimeEntrySummary; error?: string };
+        if (!response.ok || !body.entry) {
+          setError(body.error ?? strings.jobs.timerStopFailed);
+          return;
+        }
+        setRunningEntry(null);
+        setDisplayEntry(body.entry);
       } catch {
-        // Ignore — the next poll reconciles state if this silently failed.
+        setError(strings.jobs.timerStopFailed);
+      } finally {
+        setPending(false);
       }
     })();
   }, [runningEntry]);
@@ -96,15 +125,31 @@ export function TimerProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [displayEntry, startTimer]);
 
   return (
-    <TimerContext.Provider value={{ runningEntry, startTimer, stopTimer }}>
+    <TimerContext.Provider value={{ runningEntry, pending, startTimer, stopTimer }}>
       {children}
       {displayEntry && (
         <FloatingTimer
           entry={displayEntry}
+          pending={pending}
           onStop={stopTimer}
           onRestart={restartDisplay}
           onDismiss={() => setDisplayEntry(null)}
         />
+      )}
+      {error && (
+        // Sits with the timer popup rather than in the page, because the timer
+        // is started and stopped from anywhere in the app — there is no one
+        // page that owns this failure.
+        <div
+          className="eve-alert eve-alert--error"
+          role="alert"
+          style={{ position: 'fixed', left: 24, bottom: 24, zIndex: 60, maxWidth: 380 }}
+        >
+          {error}{' '}
+          <button type="button" className="eve-btn eve-btn--icon" onClick={() => setError(null)} title={strings.jobs.timerHide}>
+            <X size={14} aria-hidden="true" />
+          </button>
+        </div>
       )}
     </TimerContext.Provider>
   );

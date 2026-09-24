@@ -345,7 +345,12 @@ export function DataTableGrid({
   // --- column management -----------------------------------------------------------
 
   const removeColumn = async (key: string) => {
-    if (table.columns.length <= 1) return;
+    // Refusing silently is why this read as broken: the menu item was there,
+    // the click did nothing, and nothing said why.
+    if (table.columns.length <= 1) {
+      setError('Uma tabela precisa de pelo menos uma coluna. Crie outra antes de remover esta.');
+      return;
+    }
     await saveColumns(table.columns.filter((column) => column.key !== key));
   };
 

@@ -77,7 +77,12 @@ export function JobTimesheetTab({ jobId, currentUserId }: JobTimesheetTabProps):
 
   const saveEdit = async (entryId: string) => {
     const minutes = Number(editValue);
-    if (!Number.isFinite(minutes) || minutes <= 0) return;
+    if (!Number.isFinite(minutes) || minutes <= 0) {
+      // Returning quietly left the editor open with the value still in it, so
+      // nothing distinguished "rejected" from "the button didn't register".
+      setError('Informe a duração em minutos, maior que zero.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
