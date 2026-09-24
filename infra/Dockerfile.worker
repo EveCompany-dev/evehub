@@ -40,4 +40,11 @@ COPY . .
 # The worker runs TypeScript directly through tsx; no bundling step to keep in
 # sync with the web app's.
 RUN pnpm db:generate
-CMD ["pnpm", "--filter", "@eve/worker", "start"]
+# Code stays root-owned; `node` only writes to the uploads volume (its media
+# cleanup deletes old post media). See Dockerfile.web for the volume note.
+RUN mkdir -p /data/uploads && chown node:node /data/uploads
+USER node
+WORKDIR /app/apps/worker
+# Node directly, not through pnpm, so SIGTERM reaches the worker's own
+# shutdown handler (src/index.ts) and a post mid-publish gets to finish.
+CMD ["node", "--import", "tsx", "src/index.ts"]
