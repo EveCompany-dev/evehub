@@ -1,5 +1,5 @@
 import type { DataColumn, DataTableRowValue } from '../components/data-table-types';
-import { parseLooseDate, sameCalendarDay, toIsoDate } from './table-dates';
+import { parseLooseDate, toIsoDate } from './table-dates';
 
 /** The column that names a row: the first text column, else the first one that isn't a checkbox. */
 export function titleColumn(columns: DataColumn[]): DataColumn | null {
@@ -68,10 +68,6 @@ export function initialMonth(rows: DataTableRowValue[], columnKey: string, today
     if (!best || Math.abs(date.getTime() - today.getTime()) < Math.abs(best.getTime() - today.getTime())) best = date;
   }
   return best ? { year: best.getFullYear(), month: best.getMonth() } : { year: today.getFullYear(), month: today.getMonth() };
-}
-
-export function isToday(date: Date): boolean {
-  return sameCalendarDay(date, new Date());
 }
 
 const IMAGE_EXTENSION = /\.(png|jpe?g|webp|gif|avif|svg)(\?.*)?$/i;

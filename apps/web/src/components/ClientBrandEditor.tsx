@@ -3,6 +3,7 @@
 import { useState, type JSX } from 'react';
 import { pickProfile, PROFILE_FIELDS, type ClientProfile, type ProfileKey } from '../lib/client-profile-meta';
 import { clientAccent, readableOn } from '../lib/table-tags';
+import { ConfirmButton } from './ConfirmButton';
 import type { AvailableConnector } from './DashboardShell';
 import { ConnectorPicker } from './ClientConnectors';
 import { EmojiPicker } from './EmojiPicker';
@@ -104,7 +105,6 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
 
   const remove = async () => {
     if (!client || !onDeleted) return;
-    if (!window.confirm(`Apagar o cliente “${client.name}”? Essa ação não pode ser desfeita.`)) return;
     setError(null);
     try {
       const response = await fetch(`/api/scheduling/clients/${client.id}`, { method: 'DELETE' });
@@ -240,9 +240,17 @@ export function ClientBrandEditor({ client, onSaved, onDeleted, onClose }: Clien
             Cancelar
           </button>
           {client && onDeleted && (
-            <button type="button" className="eve-btn eve-btn--danger" onClick={() => void remove()}>
+            <ConfirmButton
+              confirmLabel="Apagar mesmo"
+              // Names the blast radius: the projects go with the client, and
+              // its jobs, posts, agenda events and financial entries lose the
+              // link.
+              question={`Apagar “${client.name}”? Os projetos dele são apagados junto.`}
+              disabled={saving}
+              onConfirm={() => void remove()}
+            >
               Apagar cliente
-            </button>
+            </ConfirmButton>
           )}
         </div>
       </div>

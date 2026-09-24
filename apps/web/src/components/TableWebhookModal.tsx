@@ -39,12 +39,26 @@ export function TableWebhookModal({ table, onTableChange, onClose }: TableWebhoo
     }
   };
 
+  /**
+   * A failed disable used to do nothing visible — the button stopped being
+   * busy and the link stayed on screen, which reads as "still enabled" or
+   * "worked", depending on what you expected. It matters more now that this
+   * endpoint is owner-only: a member clicking it gets a 403 that they would
+   * otherwise never see.
+   */
   const disable = async () => {
     setBusy(true);
     setError(null);
     try {
       const response = await fetch(`/api/tables/${table.id}/webhook`, { method: 'DELETE' });
-      if (response.ok) onTableChange({ ...table, webhookToken: null });
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as { error?: string };
+        setError(body.error ?? `Não foi possível desativar o webhook (HTTP ${response.status}).`);
+        return;
+      }
+      onTableChange({ ...table, webhookToken: null });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       setBusy(false);
     }

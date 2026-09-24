@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { fold, rank, scoreItem, scoreOne } from './command-search';
+import { rank, scoreItem, scoreOne } from './command-search';
+import { fold } from './fold';
 
 interface Entry {
   id: string;

@@ -1,9 +1,9 @@
 import { dataColumnSchema, prisma, slugifyColumnKey, type DataColumn } from '@eve/core';
-import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { logActivity, quoted } from '../../../../lib/activity';
 import { fail, handle, ok } from '../../../../lib/api';
-import { HttpError, requireUser } from '../../../../lib/session';
+import { requireTable } from '../../../../lib/data-tables';
+import { requireUser } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
 
@@ -18,12 +18,6 @@ const patchSchema = z.object({
   columns: z.array(columnInputSchema).min(1).optional(),
   webhookKeyColumn: z.string().min(1).max(60).nullable().optional(),
 });
-
-async function requireTable(id: string, workspaceId: string) {
-  const table = await prisma.dataTable.findUnique({ where: { id } });
-  if (!table || table.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
-  return table;
-}
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }): Promise<Response> {
   return handle(async () => {

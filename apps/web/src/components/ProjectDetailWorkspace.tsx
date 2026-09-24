@@ -4,6 +4,7 @@ import { strings, Trash2, X } from '@eve/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
+import { ConfirmButton } from './ConfirmButton';
 import { LocalizedDateInput } from './LocalizedDateInput';
 import { formatDateTimePtBr, memberInitials, memberLabel, type JobSummary } from './job-types';
 import type { ProjectDetail, ProjectJobSummary } from './project-types';
@@ -110,7 +111,7 @@ export function ProjectDetailWorkspace({ projectId }: ProjectDetailWorkspaceProp
 
   const deleteProject = async () => {
     if (!project) return;
-    if (!window.confirm('Apagar este projeto? Os jobs continuam existindo, só deixam de estar organizados nele.')) return;
+    setError(null);
     try {
       const response = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
       if (!response.ok) {
@@ -262,9 +263,16 @@ export function ProjectDetailWorkspace({ projectId }: ProjectDetailWorkspaceProp
             {project.client.name}
           </Link>
         )}
-        <button type="button" className="eve-btn eve-btn--icon" title="Apagar projeto" aria-label="Apagar projeto" onClick={() => void deleteProject()}>
+        <ConfirmButton
+          className="eve-btn eve-btn--icon"
+          title="Apagar projeto"
+          ariaLabel="Apagar projeto"
+          confirmLabel="Apagar projeto"
+          question="Os jobs continuam existindo, só deixam de estar organizados nele."
+          onConfirm={() => void deleteProject()}
+        >
           <Trash2 size={14} aria-hidden="true" />
-        </button>
+        </ConfirmButton>
       </div>
 
       {editingTitle ? (

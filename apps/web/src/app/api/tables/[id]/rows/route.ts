@@ -3,17 +3,12 @@ import { strings } from '@eve/ui';
 import { z } from 'zod';
 import { describeRow, logActivity, quoted } from '../../../../../lib/activity';
 import { fail, handle, ok } from '../../../../../lib/api';
-import { HttpError, requireUser } from '../../../../../lib/session';
+import { requireTable } from '../../../../../lib/data-tables';
+import { requireUser } from '../../../../../lib/session';
 
 export const runtime = 'nodejs';
 
 const createSchema = z.object({ data: z.record(z.string(), z.unknown()).default({}) });
-
-async function requireTable(id: string, workspaceId: string) {
-  const table = await prisma.dataTable.findUnique({ where: { id } });
-  if (!table || table.workspaceId !== workspaceId) throw new HttpError(404, strings.errors.notFound);
-  return table;
-}
 
 function validKeys(columnsJson: unknown): Set<string> {
   const columns = z.array(dataColumnSchema).catch([]).parse(columnsJson);

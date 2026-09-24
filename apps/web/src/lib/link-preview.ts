@@ -36,11 +36,19 @@ export function isPrivateAddress(address: string): boolean {
     );
   }
   if (family === 6) {
-    const lower = address.toLowerCase();
-    if (lower === '::1' || lower === '::') return true;
-    if (lower.startsWith('fe80') || lower.startsWith('fc') || lower.startsWith('fd')) return true;
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower);
-    return mapped ? isPrivateAddress(mapped[1]!) : false;
+    // IPv6 is allowlisted, not blocklisted: only 2000::/3 is global unicast,
+    // so everything else — loopback, unique-local, link-local, multicast, and
+    // IPv4-mapped in any spelling — is refused by default.
+    //
+    // Enumerating the bad ranges is what went wrong here before. The check
+    // matched IPv4-mapped addresses in their dotted form
+    // (`::ffff:169.254.169.254`), but WHATWG URL normalizes an IPv6 host to
+    // hex, so a typed `http://[::ffff:169.254.169.254]/` arrives as
+    // `::ffff:a9fe:a9fe` — which the pattern missed, letting loopback,
+    // RFC1918 and the cloud metadata address straight through. A test asserted
+    // the dotted form and passed, because that form never reaches this
+    // function from a URL.
+    return !/^[23]/.test(address.toLowerCase());
   }
   return true;
 }

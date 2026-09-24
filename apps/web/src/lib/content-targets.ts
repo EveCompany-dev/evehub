@@ -1,4 +1,5 @@
 import type { PostTarget } from '@eve/connector-meta/shared';
+import { fold } from './fold';
 
 /**
  * How a Calendário de Conteúdo row (Canal + Formato) maps to where a post
@@ -7,20 +8,14 @@ import type { PostTarget } from '@eve/connector-meta/shared';
  * Pure and browser-safe — the composer and the API both use it.
  */
 
-function fold(value: unknown): string {
-  return typeof value === 'string'
-    ? value
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .toLowerCase()
-        .trim()
-    : '';
+function foldField(value: unknown): string {
+  return typeof value === 'string' ? fold(value).trim() : '';
 }
 
 /** The destination a row asks for; Instagram Feed when it names nothing Meta publishes. */
 export function targetFromContent(canal: unknown, formato: unknown): { target: PostTarget; carousel: boolean } {
-  const platform = fold(canal) === 'facebook' ? 'facebook' : 'instagram';
-  const format = fold(formato);
+  const platform = foldField(canal) === 'facebook' ? 'facebook' : 'instagram';
+  const format = foldField(formato);
   if (format.startsWith('reel')) return { target: { platform: 'instagram', postType: 'reel' }, carousel: false };
   if (format.startsWith('stor')) return { target: { platform, postType: 'story' }, carousel: false };
   // Carousels only exist on the Instagram feed.

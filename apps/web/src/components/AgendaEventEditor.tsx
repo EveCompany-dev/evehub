@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type JSX } from 'react';
 import type { AgendaCalendar, AgendaEventSummary } from './agenda-types';
+import { ConfirmButton } from './ConfirmButton';
 import { memberLabel, type JobMember } from './job-types';
 import type { ClientOption } from './scheduling-types';
 import { useEscapeToClose } from './useEscapeToClose';
@@ -217,9 +218,9 @@ export function AgendaEventEditor({ calendars, clients, members, initial, defaul
             </button>
           )}
           {isEditing && !readOnly && (
-            <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
+            <ConfirmButton confirmLabel="Excluir mesmo" disabled={busy} onConfirm={() => void remove()}>
               Excluir
-            </button>
+            </ConfirmButton>
           )}
           {initial?.link && (
             <a className="eve-btn" href={initial.link} target="_blank" rel="noreferrer">

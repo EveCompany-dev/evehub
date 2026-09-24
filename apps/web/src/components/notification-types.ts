@@ -12,12 +12,14 @@ export type NotificationType =
 
 /**
  * Where clicking a notification goes, or null when there is nowhere useful to
- * send somebody. Shared so the bell and the notifications page can never
- * disagree about it.
+ * send somebody. Shared so the bell, the notifications page and the Resumo do
+ * dia widget can never disagree about it.
  */
 export function notificationHref(notification: Pick<NotificationSummary, 'type' | 'jobId'>): string | null {
   if (notification.jobId) return `/jobs?job=${notification.jobId}`;
-  if (notification.type === 'teamMessageMention') return '/chat';
+  if (notification.type === 'teamMessageMention' || notification.type === 'directMessage') return '/chat';
+  // "Agendar Post" lists the posts that did not go out.
+  if (notification.type === 'scheduledPostFailed') return '/scheduling';
   // Both sides of a connector alert lead to the page that can fix it.
   if (notification.type === 'connectorSyncFailed' || notification.type === 'connectorSyncRecovered') return '/connectors';
   // Os admins geram o link de senha na tela de Equipe.

@@ -20,9 +20,11 @@ Thumbs.db
 packages/core/generated/
 next-env.d.ts
 
-# Builder noturno: logs e estado sao locais da maquina
-scripts/night-build/logs/
-scripts/night-build/state.json
-
 # Uploads de usuario (imagem de fundo, anexos de job) — conteudo, nao codigo
+# User uploads. Deliberately OUTSIDE public/ — Next serves public/ with a
+# Content-Type from the file extension, which turns an uploaded .svg into a
+# document on this app's own origin. See apps/web/src/lib/uploads.ts.
+apps/web/.uploads/
+# Left behind by installs from before that move; still ignored so an old
+# checkout doesn't suddenly want to commit user content.
 apps/web/public/uploads/

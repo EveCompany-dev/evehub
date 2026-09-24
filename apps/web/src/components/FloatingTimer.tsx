@@ -2,7 +2,7 @@
 
 import { strings, X } from '@eve/ui';
 import { useEffect, useRef, useState, type JSX, type PointerEvent as ReactPointerEvent } from 'react';
-import { durationMinutes, type TimeEntrySummary } from './job-types';
+import { formatElapsed, type TimeEntrySummary } from './job-types';
 import { CollapseIcon, PauseIcon, PlayIcon } from './TimerIcons';
 
 /** Below this many pixels of pointer travel, a press-and-release on the handle counts as a click (toggle collapse) rather than a drag. */
@@ -10,6 +10,8 @@ const DRAG_THRESHOLD_PX = 4;
 
 export interface FloatingTimerProps {
   entry: TimeEntrySummary;
+  /** A start/stop is in flight — the button must not look like it already landed. */
+  pending?: boolean;
   onStop: () => void;
   onRestart: () => void;
   onDismiss: () => void;
@@ -23,16 +25,25 @@ interface Position {
 const STORAGE_KEY = 'eve.jobs.timerPopupPos';
 const DEFAULT_POSITION: Position = { x: 24, y: 24 };
 
-function formatElapsed(startedAt: string, endedAt: string | null): string {
-  const minutes = durationMinutes(startedAt, endedAt);
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  const endMs = endedAt ? new Date(endedAt).getTime() : Date.now();
-  const seconds = Math.floor((endMs - new Date(startedAt).getTime()) / 1000) % 60;
-  const mm = String(rest).padStart(2, '0');
-  const ss = String(Math.max(0, seconds)).padStart(2, '0');
-  return hours > 0 ? `${hours}:${mm}:${ss}` : `${rest}:${ss}`;
+/** How much of the popup must stay on screen to still be grabbable. */
+const MIN_VISIBLE_PX = 48;
+
+/**
+ * Keeps the popup reachable. Dragged past an edge it simply stayed there, and
+ * a stored position also outlives the window it was saved in — so a drag to
+ * the corner on a big monitor left an invisible, unrecoverable timer on a
+ * laptop. Clamped on every move and when the stored position is read back.
+ */
+function clampToViewport(position: Position): Position {
+  if (typeof window === 'undefined') return position;
+  const maxX = Math.max(0, window.innerWidth - MIN_VISIBLE_PX);
+  const maxY = Math.max(0, window.innerHeight - MIN_VISIBLE_PX);
+  return {
+    x: Math.min(Math.max(position.x, 0), maxX),
+    y: Math.min(Math.max(position.y, 0), maxY),
+  };
 }
+
 
 /**
  * Shows whenever the caller has a timer worth showing — running (ticking,
@@ -41,7 +52,7 @@ function formatElapsed(startedAt: string, endedAt: string | null): string {
  * finds nothing at all; stopping a timer never hides it on its own. Draggable
  * (position kept per-viewer in localStorage).
  */
-export function FloatingTimer({ entry, onStop, onRestart, onDismiss }: FloatingTimerProps): JSX.Element {
+export function FloatingTimer({ entry, pending = false, onStop, onRestart, onDismiss }: FloatingTimerProps): JSX.Element {
   const isRunning = entry.endedAt === null;
 
   const [position, setPosition] = useState<Position>(() => {
@@ -49,7 +60,7 @@ export function FloatingTimer({ entry, onStop, onRestart, onDismiss }: FloatingT
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<Position>;
-        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return { x: parsed.x, y: parsed.y };
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') return clampToViewport({ x: parsed.x, y: parsed.y });
       }
     } catch {
       // Private window / blocked storage: stay at the default spot.
@@ -80,7 +91,7 @@ export function FloatingTimer({ entry, onStop, onRestart, onDismiss }: FloatingT
     const dx = event.clientX - dragStart.current.x;
     const dy = event.clientY - dragStart.current.y;
     if (Math.abs(dx) > DRAG_THRESHOLD_PX || Math.abs(dy) > DRAG_THRESHOLD_PX) dragMoved.current = true;
-    setPosition({ x: dragOrigin.current.x + dx, y: dragOrigin.current.y + dy });
+    setPosition(clampToViewport({ x: dragOrigin.current.x + dx, y: dragOrigin.current.y + dy }));
   };
 
   const handlePointerUp = () => {
@@ -128,7 +139,8 @@ export function FloatingTimer({ entry, onStop, onRestart, onDismiss }: FloatingT
           <button
             type="button"
             className="eve-btn eve-btn--icon"
-            title={isRunning ? strings.jobs.timesheetStop : strings.jobs.timerRestart}
+            disabled={pending}
+            title={pending ? strings.jobs.timerStopping : isRunning ? strings.jobs.timesheetStop : strings.jobs.timerRestart}
             onClick={isRunning ? onStop : onRestart}
           >
             {isRunning ? <PauseIcon /> : <PlayIcon />}

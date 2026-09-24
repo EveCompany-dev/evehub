@@ -3,21 +3,28 @@ import { createReadStream } from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { getUploadRoot } from '../../../lib/uploads';
+import { getSessionUser } from '../../../lib/session';
 
 export const runtime = 'nodejs';
 
 /**
- * Fallback for files under public/uploads that Next's own static file server
- * won't serve.
+ * The one subdirectory that stays public. Meta's servers fetch a scheduled
+ * post's image from the URL we hand them, so requiring a session here would
+ * break publishing. Everything else — avatars, chat and DM attachments,
+ * bug-report screenshots — is workspace material and needs one.
+ */
+const PUBLIC_SUBDIRS = new Set(['post-media']);
+
+/**
+ * The only server for user uploads.
  *
- * `next start` snapshots the public/ directory once at boot (confirmed on
- * production: a file present at build time serves fine; one written to the
- * same folder afterward — every upload, since they're written at runtime by
- * saveUpload() — 404s until the process restarts, and only until the next
- * upload). This route never runs when the static handler already claims a
- * path, so existing behavior for anything already known at boot is
- * untouched; it only ever catches what that handler missed, which in
- * practice is every upload.
+ * Uploads used to live in `public/uploads`, where Next's static handler served
+ * whatever it had snapshotted at boot and this route caught the rest. That
+ * split was the problem: the static handler sets the Content-Type from the
+ * file extension, so an uploaded `.svg` or `.html` rendered as a document on
+ * this app's own origin. The upload root now sits outside `public/` (see
+ * lib/uploads.ts), which means the static handler can never claim these paths
+ * and this route alone decides the type, the headers and who may read them.
  */
 const MIME_TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
@@ -39,6 +46,13 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     return new Response('Not found', { status: 404 });
   }
 
+  // 404 rather than 401 for an unauthenticated request: the response should not
+  // confirm whether a given upload URL exists.
+  const isPublic = PUBLIC_SUBDIRS.has(segments[0]!);
+  if (!isPublic && !(await getSessionUser())) {
+    return new Response('Not found', { status: 404 });
+  }
+
   const uploadRoot = getUploadRoot();
   const filePath = path.join(uploadRoot, ...segments);
   if (!filePath.startsWith(uploadRoot + path.sep)) {
@@ -54,15 +68,30 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     return new Response('Not found', { status: 404 });
   }
 
-  const contentType = MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+  // Only the types in the map are served as themselves. Anything else — a PDF,
+  // a document, or a file whose extension was stripped as executable — is an
+  // octet-stream download, so nothing user-uploaded can render as a document
+  // on this origin.
+  const known = MIME_TYPES[path.extname(filePath).toLowerCase()];
   const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream;
 
   return new Response(stream, {
     headers: {
-      'Content-Type': contentType,
+      'Content-Type': known ?? 'application/octet-stream',
       'Content-Length': String(size),
-      // Uploaded files are named with a random id and never reused — safe to cache indefinitely.
-      'Cache-Control': 'public, max-age=31536000, immutable',
+      // Uploaded files are named with a random id and never reused — safe to
+      // cache indefinitely. But only post media may sit in a shared cache (a
+      // CDN or proxy in front of the app): anything behind the login above is
+      // `private`, or the cache would serve it to people without a session.
+      'Cache-Control': `${isPublic ? 'public' : 'private'}, max-age=31536000, immutable`,
+      // Don't let a browser second-guess the type above and execute the file.
+      'X-Content-Type-Options': 'nosniff',
+      // `inline` for the image and video types the app renders directly
+      // (avatars, chat previews); anything else downloads instead of opening.
+      'Content-Disposition': known ? 'inline' : 'attachment',
+      // Belt and braces: even if something did render, it can load nothing and
+      // run nothing.
+      'Content-Security-Policy': "default-src 'none'; sandbox",
     },
   });
 }

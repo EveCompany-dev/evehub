@@ -66,7 +66,6 @@ export const strings = {
     backgroundColorHint: 'Usada por baixo da imagem (ou sozinha, se não houver imagem). Ex.: #1a1a1a.',
     interfaceTitle: 'Interface',
     uiScale: 'Escala da interface',
-    uiScaleHint: 'Aumenta ou diminui o tamanho geral da interface. Padrão: 150%.',
     railFullHide: 'Esconder barra lateral por completo',
     railFullHideHint:
       'Quando ligado, a seta da barra lateral esconde ela inteira em vez de só alternar entre ícone e ícone com texto.',
@@ -175,7 +174,6 @@ export const strings = {
     title: 'Dashboard',
     empty: 'Nenhum widget por aqui ainda.',
     emptyHint: 'Abra a paleta com Ctrl+K e escolha "Adicionar widget".',
-    addWidget: 'Adicionar widget',
     removeWidget: 'Remover widget',
     syncNow: 'Sincronizar agora',
     layoutSaved: 'Layout salvo',
@@ -236,7 +234,6 @@ export const strings = {
     savedBy: (name: string) => `editado por ${name}`,
     conflict: 'Esse dado mudou na origem depois que você abriu a tela. Recarregue antes de salvar.',
     reload: 'Recarregar',
-    undoWindow: (minutes: number) => `Desfazer disponível por ${minutes} min`,
     saving: 'Salvando...',
     editHint: 'Modo de edição ligado. Altere os campos e salve.',
     pendingChanges: 'Alterações não salvas.',
@@ -269,18 +266,18 @@ export const strings = {
     invalidPayload: 'Requisição inválida.',
     pageCrashed: 'Essa página travou. O resto do app continua normal — tente de novo.',
     notCommentAuthor: 'Você só pode apagar seus próprios comentários.',
+    /** The only thing an unhandled 500 says to the browser — the detail goes to the server log. */
+    unexpected: 'Algo deu errado do nosso lado. Tente de novo; se continuar, avise a equipe.',
   },
 
   jobs: {
     title: 'Jobs',
-    manageColumns: 'Gerenciar colunas',
     newColumn: 'Nova coluna',
     columnNamePlaceholder: 'Nome da coluna',
     newJob: 'Novo job',
     jobTitlePlaceholder: 'Título do job',
     deleteColumn: 'Apagar coluna',
     renameColumn: 'Renomear coluna',
-    columnNotEmpty: (count: number) => `Essa coluna ainda tem ${count} job(s). Mova ou apague-os antes.`,
     noJobs: 'Clique no + ou Ctrl+clique para adicionar.',
     noColumns: 'Nenhuma coluna ainda.',
     dueDate: 'Prazo',
@@ -299,6 +296,9 @@ export const strings = {
     unassigned: 'Sem responsável',
     deleteTask: 'Apagar tarefa',
     deleteJob: 'Apagar job',
+    /** Second step of the in-app confirm — deleting takes tasks, comments and recorded time with it. */
+    deleteJobConfirm: 'Apagar mesmo',
+    cancel: 'Cancelar',
     attachFile: 'Anexar arquivo',
     uploadingFile: 'Enviando arquivo...',
     removeAttachment: 'Remover anexo',
@@ -317,12 +317,9 @@ export const strings = {
     deleteComment: 'Apagar comentário',
 
     timesheetGeneral: 'Geral (sem tarefa)',
-    timesheetStart: 'Iniciar',
     timesheetStop: 'Parar',
-    timesheetRunning: 'em andamento',
     timesheetEmpty: 'Nenhum tempo registrado ainda.',
     timesheetTotal: (duration: string) => `Total: ${duration}`,
-    timesheetLog: 'Registros',
     timesheetEdit: 'Editar',
     timesheetMinutesLabel: 'minutos',
     deleteEntry: 'Apagar registro',
@@ -335,6 +332,11 @@ export const strings = {
     timerRestart: 'Reiniciar cronômetro',
     timerCollapse: 'Recolher (arraste para mover)',
     timerExpand: 'Expandir (arraste para mover)',
+    // Billable client time: a start or stop that failed has to say so, not
+    // leave the UI showing the opposite of what the server recorded.
+    timerStartFailed: 'Não foi possível iniciar o cronômetro. O tempo NÃO está sendo contado — tente de novo.',
+    timerStopFailed: 'Não foi possível parar o cronômetro. Ele CONTINUA rodando no servidor — tente de novo.',
+    timerStopping: 'Parando...',
 
     columnColorsTitle: 'Cor dos status',
     columnColorsHint:
@@ -469,7 +471,6 @@ export const strings = {
     sortPendingFirst: 'Pendentes primeiro',
     mentionEmpty: 'Nada encontrado.',
     mentionLoading: 'Buscando...',
-    mentionPeople: 'Pessoas',
     mentionKinds: {
       job: 'Job',
       client: 'Cliente',

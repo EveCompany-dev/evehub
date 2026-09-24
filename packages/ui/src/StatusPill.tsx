@@ -13,7 +13,7 @@ export interface StatusPillProps {
  * Connector health, visible in every widget header.
  *
  * "Falha isolada" is the product's core claim; an isolated failure nobody can
- * see is indistinguishable from stale data, so this ships in v0.0.3 rather
+ * see is indistinguishable from stale data, so this ships with every widget rather
  * than waiting for a monitoring screen later.
  */
 export function StatusPill({ status, message }: StatusPillProps): JSX.Element {

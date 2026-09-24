@@ -80,6 +80,14 @@ export function quoted(text: string | null | undefined, max = 80): string {
   return `“${clean.length > max ? `${clean.slice(0, max - 1)}…` : clean}”`;
 }
 
+const PLATFORM_LABEL: Record<string, string> = { instagram: 'Instagram', facebook: 'Facebook' };
+const TYPE_LABEL: Record<string, string> = { feed: 'feed', story: 'story', reel: 'reel' };
+
+/** "Instagram reel de “Cliente”" — how the log names a scheduled post. */
+export function postLabel(post: { platform: string; postType: string; clientLabel: string }): string {
+  return `${PLATFORM_LABEL[post.platform] ?? post.platform} ${TYPE_LABEL[post.postType] ?? post.postType} de ${quoted(post.clientLabel)}`;
+}
+
 interface ColumnLike {
   key: string;
   label: string;

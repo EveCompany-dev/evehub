@@ -3,6 +3,7 @@
 import { CalendarDays, Clock, FileText, Folder, ListChecks, MessageCircle, Paperclip, strings, Users, X } from '@eve/ui';
 import Link from 'next/link';
 import { cloneElement, isValidElement, useEffect, useRef, useState, type JSX, type ReactNode } from 'react';
+import { ConfirmButton } from './ConfirmButton';
 import { JobCommentsTab } from './JobCommentsTab';
 import { linkify } from './Linkify';
 import { renderRichText } from './RichText';
@@ -416,6 +417,20 @@ export function JobDetailModal({
             if (title.trim() && title.trim() !== job.title) void patchJob({ title: title.trim() });
             else setTitle(job.title);
           }}
+          onKeyDown={(event) => {
+            // Enter saves. Clicking outside was the only way to commit a title,
+            // which nobody guesses. Escape reverts, and stops here rather than
+            // bubbling up and closing the whole modal.
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setTitle(job.title);
+              event.currentTarget.blur();
+            }
+          }}
         />
 
         <div className="eve-jobs__tabs" role="tablist">
@@ -462,6 +477,10 @@ export function JobDetailModal({
                     }}
                     onKeyDown={(event) => {
                       if (event.key === 'Escape') {
+                        // Cancel the FIELD, not the modal. Without this the
+                        // event bubbled to the modal's own Escape handler and
+                        // the whole job view closed, losing the edit.
+                        event.stopPropagation();
                         setDescription(job.description ?? '');
                         setEditingDescription(false);
                       }
@@ -718,9 +737,13 @@ export function JobDetailModal({
         )}
 
         <div className="eve-profile__actions">
-          <button type="button" className="eve-btn eve-btn--danger" onClick={() => void deleteJob()}>
+          <ConfirmButton
+            confirmLabel={strings.jobs.deleteJobConfirm}
+            question="As tarefas, comentários e o tempo registrado vão junto."
+            onConfirm={() => void deleteJob()}
+          >
             {strings.jobs.deleteJob}
-          </button>
+          </ConfirmButton>
           <button type="button" className="eve-btn" onClick={onClose}>
             {strings.jobs.close}
           </button>

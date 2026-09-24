@@ -13,6 +13,10 @@ dist
 *.tsbuildinfo
 **/*.tsbuildinfo
 
+# Uploads de usuario sao conteudo, nunca parte da imagem.
+apps/web/.uploads
+apps/web/public/uploads
+
 # Prisma Client e gerado dentro da imagem (`pnpm db:generate`).
 packages/core/generated
 

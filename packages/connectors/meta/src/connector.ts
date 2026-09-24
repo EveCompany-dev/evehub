@@ -3,10 +3,21 @@ import { registerConnector } from '@eve/connector-sdk';
 import { z } from 'zod';
 import { graphRequest } from './graph-client';
 
+/**
+ * Graph ids are numeric, and these two are interpolated straight into the API
+ * path (`/${pageId}/photos`). `min(1)` accepted `?`, `/` and `#`, which let a
+ * value like `me/accounts?fields=access_token&x=` choose both the endpoint and
+ * its parameters — the host is a fixed literal, so it was path and parameter
+ * injection rather than SSRF, but the caller still decided which Graph call
+ * the owner's token made. Notion's databaseId is the pattern being copied here.
+ */
+const graphId = z.string().trim().regex(/^\d{1,25}$/, 'Use apenas o ID numerico, sem barras nem parametros.');
+
 const configSchema = z.object({
-  pageId: z.string().min(1, 'Informe o ID da Pagina do Facebook.'),
+  pageId: graphId,
   /** Necessario so para publicar no Instagram; a Pagina sozinha ja basta pro Facebook. */
-  instagramBusinessAccountId: z.string().optional(),
+  // An empty field was stored as '' by older setups; it means "not set".
+  instagramBusinessAccountId: z.preprocess((value) => (typeof value === 'string' && value.trim() === '' ? undefined : value), graphId.optional()),
 });
 
 const credentialsSchema = z.object({

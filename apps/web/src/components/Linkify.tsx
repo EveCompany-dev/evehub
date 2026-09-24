@@ -1,31 +1,22 @@
-import type { JSX, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // www.example.com still counts as a link even without a scheme — people paste
-// bare domains and file links constantly and expect them to just work.
-// Local filesystem paths (home-relative "~/..." or absolute "/home/...",
-// "/Users/...", "C:\...") are matched by the same combined pattern so a
-// single split() pass handles both — see toHref() for how each kind resolves
-// to its own scheme.
-const LINK_PATTERN =
-  /((?:https?:\/\/|www\.)[^\s<>"']+|~(?:\/[^\s<>"']+)+|\/(?:home|Users|mnt|opt|var|etc)(?:\/[^\s<>"']+)+|[A-Za-z]:\\(?:[^\s<>"'\\]+\\)*[^\s<>"']+)/gi;
+// bare domains constantly and expect them to just work.
+//
+// Local filesystem paths ("~/...", "/home/...", "C:\...") used to be matched
+// here too and rendered as file:// links. Every major browser blocks file://
+// navigation from an http(s) page, so those links did nothing when clicked —
+// they only looked like links. Dropping them means a path now renders as the
+// plain text it is, which is copy-pasteable and honest, instead of an
+// affordance that never worked.
+const LINK_PATTERN = /((?:https?:\/\/|www\.)[^\s<>"']+)/gi;
 
 // Trailing punctuation almost always belongs to the sentence, not the URL
 // (e.g. "check the file at https://x.com/a.pdf." shouldn't swallow the dot).
 const TRAILING_PUNCTUATION = /[.,;:!?)\]}'"]+$/;
 
-/**
- * `file://` navigation from an http(s) page is blocked by every major
- * browser as a security measure — this link is still worth rendering (it
- * copy-pastes cleanly into an address bar, and some non-browser shells do
- * honor it), but clicking it in a normal browser tab will typically do
- * nothing or show a blocked-navigation warning. That's a browser limitation,
- * not a bug in this component.
- */
 function toHref(match: string): string {
-  if (/^https?:\/\//i.test(match)) return match;
-  if (/^www\./i.test(match)) return `https://${match}`;
-  if (/^[A-Za-z]:\\/.test(match)) return `file:///${match.replace(/\\/g, '/')}`;
-  return `file://${match}`;
+  return /^https?:\/\//i.test(match) ? match : `https://${match}`;
 }
 
 /**
@@ -74,8 +65,4 @@ export function linkify(text: string): ReactNode[] {
   });
 
   return nodes;
-}
-
-export function Linkify({ text }: { text: string }): JSX.Element {
-  return <>{linkify(text)}</>;
 }

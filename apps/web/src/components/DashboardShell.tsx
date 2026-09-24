@@ -15,7 +15,6 @@ import { signOut } from 'next-auth/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from 'react';
 import { visibleRoutes } from '../lib/navigation';
 import { Avatar } from '../app/perfil/ProfileForm';
-import { ClientProvider } from './ClientContext';
 import { ConnectorSetup } from './ConnectorSetup';
 import { CommandPalette, type PaletteCommand } from './CommandPalette';
 import { DashboardGrid, type InstanceSummary } from './DashboardGrid';
@@ -268,72 +267,70 @@ export function DashboardShell({
 
   return (
     <EventStreamProvider liveUpdates={config.liveUpdates}>
-      <ClientProvider initialClient={config.activeClient}>
-        {hasCustomBackground && <div className="eve-page-background" style={backgroundStyle} aria-hidden="true" />}
+      {hasCustomBackground && <div className="eve-page-background" style={backgroundStyle} aria-hidden="true" />}
 
-        {/* The board needs the viewport minus the header, and the header's
-            height comes from its own content. A flex column here settles that
-            without anyone hard-coding a number. */}
-        <div className="eve-shell">
-          <header className="eve-header">
-            <div className="eve-header__brand">
-              <EveBrandLockup suffix=".company" />
-            </div>
-
-            <div className="eve-header__actions">
-              {savedAt && <span className="eve-dim">{strings.dashboard.layoutSaved}</span>}
-              <kbd className="eve-kbd">Ctrl K</kbd>
-              <button
-                type="button"
-                className="eve-btn"
-                onClick={() => applyTheme(config.theme === 'light' ? 'dark' : 'light')}
-              >
-                {config.theme === 'light' ? 'escuro' : 'claro'}
-              </button>
-              <button
-                type="button"
-                className="eve-profile-btn"
-                title={`${userName} — ${strings.profile.title}`}
-                aria-label={strings.profile.title}
-                onClick={() => router.push('/perfil')}
-              >
-                <Avatar name={userName} email={userEmail} image={userImage} size={34} />
-              </button>
-            </div>
-          </header>
-
-          <main className="eve-main">
-            <DashboardGrid
-              config={config}
-              instances={instances}
-              available={available}
-              onLayoutChange={handleLayoutChange}
-              onRemove={handleRemove}
-              onViewConfigChange={handleViewConfigChange}
-              onAddModule={(connector) => void addModule(connector)}
-              onToggleWidgetLock={handleToggleWidgetLock}
-            />
-          </main>
-        </div>
-
-        <CommandPalette commands={commands} />
-
-        {connectorSetup && (
-          <div className="eve-modal-backdrop" onClick={() => setConnectorSetup(null)}>
-            <div className="eve-modal" onClick={(event) => event.stopPropagation()}>
-              <ConnectorSetup
-                connector={connectorSetup}
-                onCancel={() => setConnectorSetup(null)}
-                onConnected={(instance) => {
-                  const connector = connectorSetup;
-                  setConnectorSetup(null);
-                  handleConnected(instance, connector);
-                }}
-              />
-            </div>
+      {/* The board needs the viewport minus the header, and the header's
+          height comes from its own content. A flex column here settles that
+          without anyone hard-coding a number. */}
+      <div className="eve-shell">
+        <header className="eve-header">
+          <div className="eve-header__brand">
+            <EveBrandLockup suffix=".company" />
           </div>
-        )}
-      </ClientProvider>
+
+          <div className="eve-header__actions">
+            {savedAt && <span className="eve-dim">{strings.dashboard.layoutSaved}</span>}
+            <kbd className="eve-kbd">Ctrl K</kbd>
+            <button
+              type="button"
+              className="eve-btn"
+              onClick={() => applyTheme(config.theme === 'light' ? 'dark' : 'light')}
+            >
+              {config.theme === 'light' ? 'escuro' : 'claro'}
+            </button>
+            <button
+              type="button"
+              className="eve-profile-btn"
+              title={`${userName} — ${strings.profile.title}`}
+              aria-label={strings.profile.title}
+              onClick={() => router.push('/perfil')}
+            >
+              <Avatar name={userName} email={userEmail} image={userImage} size={34} />
+            </button>
+          </div>
+        </header>
+
+        <main className="eve-main">
+          <DashboardGrid
+            config={config}
+            instances={instances}
+            available={available}
+            onLayoutChange={handleLayoutChange}
+            onRemove={handleRemove}
+            onViewConfigChange={handleViewConfigChange}
+            onAddModule={(connector) => void addModule(connector)}
+            onToggleWidgetLock={handleToggleWidgetLock}
+          />
+        </main>
+      </div>
+
+      <CommandPalette commands={commands} />
+
+      {connectorSetup && (
+        <div className="eve-modal-backdrop" onClick={() => setConnectorSetup(null)}>
+          <div className="eve-modal" onClick={(event) => event.stopPropagation()}>
+            <ConnectorSetup
+              connector={connectorSetup}
+              onCancel={() => setConnectorSetup(null)}
+              onConnected={(instance) => {
+                const connector = connectorSetup;
+                setConnectorSetup(null);
+                handleConnected(instance, connector);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </EventStreamProvider>
   );
 }

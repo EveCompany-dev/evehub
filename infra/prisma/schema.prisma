@@ -1,6 +1,6 @@
 // Eve Hub — schema v0.0.3
 // Correcoes aplicadas sobre o esboco da v0.0.2 estao documentadas em
-// eve-hub-v0.0.3-escopo.md, secao 2.
+// docs/eve-hub-v0.0.3-escopo.md, secao 2.
 
 generator client {
   provider = "prisma-client-js"

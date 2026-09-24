@@ -24,7 +24,7 @@ export interface WriteInput {
   instanceId: string;
   userId: string;
   remoteId: string;
-  /** Top-level field of the record. Nested paths land with the Notion connector in v0.0.4. */
+  /** Top-level field of the record. Nested paths are not supported. */
   field: string;
   value: unknown;
   /** The `remoteVersion` the client had when it rendered the value it edited. */

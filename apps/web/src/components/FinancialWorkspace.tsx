@@ -2,6 +2,7 @@
 
 import { Pencil, strings, Trash2 } from '@eve/ui';
 import { useCallback, useEffect, useState, type JSX } from 'react';
+import { ConfirmButton } from './ConfirmButton';
 
 interface FinancialEntryRow {
   id: string;
@@ -108,7 +109,16 @@ export function FinancialWorkspace(): JSX.Element {
 
   const createEntry = async () => {
     const amount = Number(formAmount.replace(',', '.'));
-    if (!formDescription.trim() || !Number.isFinite(amount) || amount <= 0) return;
+    if (!formDescription.trim()) {
+      // Both of these used to return silently, so "Salvar" looked broken
+      // rather than refused.
+      setError('Descreva o lançamento.');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Informe um valor maior que zero.');
+      return;
+    }
     setError(null);
     try {
       const response = await fetch('/api/financial/entries', {
@@ -327,14 +337,15 @@ export function FinancialWorkspace(): JSX.Element {
                         <button type="button" className="eve-btn eve-btn--icon" aria-label="Editar" onClick={() => startEdit(entry)}>
                           <Pencil size={14} aria-hidden="true" />
                         </button>
-                        <button
-                          type="button"
+                        {/* Money records had a one-click delete. */}
+                        <ConfirmButton
                           className="eve-btn eve-btn--icon"
-                          aria-label="Apagar"
-                          onClick={() => void deleteEntry(entry.id)}
+                          ariaLabel="Apagar"
+                          confirmLabel="Apagar"
+                          onConfirm={() => void deleteEntry(entry.id)}
                         >
                           <Trash2 size={14} aria-hidden="true" />
-                        </button>
+                        </ConfirmButton>
                       </td>
                     </>
                   )}

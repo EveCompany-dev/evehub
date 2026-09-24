@@ -8,6 +8,26 @@ describe('isPrivateAddress', () => {
     }
   });
 
+  it('refuses IPv4-mapped addresses in the hex form a URL actually produces', () => {
+    // The literals below are what `new URL('http://[::ffff:169.254.169.254]/')`
+    // hands back — URL normalizes an IPv6 host to hex. Asserting only the
+    // dotted spelling is what let this through: these three reached cloud
+    // metadata, loopback and RFC1918 respectively.
+    for (const [typed, normalized] of [
+      ['http://[::ffff:169.254.169.254]/', '::ffff:a9fe:a9fe'],
+      ['http://[::ffff:127.0.0.1]/', '::ffff:7f00:1'],
+      ['http://[::ffff:10.0.0.1]/', '::ffff:a00:1'],
+    ] as const) {
+      expect(new URL(typed).hostname, typed).toBe(`[${normalized}]`);
+      expect(isPrivateAddress(normalized), normalized).toBe(true);
+    }
+  });
+
+  it('refuses the expanded spelling of loopback and the unspecified address', () => {
+    expect(isPrivateAddress(new URL('http://[0:0:0:0:0:0:0:1]/').hostname.replace(/^\[|\]$/g, ''))).toBe(true);
+    expect(isPrivateAddress(new URL('http://[0:0:0:0:0:0:0:0]/').hostname.replace(/^\[|\]$/g, ''))).toBe(true);
+  });
+
   it('allows public addresses', () => {
     for (const address of ['8.8.8.8', '157.240.1.35', '172.32.0.1', '2606:4700:4700::1111']) {
       expect(isPrivateAddress(address), address).toBe(false);

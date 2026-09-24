@@ -13,6 +13,8 @@
  * nothing here worth memoizing beyond what the caller already does.
  */
 
+import { fold } from './fold';
+
 export interface Searchable {
   label: string;
   /** Shown to the right of the label; also searched, weighted lower. */
@@ -21,13 +23,6 @@ export interface Searchable {
   keywords?: string[];
 }
 
-/** Portuguese without the diacritics, so "agenda" matches "Agência" and "conexao" matches "conexão". */
-export function fold(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
 
 const NOT_FOUND = -1;
 

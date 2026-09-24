@@ -1,5 +1,5 @@
 /*
- * Design tokens promovidos do prototipo v0.0.1 (eve-dashboard-prototype.html).
+ * Design tokens promovidos do prototipo v0.0.1 (docs/eve-dashboard-prototype.html).
  * Os valores sao identicos de proposito: o protótipo ja foi validado com o time.
  *
  * O tema mora em data-theme no <html>. "system" nao estampa nada e deixa o
@@ -165,8 +165,7 @@ body {
 
 h1,
 h2,
-h3,
-.eve-display {
+h3 {
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: -0.01em;

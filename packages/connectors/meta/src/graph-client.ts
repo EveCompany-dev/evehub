@@ -21,7 +21,14 @@ interface GraphErrorBody {
 /**
  * Minimal Graph API client: no SDK, just `fetch` plus the one header/param
  * shape every endpoint shares. `GET` params go on the query string; `POST`
- * params go as a form body — both accept `access_token` the same way.
+ * params go as a form body.
+ *
+ * The token goes in an `Authorization: Bearer` header, never in the query
+ * string. A URL is recorded by reverse proxies, TLS-terminating corporate
+ * proxies and APM tools in a way a header is not, and this token is a client's
+ * long-lived Page token — it can publish to and delete from their Facebook
+ * Page and linked Instagram account. Graph accepts the header form, and the
+ * Notion client in this repo already does it this way.
  */
 export async function graphRequest<T>(
   token: string,
@@ -33,16 +40,19 @@ export async function graphRequest<T>(
   for (const [key, value] of Object.entries(init.params ?? {})) {
     params.set(key, String(value));
   }
-  params.set('access_token', token);
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const url = method === 'GET' ? `${BASE_URL}${path}?${params.toString()}` : `${BASE_URL}${path}`;
+    const query = params.toString();
+    const url = method === 'GET' && query ? `${BASE_URL}${path}?${query}` : `${BASE_URL}${path}`;
     const response = await fetch(url, {
       method,
-      ...(method !== 'GET' ? { body: params, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } } : {}),
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(method !== 'GET' ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
+      },
+      ...(method !== 'GET' ? { body: params } : {}),
       signal: controller.signal,
     });
 
