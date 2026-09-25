@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@eve/core';
 import { z } from 'zod';
+import { visibleJobsWhere } from './jobs';
 import { canViewFinancial } from './permissions';
 import { HttpError, type SessionUser } from './session';
 import { plainTodoText } from './todo-tokens';
@@ -292,7 +293,7 @@ export async function runChatTool(user: SessionUser, name: string, input: Record
   switch (name) {
     case 'list_jobs': {
       const jobs = await prisma.job.findMany({
-        where: { workspaceId: user.workspaceId },
+        where: visibleJobsWhere(user),
         orderBy: [{ columnId: 'asc' }, { position: 'asc' }],
         take: clampLimit(input.limit, 30, 50),
         include: {
@@ -312,11 +313,11 @@ export async function runChatTool(user: SessionUser, name: string, input: Record
 
     case 'get_job': {
       const jobId = typeof input.jobId === 'string' ? input.jobId : '';
-      const job = await prisma.job.findUnique({
-        where: { id: jobId },
+      const job = await prisma.job.findFirst({
+        where: { ...visibleJobsWhere(user), id: jobId },
         include: { tasks: true, column: { select: { name: true } } },
       });
-      if (!job || job.workspaceId !== user.workspaceId) return { error: 'Job não encontrado.' };
+      if (!job) return { error: 'Job não encontrado.' };
       return {
         id: job.id,
         title: job.title,

@@ -14,7 +14,7 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, commentId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
 
     const comment = await prisma.jobComment.findUnique({ where: { id: commentId } });
     if (!comment || comment.jobId !== id) throw new HttpError(404, strings.errors.notFound);

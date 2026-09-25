@@ -47,7 +47,7 @@ export async function PATCH(
   return handle(async () => {
     const user = await requireUser();
     const { id, entryId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const entry = await requireEntry(id, entryId);
     requireOwnEntry(entry, user);
 
@@ -94,7 +94,7 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, entryId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const entry = await requireEntry(id, entryId);
     requireOwnEntry(entry, user);
 

@@ -1,7 +1,7 @@
 import { prisma } from '@eve/core';
 import { handle, ok } from '../../../../lib/api';
 import { clientProfileOut } from '../../../../lib/client-fields';
-import { requireClient } from '../../../../lib/jobs';
+import { requireClient, visibleJobsWhere } from '../../../../lib/jobs';
 import { requireUser } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
@@ -15,12 +15,12 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 
     const [projectCount, jobCount, unassignedJobs] = await Promise.all([
       prisma.project.count({ where: { clientId: id } }),
-      prisma.job.count({ where: { clientId: id } }),
+      prisma.job.count({ where: { ...visibleJobsWhere(user), clientId: id } }),
       // Jobs linked straight to the client but not filed into any project
       // folder yet — surfaced on the client page so they aren't invisible
       // until someone files them.
       prisma.job.findMany({
-        where: { clientId: id, projectId: null },
+        where: { ...visibleJobsWhere(user), clientId: id, projectId: null },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,

@@ -59,6 +59,20 @@ export interface JobSummary {
   project: JobProjectSummary | null;
   collaborators: JobCollaboratorSummary[];
   tasks: JobTaskSummary[];
+  responsibleId: string | null;
+  responsible: JobMember | null;
+  concludedAt: string | null;
+  deletedAt: string | null;
+  /** Only in the trash listing: when the job goes away for good. */
+  trashExpiresAt?: string;
+}
+
+/** The board's three lists. Concluídos and Apagados are admin-only. */
+export type JobsView = 'active' | 'concluded' | 'trash';
+
+/** Creator, responsável or envolvido — the people allowed to conclude a job (admins always are). */
+export function isJobPerson(job: JobSummary, userId: string): boolean {
+  return job.createdBy === userId || job.responsibleId === userId || job.collaborators.some((collaborator) => collaborator.userId === userId);
 }
 
 export interface JobColumnSummary {

@@ -16,7 +16,7 @@ export async function POST(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const task = await requireTask(id, taskId);
 
     const form = await request.formData();

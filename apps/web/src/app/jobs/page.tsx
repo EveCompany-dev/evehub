@@ -23,7 +23,7 @@ export default async function JobsPage(): Promise<JSX.Element> {
         <h1 className="eve-profile__title">{strings.jobs.title}</h1>
       </header>
 
-      <JobsBoard currentUserId={user.id} />
+      <JobsBoard currentUserId={user.id} isAdmin={user.isOwner} />
     </div>
   );
 }

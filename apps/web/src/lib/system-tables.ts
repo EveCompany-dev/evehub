@@ -9,9 +9,9 @@ import { parseLooseDate, toIsoDate } from './table-dates';
  * Cliente column. The column keys below are part of the contract (the client
  * page's shortcut buttons pre-fill them), so they are fixed.
  */
-export type SystemTableKind = 'content' | 'profiles' | 'references';
+export type SystemTableKind = 'content' | 'profiles' | 'references' | 'traffic';
 
-export const SYSTEM_TABLE_KINDS: SystemTableKind[] = ['content', 'profiles', 'references'];
+export const SYSTEM_TABLE_KINDS: SystemTableKind[] = ['content', 'profiles', 'references', 'traffic'];
 
 interface SystemTableDefinition {
   name: string;
@@ -119,6 +119,55 @@ export const SYSTEM_TABLES: Record<SystemTableKind, SystemTableDefinition> = {
       { key: 'imagem', label: 'Imagem', type: 'image' },
     ],
   },
+  traffic: {
+    name: 'Tráfego Pago',
+    columns: [
+      { key: 'campanha', label: 'Campanha', type: 'text' },
+      { key: 'cliente', label: 'Cliente', type: 'client' },
+      {
+        key: 'plataforma',
+        label: 'Plataforma',
+        type: 'select',
+        ...tag([
+          ['Meta Ads', 'blue'],
+          ['Google Ads', 'green'],
+          ['TikTok Ads', 'gray'],
+          ['LinkedIn Ads', 'purple'],
+        ]),
+      },
+      {
+        key: 'objetivo',
+        label: 'Objetivo',
+        type: 'select',
+        ...tag([
+          ['Reconhecimento', 'purple'],
+          ['Tráfego', 'blue'],
+          ['Engajamento', 'pink'],
+          ['Leads', 'orange'],
+          ['Vendas', 'green'],
+          ['Mensagens', 'yellow'],
+        ]),
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        ...tag([
+          ['Planejada', 'yellow'],
+          ['Ativa', 'green'],
+          ['Pausada', 'orange'],
+          ['Encerrada', 'gray'],
+        ]),
+      },
+      { key: 'inicio', label: 'Início', type: 'date' },
+      { key: 'fim', label: 'Fim', type: 'date' },
+      { key: 'orcamento', label: 'Orçamento (R$)', type: 'number' },
+      { key: 'investido', label: 'Investido (R$)', type: 'number' },
+      { key: 'resultados', label: 'Resultados', type: 'text' },
+      { key: 'link', label: 'Link da campanha', type: 'url' },
+      { key: 'observacoes', label: 'Observações', type: 'text' },
+    ],
+  },
 };
 
 const SUMMARY = { id: true, name: true, columns: true, webhookToken: true, webhookKeyColumn: true } as const;
@@ -131,7 +180,7 @@ const findSummary = (workspaceId: string, kind: SystemTableKind) => prisma.dataT
  * just those (listed in BACKFILL) when missing; everything else the team
  * renamed, removed or added on their own stays exactly as they left it.
  */
-const BACKFILL: Record<SystemTableKind, string[]> = { content: ['imagem'], profiles: [], references: ['imagem'] };
+const BACKFILL: Record<SystemTableKind, string[]> = { content: ['imagem'], profiles: [], references: ['imagem'], traffic: [] };
 
 async function addMissingColumns(table: SummaryRow, kind: SystemTableKind): Promise<SummaryRow> {
   const current = Array.isArray(table.columns) ? (table.columns as unknown as DataColumn[]) : [];

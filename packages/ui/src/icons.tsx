@@ -13,7 +13,7 @@
  *                GripVertical RefreshCw Undo2 CornerDownLeft
  *   Direction    ChevronDown ChevronRight ChevronLeft ArrowUp ArrowDown
  *   Status       CircleCheck CircleX Circle Lock LockOpen Clock KeyRound
- *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause RotateCcw
+ *   Content      FileText Folder Link2 AtSign Lightbulb ListChecks Bug Play Pause RotateCcw Megaphone
  *   Column types Type Hash SquareCheck CircleChevronDown List Contact
  *   Widgets      Calculator Timer StickyNote Bot Sunrise ListTodo Database
  *   Settings     SlidersHorizontal Palette Cable
@@ -61,6 +61,7 @@ export {
   Lock,
   LockOpen,
   Maximize2,
+  Megaphone,
   Minus,
   MessageCircle,
   MessageSquareQuote,

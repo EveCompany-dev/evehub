@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react';
 import type { DataTableSummary } from './data-table-types';
 
-export type SystemTableKindName = 'content' | 'profiles' | 'references';
+export type SystemTableKindName = 'content' | 'profiles' | 'references' | 'traffic';
 
-/** Loads (creating on first use) the workspace's Calendário de Conteúdo / Perfis / Referências table. */
+/** Loads (creating on first use) the workspace's Calendário de Conteúdo / Perfis / Referências / Tráfego Pago table. */
 export function useSystemTable(kind: SystemTableKindName): {
   table: DataTableSummary | null;
   setTable: (table: DataTableSummary) => void;

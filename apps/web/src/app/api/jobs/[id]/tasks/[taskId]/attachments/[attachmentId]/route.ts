@@ -15,7 +15,7 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId, attachmentId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const task = await requireTask(id, taskId);
 
     const attachment = await prisma.attachment.findUnique({ where: { id: attachmentId } });

@@ -149,6 +149,34 @@ export function canManageJobColumnColors(user: PermissionSubject): boolean {
   return user.isOwner;
 }
 
+/** The people a job belongs to: whoever created it, its responsável and its envolvidos. */
+export interface JobPeople {
+  createdBy: string;
+  responsibleId: string | null;
+  collaboratorIds: readonly string[];
+}
+
+export interface JobActor extends PermissionSubject {
+  id: string;
+}
+
+/**
+ * "Concluir" a job: an admin, or one of the job's own people. Everyone else
+ * with the Jobs tab can still open and comment on it.
+ */
+export function canConcludeJob(user: JobActor, job: JobPeople): boolean {
+  return user.isOwner || job.createdBy === user.id || job.responsibleId === user.id || job.collaboratorIds.includes(user.id);
+}
+
+/**
+ * Deleting a job, looking at the Concluídos and Apagados lists, reopening a
+ * concluded job and restoring or purging one from the trash are admin-only.
+ * Deleting only moves the job to the trash (see JOB_TRASH_DAYS).
+ */
+export function canManageJobLifecycle(user: PermissionSubject): boolean {
+  return user.isOwner;
+}
+
 /** Read-only roster: true for every signed-in account a cargo doesn't hide it from. See canManageTeam for the (admin-only) mutation gate. */
 export function canViewTeamTab(user: TabSubject): boolean {
   return user.isOwner || canViewTab(user, 'team');

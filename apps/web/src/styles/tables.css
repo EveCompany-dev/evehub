@@ -1566,6 +1566,136 @@
   min-height: 32px;
 }
 
+.eve-job-card__client {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim, inherit);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eve-btn--ok-solid {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+
+.eve-btn--ok-solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ok) 85%, #000);
+}
+
+.eve-btn--danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.eve-btn--danger-solid:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 85%, #000);
+}
+
+.eve-jobs__add-button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-weight: 600;
+}
+
+.eve-jobs__views {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+}
+
+.eve-jobs__views button {
+  border: 0;
+  background: transparent;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.eve-jobs__views button[aria-pressed='true'] {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.eve-jobs__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+}
+
+.eve-jobs__list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.eve-jobs__list-title {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-weight: 600;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.eve-jobs__list-title:disabled {
+  cursor: default;
+}
+
+.eve-jobs__list-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eve-job-create__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.eve-job-create__duplicate {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.eve-job-create__clients {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.eve-job-create__client {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
 .eve-jobs__editing {
   display: inline-flex;
   align-items: center;

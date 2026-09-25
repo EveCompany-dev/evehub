@@ -39,7 +39,7 @@ export async function PATCH(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const existingTask = await requireTask(id, taskId);
 
     const body = patchSchema.safeParse(await request.json());
@@ -146,7 +146,7 @@ export async function DELETE(
   return handle(async () => {
     const user = await requireUser();
     const { id, taskId } = await context.params;
-    const job = await requireJob(id, user.workspaceId);
+    const job = await requireJob(id, user);
     const task = await requireTask(id, taskId);
 
     await prisma.jobTask.delete({ where: { id: taskId } });
