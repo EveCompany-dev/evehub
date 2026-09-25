@@ -1,11 +1,18 @@
 import { lookup } from 'node:dns/promises';
-import { isIP } from 'node:net';
+import type { LookupAddress } from 'node:dns';
+import { isIP, type LookupFunction } from 'node:net';
+import { Agent, fetch } from 'undici';
 
 /**
  * Link previews for gallery covers: fetch a page and read the picture it
  * declares for itself (og:image / twitter:image). This is a server-side fetch
  * of a URL a user typed, so it is the classic SSRF shape — every hop is
  * checked against private/loopback/link-local ranges before it is followed.
+ *
+ * The check runs inside the socket's own DNS lookup, not before the request:
+ * resolving a name once to check it and letting fetch resolve it again to
+ * connect would let the second answer differ from the first. Here the address
+ * that was checked is the address the connection goes to.
  */
 
 export interface LinkPreview {
@@ -94,28 +101,75 @@ export function extractPreview(html: string, pageUrl: string): LinkPreview {
   return { image, title: title || null, site };
 }
 
-async function assertPublic(url: URL): Promise<void> {
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('Só links http(s).');
+/** Resolves every address a host name points to. Swappable so tests don't touch real DNS. */
+export type Resolver = (host: string) => Promise<LookupAddress[]>;
+
+const systemResolver: Resolver = (host) => lookup(host, { all: true });
+
+/** One answer for every way a preview can fail, so a caller learns nothing about what is behind a link. */
+const FAILED = 'Não foi possível ler este link.';
+
+function assertAllowedUrl(url: URL): void {
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(FAILED);
+  // An IP literal never reaches the socket lookup below, so it is checked here.
   const host = url.hostname.replace(/^\[|\]$/g, '');
-  const addresses = isIP(host) ? [{ address: host }] : await lookup(host, { all: true });
-  if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) throw new Error('Endereço não permitido.');
+  if (isIP(host) && isPrivateAddress(host)) throw new Error(FAILED);
+}
+
+/** A `net` lookup that only ever hands the socket public addresses. */
+function publicOnlyLookup(resolve: Resolver): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname).then(
+      (addresses) => {
+        if (addresses.length === 0 || addresses.some((entry) => isPrivateAddress(entry.address))) {
+          callback(Object.assign(new Error(FAILED), { code: 'ENOTFOUND' }), '', 0);
+          return;
+        }
+        const wanted = options.family === 4 || options.family === 6 ? addresses.filter((entry) => entry.family === options.family) : addresses;
+        if (wanted.length === 0) {
+          callback(Object.assign(new Error(FAILED), { code: 'ENOTFOUND' }), '', 0);
+          return;
+        }
+        if (options.all) {
+          (callback as unknown as (error: null, addresses: LookupAddress[]) => void)(null, wanted);
+        } else {
+          callback(null, wanted[0]!.address, wanted[0]!.family);
+        }
+      },
+      (error: unknown) => callback(Object.assign(new Error(FAILED), { code: (error as NodeJS.ErrnoException).code ?? 'ENOTFOUND' }), '', 0),
+    );
+  };
 }
 
 /** Fetches the page (following a few redirects, re-checking each) and extracts its preview. */
-export async function fetchLinkPreview(rawUrl: string): Promise<LinkPreview> {
-  let url = new URL(rawUrl);
+export async function fetchLinkPreview(rawUrl: string, options: { resolve?: Resolver; timeoutMs?: number } = {}): Promise<LinkPreview> {
+  const timeoutMs = options.timeoutMs ?? TIMEOUT_MS;
+  const dispatcher = new Agent({ connect: { lookup: publicOnlyLookup(options.resolve ?? systemResolver), timeout: timeoutMs } });
+  try {
+    return await followAndExtract(new URL(rawUrl), dispatcher, timeoutMs);
+  } catch {
+    throw new Error(FAILED);
+  } finally {
+    void dispatcher.close().catch(() => undefined);
+  }
+}
+
+async function followAndExtract(start: URL, dispatcher: Agent, timeoutMs: number): Promise<LinkPreview> {
+  let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    await assertPublic(url);
+    assertAllowedUrl(url);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, {
+        dispatcher,
         redirect: 'manual',
         signal: controller.signal,
         headers: { 'User-Agent': 'EveHub-LinkPreview/1.0', Accept: 'text/html,application/xhtml+xml' },
       });
       if (response.status >= 300 && response.status < 400 && response.headers.get('location')) {
         url = new URL(response.headers.get('location')!, url);
+        void response.body?.cancel().catch(() => undefined);
         continue;
       }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);

@@ -28,3 +28,6 @@ apps/web/.uploads/
 # Left behind by installs from before that move; still ignored so an old
 # checkout doesn't suddenly want to commit user content.
 apps/web/public/uploads/
+
+# Private notes and runbooks: never commit (the repo is public).
+private/

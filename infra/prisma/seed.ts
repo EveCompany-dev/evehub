@@ -1,6 +1,10 @@
 import './load-env';
 import { appendWidget, hashPassword, isAdminEmail, parseDashboardConfig, prisma } from '@eve/core';
 
+/** The value shipped in .env.example; a seed must never set it as a real password. */
+const PLACEHOLDER_PASSWORD = 'troque-esta-senha';
+const MIN_PASSWORD_LENGTH = 12;
+
 /**
  * Idempotent. Running it twice leaves the database in the same state, so it is
  * safe to re-run after every migration.
@@ -11,6 +15,16 @@ async function main(): Promise<void> {
   const workspaceName = process.env.SEED_WORKSPACE_NAME ?? 'EveCompany';
 
   if (!ownerEmail) throw new Error('SEED_OWNER_EMAIL nao definido. Preencha o .env antes de rodar o seed.');
+  // Sem senha e valido (o owner entra so pelo Google). Com senha, nunca a do
+  // exemplo nem uma curta: o seed roda no servidor de producao tambem.
+  if (ownerPassword !== undefined && ownerPassword !== '') {
+    if (ownerPassword === PLACEHOLDER_PASSWORD) {
+      throw new Error('SEED_OWNER_PASSWORD ainda e a senha de exemplo do .env.example. Troque por uma senha propria (12+ caracteres) ou deixe vazio para entrar so pelo Google.');
+    }
+    if (ownerPassword.length < MIN_PASSWORD_LENGTH) {
+      throw new Error(`SEED_OWNER_PASSWORD precisa ter pelo menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+    }
+  }
 
   const workspace =
     (await prisma.workspace.findFirst({ where: { name: workspaceName } })) ??

@@ -37,5 +37,15 @@ RUN pnpm db:generate && pnpm --filter @eve/web build
 FROM base AS runtime
 ENV NODE_ENV=production
 COPY --from=build /app ./
+# The code stays root-owned (read-only to the app); `node` only gets the two
+# places it writes: Next's cache and the uploads volume. A fresh volume copies
+# this directory's ownership; one created before is fixed by the
+# `uploads-perms` service in docker-compose.yml.
+RUN mkdir -p /data/uploads apps/web/.next/cache \
+  && chown -R node:node /data/uploads apps/web/.next/cache
+USER node
+WORKDIR /app/apps/web
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@eve/web", "start"]
+# Node directly, not through pnpm: pnpm does not reliably pass SIGTERM on, so
+# a `docker compose stop` would wait out the grace period and SIGKILL.
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--port", "3000"]

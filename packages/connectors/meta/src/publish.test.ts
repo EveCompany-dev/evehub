@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { graphRequest } from './graph-client';
-import { assertMediaUrlIsPublic, pollInstagramContainerReady } from './publish';
+import { graphRequest, isMissingObjectError, isUnknownOutcomeError, MetaGraphError } from './graph-client';
+import { assertMediaUrlIsPublic, ContainerNotReadyError, pollInstagramContainerReady } from './publish';
 
 // Only `graphRequest` is faked — MetaGraphError stays the real class so the
 // status codes asserted below are the ones publish.ts actually throws.
@@ -29,13 +29,13 @@ describe('pollInstagramContainerReady', () => {
 
   it('returns as soon as the container is FINISHED', async () => {
     respondWith('FINISHED');
-    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBeUndefined();
+    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBe('FINISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(1);
   });
 
-  it('treats PUBLISHED as done instead of publishing it twice', async () => {
+  it('reports PUBLISHED so the caller records it instead of publishing it twice', async () => {
     respondWith('PUBLISHED');
-    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBeUndefined();
+    await expect(pollInstagramContainerReady('token', 'container')).resolves.toBe('PUBLISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(1);
   });
 
@@ -58,7 +58,7 @@ describe('pollInstagramContainerReady', () => {
     const pending = pollInstagramContainerReady('token', 'container');
     await vi.advanceTimersByTimeAsync(25_000);
 
-    await expect(pending).resolves.toBeUndefined();
+    await expect(pending).resolves.toBe('FINISHED');
     expect(mockedGraphRequest).toHaveBeenCalledTimes(6);
   });
 
@@ -68,7 +68,7 @@ describe('pollInstagramContainerReady', () => {
 
     // Assert before advancing: the rejection lands mid-advance, and attaching
     // the handler afterwards would surface it as an unhandled rejection.
-    const settled = expect(pollInstagramContainerReady('token', 'container')).rejects.toMatchObject({ status: 504 });
+    const settled = expect(pollInstagramContainerReady('token', 'container')).rejects.toBeInstanceOf(ContainerNotReadyError);
     // 12 attempts with 11 gaps of 5s: the error must already be thrown at 55s,
     // not one trailing sleep later.
     await vi.advanceTimersByTimeAsync(55_000);
@@ -120,5 +120,20 @@ describe('assertMediaUrlIsPublic', () => {
 
   it('rejects a malformed URL', () => {
     expect(() => assertMediaUrlIsPublic('/uploads/post-media/a.png')).toThrow(/inválida/i);
+  });
+});
+
+describe('Graph error classification', () => {
+  it('recognizes a deleted or cancelled object', () => {
+    expect(isMissingObjectError(new MetaGraphError('Unsupported get request. Object with ID 1 does not exist', 400, 100, 33))).toBe(true);
+    expect(isMissingObjectError(new MetaGraphError('Object with ID 1 does not exist, cannot be loaded', 400, 100))).toBe(true);
+    expect(isMissingObjectError(new MetaGraphError('Invalid OAuth access token', 401, 190))).toBe(false);
+  });
+
+  it('treats timeouts, dropped connections and 5xx as unknown, and a 4xx as a clean no', () => {
+    expect(isUnknownOutcomeError(new MetaGraphError('A Graph API não respondeu a tempo.', 504))).toBe(true);
+    expect(isUnknownOutcomeError(new MetaGraphError('socket hang up', 0))).toBe(true);
+    expect(isUnknownOutcomeError(new MetaGraphError('Service unavailable', 503))).toBe(true);
+    expect(isUnknownOutcomeError(new MetaGraphError('Invalid parameter', 400, 100))).toBe(false);
   });
 });
