@@ -8,10 +8,32 @@ export class MetaGraphError extends Error {
     message: string,
     readonly status: number,
     readonly code?: number,
+    readonly subcode?: number,
   ) {
     super(message);
     this.name = 'MetaGraphError';
   }
+}
+
+/**
+ * Graph's "this object is gone": deleted in Business Suite, cancelled, or an
+ * id that never existed. Code 100 with subcode 33 is the documented shape;
+ * the message check covers the variants that come without a subcode.
+ */
+export function isMissingObjectError(error: unknown): boolean {
+  if (!(error instanceof MetaGraphError)) return false;
+  if (error.code === 100 && error.subcode === 33) return true;
+  return error.code === 100 && /does not exist|cannot be loaded/i.test(error.message);
+}
+
+/**
+ * We never heard Meta's answer (our timeout, a dropped connection, a 5xx),
+ * so the call may or may not have taken effect. Distinct from a clean
+ * rejection, where Meta said no and nothing happened.
+ */
+export function isUnknownOutcomeError(error: unknown): boolean {
+  if (!(error instanceof MetaGraphError)) return true;
+  return error.status === 0 || error.status === 504 || error.status >= 500;
 }
 
 interface GraphErrorBody {
@@ -65,6 +87,7 @@ export async function graphRequest<T>(
         body.error?.message ?? `Meta respondeu HTTP ${response.status}.`,
         response.status,
         body.error?.code,
+        body.error?.error_subcode,
       );
     }
 

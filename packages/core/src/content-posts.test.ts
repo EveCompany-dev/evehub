@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTENT_STATUS, contentDate, contentRowPatch, contentStatusFor } from './content-posts';
+import { CONTENT_STATUS, contentDate, contentRowChanges, contentRowPatch, contentStatusFor } from './content-posts';
 
 const at = (iso: string) => new Date(iso);
 const post = (status: 'scheduled' | 'publishing' | 'published' | 'failed', when = '2026-09-24T13:00:00.000Z', permalink: string | null = null) => ({
@@ -67,5 +67,20 @@ describe('contentRowPatch', () => {
 
   it('reports no change when the row already says it', () => {
     expect(contentRowPatch({ ...row, status: 'Programado', data: '2026-09-24' }, [post('scheduled')])).toBeNull();
+  });
+});
+
+describe('contentRowChanges', () => {
+  it('returns only the keys it owns that change, never the rest of the row', () => {
+    const row = { titulo: 'Reels do café', roteiro: 'texto', status: 'Em aprovação', data: '2026-09-20' };
+    expect(contentRowChanges(row, [{ status: 'scheduled', scheduledFor: new Date('2026-09-25T13:00:00.000Z'), permalink: null }])).toEqual({
+      status: 'Programado',
+      data: '2026-09-25',
+    });
+  });
+
+  it('is null when nothing changes', () => {
+    const row = { status: 'Programado', data: '2026-09-25' };
+    expect(contentRowChanges(row, [{ status: 'scheduled', scheduledFor: new Date('2026-09-25T13:00:00.000Z'), permalink: null }])).toBeNull();
   });
 });

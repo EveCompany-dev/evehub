@@ -21,6 +21,7 @@ import { PlatformIcon } from './PlatformIcon';
 import { PostPreview } from './PostPreview';
 import { POST_STATUS_LABEL, POST_TYPE_LABEL, type ClientOption, type ContentRowSummary, type MetaAccount, type ScheduledPostRow } from './scheduling-types';
 import { useEscapeToClose } from './useEscapeToClose';
+import { WorkerStatusBanner } from './WorkerStatusBanner';
 
 const UPLOAD_ENDPOINT = '/api/uploads/post-media';
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif';
@@ -232,8 +233,10 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
   const active = drafts.find((draft) => draft.key === activeKey) ?? drafts[0]!;
   const activeIndex = drafts.indexOf(active);
   const info = inspect(active, clients, accounts, isEditing);
-  // Published/failed rows can't be edited any more (the API says the same).
-  const locked = editing !== null && editing.status !== 'draft' && editing.status !== 'scheduled';
+  // Published rows can't be edited any more, nor one mid-publish (the API says the same). A failed one can: saving or retrying reuses its row.
+  const locked = editing !== null && (editing.status === 'published' || editing.status === 'publishing');
+  // Facebook feed is published by Meta itself at its scheduled time: there is no "now" for it.
+  const editingFacebookFeed = editing !== null && editing.platform === 'facebook' && editing.postType === 'feed';
 
   const loadFailed = useCallback(async () => {
     try {
@@ -365,14 +368,22 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
     setActiveKey(base.key);
   };
 
-  const send = async (draft: PostDraft, scheduledFor: string): Promise<{ error: string | null; targets?: string[]; contentRowId?: string | null }> => {
+  const send = async (
+    draft: PostDraft,
+    scheduledFor: string,
+  ): Promise<{ error: string | null; targets?: string[]; contentRowId?: string | null; posts?: ScheduledPostRow[] }> => {
     const details = inspect(draft, clients, accounts, isEditing);
     const client = { id: details.client!.id, label: details.client!.label };
     const response = editing
       ? await fetch(`/api/scheduling/posts/${editing.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ caption: draft.caption, mediaUrl: draft.mediaUrl, scheduledFor, client }),
+          body: JSON.stringify({
+            caption: draft.caption,
+            ...(details.carousel ? { mediaUrls: draft.carouselUrls } : { mediaUrl: draft.mediaUrl }),
+            scheduledFor,
+            client,
+          }),
         })
       : await fetch('/api/scheduling/posts', {
           method: 'POST',
@@ -388,25 +399,74 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
             ...(draft.contentRowId ? { contentRowId: draft.contentRowId } : {}),
           }),
         });
-    const body = (await response.json().catch(() => ({}))) as { error?: string; errors?: string[]; posts?: ScheduledPostRow[]; contentRowId?: string | null };
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      errors?: string[];
+      post?: ScheduledPostRow;
+      posts?: ScheduledPostRow[];
+      contentRowId?: string | null;
+    };
     if (!response.ok) return { error: body.error ?? `HTTP ${response.status}` };
+    const posts = body.posts ?? (body.post ? [body.post] : []);
     // Partial success: the posts that worked exist now and must not be
     // created twice, so only the targets that failed stay on the draft — and
     // the retry joins the content row the first half already created.
     if (body.errors && body.errors.length > 0) {
       const created = (body.posts ?? []).map(targetKey);
-      return { error: body.errors.join(' '), targets: draft.targets.filter((key) => !created.includes(key)), contentRowId: body.contentRowId ?? null };
+      return { error: body.errors.join(' '), targets: draft.targets.filter((key) => !created.includes(key)), contentRowId: body.contentRowId ?? null, posts };
     }
-    return { error: null };
+    return { error: null, posts };
+  };
+
+  /**
+   * Publishes one saved post right now, in the request, and says what really
+   * happened. 409 means the worker already has it: that is not an error.
+   */
+  const publishNow = async (post: ScheduledPostRow): Promise<{ ok: boolean; message: string }> => {
+    const response = await fetch(`/api/scheduling/posts/${post.id}/publish`, { method: 'POST' });
+    const body = (await response.json().catch(() => ({}))) as { message?: string; error?: string };
+    if (response.ok) return { ok: true, message: body.message ?? 'Publicado.' };
+    if (response.status === 409) return { ok: true, message: body.error ?? 'O agendador já está publicando este post.' };
+    return { ok: false, message: body.error ?? `HTTP ${response.status}` };
+  };
+
+  /**
+   * "Postar agora" after the posts are saved (due now). One post per
+   * Instagram account goes out in this request; any others on the same
+   * account are left to the worker, which spaces them out
+   * (apps/worker SAME_ACCOUNT_GAP_MS) — a burst on one account reads to Meta
+   * as automation. Facebook feed is never published here: Meta does it.
+   */
+  const publishSaved = async (posts: ScheduledPostRow[]): Promise<{ published: string[]; failed: string[]; queued: number }> => {
+    const result = { published: [] as string[], failed: [] as string[], queued: 0 };
+    const accountsUsed = new Set<string>();
+    for (const post of posts) {
+      if (post.platform === 'facebook' && post.postType === 'feed') continue;
+      if (post.status !== 'scheduled' && post.status !== 'failed') continue;
+      if (post.platform === 'instagram') {
+        if (accountsUsed.has(post.connectorInstanceId)) {
+          result.queued += 1;
+          continue;
+        }
+        accountsUsed.add(post.connectorInstanceId);
+      }
+      try {
+        const outcome = await publishNow(post);
+        (outcome.ok ? result.published : result.failed).push(outcome.message);
+      } catch (cause) {
+        result.failed.push(cause instanceof Error ? cause.message : String(cause));
+      }
+    }
+    return result;
   };
 
   /**
    * "Agendar" and "Postar agora" for one post or the whole batch. Everything
    * is checked first, so a batch never goes out half-way because one sub-page
-   * lacks a caption. "Postar agora" is a `scheduled` row due immediately,
-   * picked up by the worker's next tick like anything else due — including
-   * its per-account throttling (apps/worker SAME_ACCOUNT_GAP_MS), which keeps
-   * a burst of posts from reading as automation abuse to Meta.
+   * lacks a caption. "Postar agora" saves the posts as due now and then
+   * publishes them in the request (see publishSaved), reporting Meta's real
+   * answer. Once saved, a post is never re-sent from here: whatever did not go
+   * out is on its row ("Não publicados"), and the composer closes.
    */
   const run = async (now: boolean) => {
     setNotice(null);
@@ -419,19 +479,40 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
 
     setBusy(true);
     const left: PostDraft[] = [];
+    const saved: ScheduledPostRow[] = [];
     let sent = 0;
     for (const draft of drafts) {
       try {
         const result = await send(draft, (now ? new Date() : new Date(draft.scheduledFor)).toISOString());
+        saved.push(...(result.posts ?? []));
         if (result.error === null) sent += 1;
         else left.push({ ...draft, error: result.error, targets: result.targets ?? draft.targets, contentRowId: result.contentRowId ?? draft.contentRowId });
       } catch (cause) {
         left.push({ ...draft, error: cause instanceof Error ? cause.message : String(cause) });
       }
     }
+    const outcome = now ? await publishSaved(saved) : null;
     setBusy(false);
 
     const client = inspect(drafts[drafts.length - 1]!, clients, accounts, isEditing).client;
+    const publishNotice = outcome
+      ? [
+          outcome.published.length > 0 ? outcome.published.join(' ') : null,
+          outcome.queued > 0 ? `${outcome.queued} ${outcome.queued === 1 ? 'sai' : 'saem'} pelo agendador em instantes.` : null,
+          outcome.failed.length > 0 ? `Não publicou: ${outcome.failed.join(' ')} Veja em "Não publicados".` : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
+      : null;
+
+    if (editing && outcome && outcome.failed.length > 0) {
+      // Stay on the post: its row is `failed` now, with Meta's reason.
+      setEditing({ ...editing, status: 'failed', statusMessage: outcome.failed.join(' ') });
+      setNotice(null);
+      void loadFailed();
+      return;
+    }
+
     if (left.length === 0) {
       if (editing) {
         router.push(client ? `/clients/${client.id}` : '/');
@@ -445,13 +526,13 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
       setActiveKey(null);
       setSource(null);
       setSentTo(client);
-      setNotice(now ? (sent === 1 ? 'Post enviado para publicação.' : `${sent} posts enviados para publicação.`) : sent === 1 ? 'Post agendado.' : `${sent} posts agendados.`);
+      setNotice(publishNotice || (sent === 1 ? 'Post agendado.' : `${sent} posts agendados.`));
     } else {
       setDrafts(left);
       setActiveKey(left[0]!.key);
-      if (sent > 0) {
+      if (sent > 0 || publishNotice) {
         setSentTo(client);
-        setNotice(`${sent} de ${drafts.length} foram. Os que faltam continuam abertos, com o motivo.`);
+        setNotice([sent > 0 ? `${sent} de ${drafts.length} foram. Os que faltam continuam abertos, com o motivo.` : null, publishNotice].filter(Boolean).join(' '));
       }
     }
     void loadFailed();
@@ -498,6 +579,7 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
 
   return (
     <div className="eve-composer">
+      <WorkerStatusBanner />
       {loadError && <p className="eve-alert eve-alert--error">{loadError}</p>}
 
       {!isEditing && accountsLoaded && accounts.length === 0 && (
@@ -589,7 +671,8 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
           {editing?.status === 'failed' && editing.statusMessage && (
             <p className="eve-alert eve-alert--error">Não publicou: {editing.statusMessage}</p>
           )}
-          {locked && editing?.status !== 'failed' && <p className="eve-alert">Este post já foi publicado.</p>}
+          {editing?.status === 'published' && <p className="eve-alert">Este post já foi publicado.</p>}
+          {editing?.status === 'publishing' && <p className="eve-alert">Este post está sendo publicado agora.</p>}
 
           <label className="eve-field">
             <span className="eve-field__label">Cliente</span>
@@ -681,31 +764,35 @@ export function PostComposer({ postId, rowId, embedded }: PostComposerProps): JS
 
           <div className="eve-profile__actions">
             {locked ? (
-              <>
-                <button type="button" className="eve-btn eve-btn--primary" onClick={reuseAsNew}>
-                  Agendar de novo
-                </button>
-                <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
-                  Excluir post
-                </button>
-              </>
+              editing?.status === 'published' && (
+                <>
+                  <button type="button" className="eve-btn eve-btn--primary" onClick={reuseAsNew}>
+                    Agendar de novo
+                  </button>
+                  <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
+                    Excluir post
+                  </button>
+                </>
+              )
             ) : (
               <>
                 <button type="submit" className="eve-btn eve-btn--primary" disabled={busy || uploadProgress !== null}>
                   {isEditing ? 'Salvar' : batch ? `Agendar todos (${drafts.length})` : `Agendar${info.targets.length > 1 ? ` (${info.targets.length})` : ''}`}
                 </button>
-                <button
-                  type="button"
-                  className="eve-btn"
-                  disabled={busy || uploadProgress !== null}
-                  onClick={() => void run(true)}
-                  title="Publica assim que o worker rodar, sem esperar o horário escolhido"
-                >
-                  {batch ? 'Publicar todos agora' : 'Postar agora'}
-                </button>
+                {!editingFacebookFeed && (
+                  <button
+                    type="button"
+                    className="eve-btn"
+                    disabled={busy || uploadProgress !== null}
+                    onClick={() => void run(true)}
+                    title="Publica agora, sem esperar o horário escolhido"
+                  >
+                    {busy ? 'Publicando...' : editing?.status === 'failed' ? 'Tentar de novo' : batch ? 'Publicar todos agora' : 'Postar agora'}
+                  </button>
+                )}
                 {isEditing && (
                   <button type="button" className="eve-btn eve-btn--danger" disabled={busy} onClick={() => void remove()}>
-                    Cancelar post
+                    {editing?.status === 'failed' ? 'Excluir post' : 'Cancelar post'}
                   </button>
                 )}
               </>
