@@ -5,8 +5,29 @@ import type { NextConfig } from 'next';
 // Next only looks inside the app directory, so point it upwards explicitly.
 loadEnv({ path: ['.env', '../../.env'], quiet: true });
 
+/**
+ * Sent on every response. The CSP covers only what is safe without nonces:
+ * who may frame the app, <base> and plugins. A script-src policy needs a nonce
+ * on every inline script Next emits, which is its own piece of work.
+ */
+const SECURITY_HEADERS = [
+  { key: 'Content-Security-Policy', value: "frame-ancestors 'none'; base-uri 'self'; object-src 'none'" },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  // Browsers ignore HSTS over plain http, so this is inert in local dev.
+  { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  // An internal tool: nothing here belongs in a search index (see also app/robots.ts).
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
+];
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: '/:path*', headers: SECURITY_HEADERS }];
+  },
   // Next 16 bloqueia /_next/* vindo de outra origem em modo dev. Sem isto, abrir
   // pelo IP da rede (celular, outro PC) carrega o HTML mas nao o JavaScript:
   // a tela aparece e nada funciona, inclusive o login.

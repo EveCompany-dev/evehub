@@ -1,25 +1,32 @@
 name: evehub
 
+# Credentials come from .env (compose reads it for the ${...} below) and are
+# required: `docker compose` refuses to run at all while any of
+# POSTGRES_PASSWORD, POSTGRES_APP_PASSWORD or REDIS_PASSWORD is unset.
+# Use URL-safe values (`openssl rand -hex 32`): they are spliced into
+# connection URLs as-is.
+#
+# Two database roles:
+#   - `eve`, the Postgres superuser, is used only by `db-init` and `migrate`.
+#   - `evehub_app`, created by `db-init`, is what web and worker connect as.
+#     It can read and write rows but owns nothing and cannot change the schema.
+
 services:
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: eve
-      # Overridable, but the default stays `eve`: Postgres bakes the password
-      # into the data directory at initdb, so changing it here would lock the
-      # app out of an existing pgdata volume.
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eve}
+      # Postgres bakes this into the data directory at initdb: on an existing
+      # volume, changing it here also needs an `ALTER USER eve PASSWORD ...`.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: evehub
     ports:
       # Bound to loopback ON PURPOSE. `- '5432:5432'` publishes on every
-      # interface, so with these dev credentials anyone who can reach this
-      # machine on the network reads and writes the whole database, bypassing
-      # every check in the app. This host holds CREDENTIALS_KEY, AUTH_SECRET
-      # and the clients' ad tokens (see scripts/remote-access/REMOTE-ACCESS.md),
-      # so it is not a machine to leave a trivially-authenticated Postgres open
-      # on. Reach it from another machine over the Tailscale/SSH tunnel, not by
-      # republishing this port.
+      # interface, and Docker's port publishing goes around ufw. This host
+      # holds CREDENTIALS_KEY, AUTH_SECRET and the clients' ad tokens (see
+      # scripts/remote-access/REMOTE-ACCESS.md). Reach it from another machine
+      # over the Tailscale/SSH tunnel, not by republishing this port.
       - '127.0.0.1:5432:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -32,10 +39,12 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ['redis-server', '--appendonly', 'yes']
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}']
+    environment:
+      # redis-cli reads this, so the healthcheck below authenticates.
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
     ports:
-      # Loopback only, same reasoning as Postgres above — and more pressing
-      # here, because this Redis has no password at all: it holds login
+      # Loopback only, same reasoning as Postgres above: it holds login
       # rate-limit counters, chat history and the SSE pub/sub.
       - '127.0.0.1:6379:6379'
     volumes:
@@ -46,33 +55,101 @@ services:
       timeout: 5s
       retries: 10
 
-  # `web` e `worker` ficam atras do profile `full`. No dia a dia rode-os
-  # nativamente (`pnpm dev`): o file-watching do Next dentro de container no
-  # Windows e lento. Use `pnpm stack:up` para subir tudo como em producao.
+  # `web`, `worker` and their one-shot setup steps are behind the `full`
+  # profile. Day to day, run web and worker natively (`pnpm dev`): Next's file
+  # watching inside a container is slow on Windows. `pnpm stack:up` brings up
+  # everything as in production.
+
+  # Creates the `evehub_app` role (or resets its password) and grants it
+  # read/write on every table, present and future. Idempotent: runs on every
+  # `up`, so an existing database picks it up too.
+  db-init:
+    profiles: ['full']
+    image: postgres:17-alpine
+    restart: 'no'
+    entrypoint: ['sh', '/db-init/app-role.sh']
+    environment:
+      PGHOST: postgres
+      PGUSER: eve
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PGDATABASE: evehub
+      APP_DB_PASSWORD: ${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env}
+    volumes:
+      - ./infra/postgres:/db-init:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Applies pending migrations (`prisma migrate deploy`) as the superuser,
+  # then exits. web and worker only start once it has succeeded.
+  migrate:
+    profiles: ['full']
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.worker
+    restart: 'no'
+    init: true
+    working_dir: /app
+    # For the seed (see README); migrate deploy itself only needs DATABASE_URL.
+    env_file: .env
+    command: ['node_modules/.bin/prisma', 'migrate', 'deploy']
+    environment:
+      DATABASE_URL: postgresql://eve:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/evehub?schema=public
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+
+  # The shared uploads volume predates the non-root images: a volume created
+  # back then is owned by root, and `node` could not write to it. Hands it to
+  # `node` (uid 1000) once per `up`; a no-op when it already is.
+  uploads-perms:
+    profiles: ['full']
+    image: node:22-alpine
+    restart: 'no'
+    user: root
+    command: ['chown', '-R', 'node:node', '/data/uploads']
+    volumes:
+      - uploads_data:/data/uploads
+
   web:
     profiles: ['full']
     build:
       context: .
       dockerfile: infra/Dockerfile.web
     restart: unless-stopped
+    init: true
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://eve:eve@postgres:5432/evehub?schema=public
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://evehub_app:${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env}@postgres:5432/evehub?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
       # Shared with worker below — both need to reach the same files (worker
       # deletes old scheduled-post media once it's safely past its retention
       # window; see apps/worker/src/media-cleanup.ts). Bounded, not
       # unbounded: that cleanup job is what keeps this from growing forever.
       UPLOADS_DIR: /data/uploads
     ports:
-      - '3000:3000'
+      # Loopback only, like Postgres and Redis above: the reverse proxy on
+      # this host (Caddy) is the one public entry point and terminates https.
+      # `- '3000:3000'` would publish plain http on every interface, around
+      # ufw.
+      - '127.0.0.1:3000:3000'
     volumes:
       - uploads_data:/data/uploads
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/login').then((r) => process.exit(r.status === 200 ? 0 : 1), () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      uploads-perms:
+        condition: service_completed_successfully
 
   worker:
     profiles: ['full']
@@ -80,18 +157,31 @@ services:
       context: .
       dockerfile: infra/Dockerfile.worker
     restart: unless-stopped
+    init: true
+    # Room to finish a post that is mid-publish before Docker SIGKILLs it.
+    stop_grace_period: 3m
     env_file: .env
     environment:
-      DATABASE_URL: postgresql://eve:eve@postgres:5432/evehub?schema=public
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: postgresql://evehub_app:${POSTGRES_APP_PASSWORD:?set POSTGRES_APP_PASSWORD in .env}@postgres:5432/evehub?schema=public
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379
       UPLOADS_DIR: /data/uploads
     volumes:
       - uploads_data:/data/uploads
+    healthcheck:
+      test: ['CMD', 'pgrep', '-f', 'src/index.ts']
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      uploads-perms:
+        condition: service_completed_successfully
 
 volumes:
   pgdata:
